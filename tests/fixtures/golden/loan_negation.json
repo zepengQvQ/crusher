@@ -1,0 +1,15 @@
+{
+  "fixture_id": "golden_loan_negation",
+  "title": "借贷否定句金标：不收违约金",
+  "input": {
+    "raw_text": "本贷款提前还款不收违约金，年化利率为6.00%。"
+  },
+  "expected_report": {
+    "product_type_id": "loan",
+    "must_not_match_risk_ids": ["prepayment_penalty"],
+    "key_parameters": {
+      "expected_return": { "status": "document_fact", "value_contains": ["6.00"] },
+      "principal_protection": { "status": "not_disclosed", "value": null }
+    }
+  }
+}

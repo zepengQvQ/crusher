@@ -61,7 +61,10 @@ class PipelineStageTests(unittest.TestCase):
         body = _poll_report(_client(), "本产品为结构性存款，期限90天。")
         names = [s["name"] for s in body["stages"]]
         self.assertEqual(names, EXPECTED_STAGES)
-        self.assertTrue(all(s["status"] == "success" for s in body["stages"]))
+        self.assertTrue(
+            all(s["status"] in ("success", "partial") for s in body["stages"])
+        )
+        self.assertFalse(any(s["status"] == "failed" for s in body["stages"]))
 
 
 class FactLayeringTests(unittest.TestCase):

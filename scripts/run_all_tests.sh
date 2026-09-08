@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Demo 全量测试入口（不含 legacy Streamlit/Mermaid 旧脚本）。
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PY="${ROOT}/backend-python/.venv/bin/python"
+if [[ ! -x "$PY" ]]; then
+  PY="python3"
+fi
+export PYTHONPATH="${ROOT}/backend-python:${ROOT}:${PYTHONPATH:-}"
+
+echo "==> API"
+"$PY" -m unittest discover -s "${ROOT}/tests/api" -v
+
+echo "==> P0-01 golden + negation"
+"$PY" -m unittest \
+  tests.p0_01.test_golden_not_disclosed \
+  tests.p0_01.test_negation_regression -v
+
+echo "==> P0-05"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
+
+echo "==> P0-06"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_06" -v
+
+echo "==> P0-07"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_07" -v
+
+echo "==> P0-08"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_08" -v
+
+echo "==> H5 build"
+(cd "${ROOT}/frontend-h5" && npm run build)
+
+echo "ALL DEMO TESTS PASSED"

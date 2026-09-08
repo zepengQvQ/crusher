@@ -1,0 +1,16 @@
+{
+  "fixture_id": "golden_loan_missing_disclosure",
+  "title": "借贷缺失披露：仅有产品称呼，无利率/罚息",
+  "input": {
+    "raw_text": "本贷款合同由双方签字盖章后生效，具体要素见附件。"
+  },
+  "expected_report": {
+    "product_type_id": "loan",
+    "must_match_risk_ids": [],
+    "key_parameters": {
+      "expected_return": { "status": "not_disclosed", "value": null },
+      "term": { "status": "not_disclosed", "value": null },
+      "principal_protection": { "status": "not_disclosed", "value": null }
+    }
+  }
+}

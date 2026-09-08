@@ -130,11 +130,20 @@ class AnalyzeTextUseCase:
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
 
             extracted = self._extractor.extract(request.text, product_type_id=product_type_id)
+            disclosed_n = sum(
+                1 for p in extracted.key_parameters if p.status == FactStatus.document_fact
+            )
+            missing_n = sum(
+                1 for p in extracted.key_parameters if p.status == FactStatus.not_disclosed
+            )
+            extract_status = (
+                StageStatus.partial if disclosed_n and missing_n else StageStatus.success
+            )
             await self._mark_stage(
                 task_id,
                 "extract",
-                StageStatus.success,
-                f"抽取完成：{sum(1 for p in extracted.key_parameters if p.status == FactStatus.document_fact)} 个原文事实",
+                extract_status,
+                f"抽取完成：原文事实 {disclosed_n}，未说明 {missing_n}",
             )
 
             risk_hits = self._collect_risks(request.text, products)
@@ -147,10 +156,15 @@ class AnalyzeTextUseCase:
 
             raw_findings = self._hits_to_findings(risk_hits)
             findings = validate_and_fix_findings(request.text, raw_findings)
+            evidence_status = (
+                StageStatus.partial
+                if raw_findings and len(findings) < len(raw_findings)
+                else StageStatus.success
+            )
             await self._mark_stage(
                 task_id,
                 "evidence_validate",
-                StageStatus.success,
+                evidence_status,
                 f"证据校验完成：保留 {len(findings)}/{len(raw_findings)} 条",
             )
 

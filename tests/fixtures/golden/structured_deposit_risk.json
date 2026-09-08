@@ -1,0 +1,16 @@
+{
+  "fixture_id": "golden_structured_deposit_risk",
+  "title": "结构性存款风险样例（区间外收益骤降 + 不可提前赎回）",
+  "input": {
+    "raw_text": "本产品为结构性存款，期限90天。若观察期内汇率突破观察区间，则仅获得活期存款利率。本产品不支持提前赎回。"
+  },
+  "expected_report": {
+    "product_type_id": "structured_deposit",
+    "must_match_risk_ids": ["low_floor_return", "no_early_redemption"],
+    "key_parameters": {
+      "term": { "status": "document_fact", "value_contains": ["90"] },
+      "principal_protection": { "status": "not_disclosed", "value": null },
+      "fee_structure": { "status": "not_disclosed", "value": null }
+    }
+  }
+}

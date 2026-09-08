@@ -1,4 +1,4 @@
-.PHONY: dev-api dev-h5 test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 lint install
+.PHONY: dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 lint install export-openapi
 
 install:
 	cd backend-python && pip install -e ".[dev]"
@@ -9,6 +9,9 @@ dev-api:
 
 dev-h5:
 	cd frontend-h5 && npm run dev
+
+test:
+	bash scripts/run_all_tests.sh
 
 test-api:
 	cd backend-python && ../backend-python/.venv/bin/python -m unittest discover -s ../tests/api -v
@@ -28,6 +31,9 @@ test-p0-06:
 
 test-p0-07:
 	backend-python/.venv/bin/python -m unittest discover -s tests/p0_07 -v
+
+test-p0-08:
+	backend-python/.venv/bin/python -m unittest discover -s tests/p0_08 -v
 
 lint:
 	cd backend-python && ruff check app && pyright app || true

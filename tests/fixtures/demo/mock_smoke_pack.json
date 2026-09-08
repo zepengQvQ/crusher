@@ -1,0 +1,36 @@
+{
+  "demo_id": "mock_smoke_pack",
+  "description": "固定演示输入，配合后端 MockLlmGateway / demo_error，不依赖真实模型",
+  "cases": [
+    {
+      "name": "成功-结构性存款",
+      "text": "本产品为结构性存款，期限90天，挂钩美元兑日元汇率。若观察期内汇率始终位于145.00-155.00区间，则到期年化收益率4.80%；若突破区间，则到期年化收益率1.20%。",
+      "product_hint": "structured_deposit",
+      "demo_error": null,
+      "expect_task_status": "completed"
+    },
+    {
+      "name": "风险-消费贷",
+      "text": "本贷款年化利率（单利）为7.20%。逾期按罚息日利率计收，罚息为正常利率的2.5倍。逾期超过30天可宣布提前到期并一次性偿还。提前还款需支付剩余本金3%的违约金。",
+      "product_hint": "loan",
+      "demo_error": null,
+      "expect_task_status": "completed"
+    },
+    {
+      "name": "失败-模型超时",
+      "text": "任意文本用于演示超时。",
+      "product_hint": "auto",
+      "demo_error": "model_timeout",
+      "expect_task_status": "failed",
+      "expect_error_code": "MODEL_TIMEOUT"
+    },
+    {
+      "name": "失败-非法JSON",
+      "text": "任意文本用于演示非法JSON。",
+      "product_hint": "auto",
+      "demo_error": "invalid_json",
+      "expect_task_status": "failed",
+      "expect_error_code": "INVALID_MODEL_JSON"
+    }
+  ]
+}

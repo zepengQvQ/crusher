@@ -13,17 +13,19 @@ _PARAM_SPECS: list[tuple[ParameterKey, str, list[re.Pattern[str]]]] = [
         ParameterKey.term,
         "投资期限",
         [
+            re.compile(r"产品期限\s*(\d+\s*天)"),
             re.compile(r"期限\s*(\d+\s*天)"),
             re.compile(r"期限\s*(\d+\s*个?月)"),
-            re.compile(r"(\d+\s*天)"),
+            re.compile(r"共\s*(\d+\s*天)"),
         ],
     ),
     (
         ParameterKey.expected_return,
-        "预期收益",
+        "预期收益/利率",
         [
             re.compile(r"年化收益率?为?\s*([0-9.]+%)"),
             re.compile(r"到期年化收益率?为?\s*([0-9.]+%)"),
+            re.compile(r"年化利率[^0-9%]{0,20}([0-9.]+%)"),
         ],
     ),
     (
@@ -73,18 +75,28 @@ class FactExtractor:
         missing: list[MissingDisclosure] = []
         pending: list[str] = []
 
-        # 预期收益：收集全部命中，合并为一条 document_fact
-        return_hits = re.findall(r"(?:到期)?年化收益率?为?\s*([0-9.]+%)", text)
-        if return_hits:
-            # 去重且保持出现顺序
+        # 收益/利率：收集全部命中，合并为一条 document_fact
+        return_hits = re.findall(
+            r"(?:到期)?年化收益率?为?\s*([0-9.]+%)|年化利率[^0-9%]{0,20}([0-9.]+%)",
+            text,
+        )
+        flat_hits: list[str] = []
+        for groups in return_hits:
+            if isinstance(groups, tuple):
+                for g in groups:
+                    if g:
+                        flat_hits.append(g)
+            elif groups:
+                flat_hits.append(groups)
+        if flat_hits:
             seen: list[str] = []
-            for h in return_hits:
+            for h in flat_hits:
                 if h not in seen:
                     seen.append(h)
             params.append(
                 KeyParameter(
                     key=ParameterKey.expected_return,
-                    label="预期收益",
+                    label="预期收益/利率",
                     value=" / ".join(seen),
                     status=FactStatus.document_fact,
                 )
@@ -93,7 +105,7 @@ class FactExtractor:
             params.append(
                 KeyParameter(
                     key=ParameterKey.expected_return,
-                    label="预期收益",
+                    label="预期收益/利率",
                     value=None,
                     status=FactStatus.not_disclosed,
                 )
@@ -101,11 +113,10 @@ class FactExtractor:
             missing.append(
                 MissingDisclosure(
                     key=ParameterKey.expected_return,
-                    question="合同是否写明预期/到期收益率？",
+                    question="合同是否写明预期/到期收益率或年化利率？",
                 )
             )
-            pending.append("预期收益率是多少？")
-
+            pending.append("预期收益率或年化利率是多少？")
         for key, label, patterns in _PARAM_SPECS:
             if key == ParameterKey.expected_return:
                 continue
