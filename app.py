@@ -154,7 +154,7 @@ examples = load_examples()
 # ============================================================
 # 主界面
 # ============================================================
-st.markdown('<div class="main-header">🔨 术语粉碎机</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🔨 金融术语拆弹专家</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">粘贴金融条款，AI 一键翻译成大白话 + 流程图 + 风险高亮</div>', unsafe_allow_html=True)
 
 # 示例条款快速选择

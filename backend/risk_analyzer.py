@@ -15,12 +15,13 @@ class RiskAnalyzer:
     def __init__(self, client: LLMClient):
         self.client = client
 
-    def analyze(self, raw_text: str) -> list[dict]:
+    def analyze(self, raw_text: str, matched_risk_context: str = "") -> list[dict]:
         """
         识别条款中的风险点。
 
         Args:
             raw_text: 原始金融条款文本
+            matched_risk_context: 知识库风险事实上下文（优先检查清单）
 
         Returns:
             风险点列表，每项包含 snippet, risk_level, explanation
@@ -29,7 +30,12 @@ class RiskAnalyzer:
         logger.info("🚀 阶段三：风险识别与高亮定位")
         logger.info("输入文本长度: %d 字符", len(raw_text))
 
-        user_prompt = STAGE3_USER_PROMPT.format(raw_text=raw_text)
+        context = matched_risk_context or "（无可用风险事实数据）"
+        user_prompt = (
+            STAGE3_USER_PROMPT
+            .replace("{matched_risk_context}", context)
+            .replace("{raw_text}", raw_text)
+        )
 
         try:
             result = self.client.chat_json(

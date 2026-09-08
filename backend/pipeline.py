@@ -9,6 +9,7 @@ from typing import Callable, Optional
 
 from .config import LLMConfig, load_config
 from .llm_client import LLMClient
+from .knowledge_client import KnowledgeClient
 from .translator import TermTranslator
 from .flowchart import FlowchartGenerator
 from .risk_analyzer import RiskAnalyzer
@@ -25,6 +26,7 @@ class TermCrusherPipeline:
     def __init__(self, config: Optional[LLMConfig] = None):
         self.config = config or load_config()
         self.client = LLMClient(self.config)
+        self.knowledge = KnowledgeClient()
         self.translator = TermTranslator(self.client)
         self.flowchart_gen = FlowchartGenerator(self.client)
         self.risk_analyzer = RiskAnalyzer(self.client)
@@ -61,24 +63,40 @@ class TermCrusherPipeline:
                     len(raw_text), style, self.config.model)
         logger.info("#" * 70)
 
+        # 阶段零：事实检索与接地（知识库取事实，无 LLM 调用）
+        _report("正在查询金融知识库（事实数据）...", 0.02)
+        t0 = time.time()
+        facts = self.knowledge.gather_facts(raw_text)
+        knowledge_context = KnowledgeClient.build_knowledge_context(facts)
+        matched_risk_context = KnowledgeClient.build_risk_context(facts)
+        logger.info("阶段零耗时: %.2fs | 产品=%s | 术语%d个 | 风险模式%d个",
+                    time.time() - t0,
+                    facts.get("detected_product_types"),
+                    len(facts.get("terms", [])),
+                    len(facts.get("risk_patterns", [])))
+
         # 阶段一：翻译与结构化提取
-        _report("正在翻译条款并提取关键要素...", 0.1)
+        _report("正在翻译条款并提取关键要素...", 0.15)
         t1 = time.time()
-        translation = self.translator.translate(raw_text, style=style)
+        translation = self.translator.translate(
+            raw_text, style=style, knowledge_context=knowledge_context,
+        )
         logger.info("阶段一耗时: %.2fs", time.time() - t1)
-        _report("白话翻译完成", 0.4)
+        _report("白话翻译完成", 0.45)
 
         # 阶段二：生成流程图
-        _report("正在生成收益逻辑流程图...", 0.5)
+        _report("正在生成收益逻辑流程图...", 0.55)
         t2 = time.time()
         flowchart = self.flowchart_gen.generate(translation.get("key_logic", ""))
         logger.info("阶段二耗时: %.2fs", time.time() - t2)
-        _report("流程图生成完成", 0.7)
+        _report("流程图生成完成", 0.75)
 
         # 阶段三：风险识别
-        _report("正在识别条款中的风险点...", 0.8)
+        _report("正在识别条款中的风险点...", 0.85)
         t3 = time.time()
-        risks = self.risk_analyzer.analyze(raw_text)
+        risks = self.risk_analyzer.analyze(
+            raw_text, matched_risk_context=matched_risk_context,
+        )
         logger.info("阶段三耗时: %.2fs", time.time() - t3)
         _report("风险识别完成", 1.0)
 

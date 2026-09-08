@@ -37,10 +37,12 @@ cfg = load_config()
 assert cfg.provider in PROVIDER_DEFAULTS
 print(f"Config load OK (provider={cfg.provider}, model={cfg.model})")
 
-# 测试提示词格式化
+# 测试提示词注入（.replace 风格，因注入的事实块含 JSON 花括号）
 from backend.prompts import STAGE1_USER_PROMPT, STAGE2_USER_PROMPT, STAGE3_USER_PROMPT
-p1 = STAGE1_USER_PROMPT.format(raw_text="测试条款")
-assert "测试条款" in p1
-print("Prompt format OK")
+p1 = STAGE1_USER_PROMPT.replace("{knowledge_context}", "（测试事实）").replace("{raw_text}", "测试条款")
+assert "测试条款" in p1 and "（测试事实）" in p1
+p3 = STAGE3_USER_PROMPT.replace("{matched_risk_context}", "（测试风险）").replace("{raw_text}", "测试条款")
+assert "测试条款" in p3 and "（测试风险）" in p3
+print("Prompt inject OK")
 
 print("\n=== ALL LOGIC TESTS PASSED ===")

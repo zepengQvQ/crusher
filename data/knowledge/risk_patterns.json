@@ -1,0 +1,137 @@
+[
+  {
+    "id": "return_not_guaranteed",
+    "name": "收益不保证",
+    "keywords": ["不保证收益", "浮动收益", "收益不确定", "收益浮动", "收益不保证"],
+    "regex": "不保证收益|收益不保证|浮动收益",
+    "applicable_product_types": ["structured_deposit", "fund", "snowball"],
+    "risk_level": "中",
+    "explanation": "产品收益随挂钩标的或市场波动，宣传的收益水平并非保证，实际可能远低于预期甚至为零。"
+  },
+  {
+    "id": "low_floor_return",
+    "name": "区间外收益骤降",
+    "keywords": ["突破观察区间", "仅获得", "活期存款利率"],
+    "regex": "突破观察区间.{0,15}(仅|只)获得",
+    "applicable_product_types": ["structured_deposit"],
+    "risk_level": "中",
+    "explanation": "一旦挂钩标的价格突破观察区间，收益率将从高位骤降到极低水平（如活期利率），高收益落空。"
+  },
+  {
+    "id": "no_early_redemption",
+    "name": "不可提前赎回",
+    "keywords": ["不支持提前赎回", "不可赎回", "不可提前支取", "不能提前"],
+    "regex": "不支持?提前赎回|不可(提前)?赎回",
+    "applicable_product_types": ["structured_deposit", "snowball"],
+    "risk_level": "中",
+    "explanation": "产品到期前无法取回资金，存在流动性风险，急需用钱时无法变现。"
+  },
+  {
+    "id": "knock_in_loss",
+    "name": "敲入导致本金亏损",
+    "keywords": ["敲入", "本金亏损", "跌幅等同", "到期未敲出"],
+    "regex": "敲入.{0,10}(且|并且).{0,10}(到期)?未敲出",
+    "applicable_product_types": ["snowball"],
+    "risk_level": "高",
+    "explanation": "若标的跌破敲入价且到期未能敲出，投资者需承担与标的跌幅等同的本金亏损，可能损失较大。"
+  },
+  {
+    "id": "principal_not_guaranteed",
+    "name": "本金不保证",
+    "keywords": ["不保证本金", "本金亏损", "本金损失", "本金受损", "本金安全"],
+    "regex": "不保证本金|本金(可能)?(面临)?亏损|本金损失|本金受损",
+    "applicable_product_types": ["fund", "snowball"],
+    "risk_level": "高",
+    "explanation": "产品不保本，投资者可能面临本金亏损风险，最坏情况下损失全部或大部分本金。"
+  },
+  {
+    "id": "low_cash_value_first_year",
+    "name": "首年现金价值过低",
+    "keywords": ["现金价值", "仅为已交保费", "首年"],
+    "regex": "现金价值.{0,10}首年.{0,10}(仅|只有|为).{0,10}[0-9]+%",
+    "applicable_product_types": ["insurance"],
+    "risk_level": "高",
+    "explanation": "保单首年现金价值远低于已交保费（如仅20%），犹豫期后退保将损失大部分保费。"
+  },
+  {
+    "id": "surrender_loss_after_cooling",
+    "name": "犹豫期后退保损失",
+    "keywords": ["犹豫期后退保", "仅退还现金价值", "仅退现金价值"],
+    "regex": "犹豫期后.{0,10}(退保).{0,15}现金价值",
+    "applicable_product_types": ["insurance"],
+    "risk_level": "中",
+    "explanation": "犹豫期后退保只能拿回现金价值而非已交保费，退保越早损失越大。"
+  },
+  {
+    "id": "waiting_period_no_claim",
+    "name": "等待期内不赔付",
+    "keywords": ["等待期", "不承担保险责任", "不承担赔付责任", "仅退还已交保费"],
+    "regex": "等待期.{0,10}(确诊|发生).{0,15}不承担",
+    "applicable_product_types": ["insurance"],
+    "risk_level": "中",
+    "explanation": "等待期内确诊约定的疾病，保险公司不承担赔付责任，仅退还已交保费，保障落空。"
+  },
+  {
+    "id": "exclusion_clause",
+    "name": "免责条款范围",
+    "keywords": ["免责条款", "责任免除", "不予赔付", "故意杀害"],
+    "regex": "免责条款|责任免除|除外责任",
+    "applicable_product_types": ["insurance"],
+    "risk_level": "低",
+    "explanation": "合同列明的免责情形（如故意犯罪、酒驾、吸毒、战争等）出险时不予赔付，投保前需知晓。"
+  },
+  {
+    "id": "punitive_redemption_fee",
+    "name": "短期赎回惩罚性费率",
+    "keywords": ["惩罚性赎回费", "不满7天", "不足7天", "赎回费"],
+    "regex": "(不满|少于|不足)7天.{0,10}赎回.{0,15}[0-9.]+%",
+    "applicable_product_types": ["fund"],
+    "risk_level": "中",
+    "explanation": "持有不满7天赎回会被收取高额惩罚性赎回费（如1.5%），短期进出成本很高。"
+  },
+  {
+    "id": "high_management_fee",
+    "name": "高额管理及运营费用",
+    "keywords": ["管理费", "托管费", "销售服务费"],
+    "regex": "管理费[0-9.]+%",
+    "applicable_product_types": ["fund"],
+    "risk_level": "中",
+    "explanation": "管理费、托管费、销售服务费叠加，按年持续侵蚀投资收益，长期持有成本不可忽视。"
+  },
+  {
+    "id": "performance_fee",
+    "name": "业绩报酬计提",
+    "keywords": ["业绩报酬", "业绩比较基准", "计提比例", "计提"],
+    "regex": "业绩报酬.{0,15}(计提|超过)",
+    "applicable_product_types": ["fund"],
+    "risk_level": "中",
+    "explanation": "超过业绩比较基准的超额收益中，有一部分（如20%）会被作为业绩报酬扣走，实际到手收益减少。"
+  },
+  {
+    "id": "high_penalty_interest",
+    "name": "高额逾期罚息",
+    "keywords": ["罚息", "日利率", "2.5倍", "正常利率"],
+    "regex": "罚息.{0,15}(倍|日利率)",
+    "applicable_product_types": ["loan"],
+    "risk_level": "高",
+    "explanation": "逾期后按远高于正常利率的罚息计收（如正常利率的2.5倍），逾期成本会迅速累积。"
+  },
+  {
+    "id": "acceleration_clause",
+    "name": "加速到期条款",
+    "keywords": ["提前到期", "一次性偿还", "宣布贷款提前到期", "宣布提前到期"],
+    "regex": "提前到期|一次性偿还全部",
+    "applicable_product_types": ["loan"],
+    "risk_level": "中",
+    "explanation": "逾期达到约定天数，贷款人可宣布全部贷款提前到期并要求一次性偿还，还款压力骤增。"
+  },
+  {
+    "id": "prepayment_penalty",
+    "name": "提前还款违约金",
+    "keywords": ["提前还款", "违约金"],
+    "regex": "提前还款.{0,15}(违约金|[0-9.]+%)",
+    "applicable_product_types": ["loan"],
+    "risk_level": "中",
+    "explanation": "提前还款需支付违约金（如剩余本金的3%），会抬高实际融资成本，抵消部分节省的利息。"
+  }
+]

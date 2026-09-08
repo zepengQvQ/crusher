@@ -19,6 +19,7 @@ class TermTranslator:
         self,
         raw_text: str,
         style: str = "通俗版",
+        knowledge_context: str = "",
     ) -> dict:
         """
         执行阶段一：白话翻译 + 关键要素提取。
@@ -26,6 +27,7 @@ class TermTranslator:
         Args:
             raw_text: 原始金融条款文本
             style: 翻译风格，见 STYLE_PRESETS
+            knowledge_context: 知识库事实上下文（注入 prompt，作为唯一事实依据）
 
         Returns:
             包含 plain_language, product_type, term, expected_return,
@@ -39,7 +41,12 @@ class TermTranslator:
         style_hint = STYLE_PRESETS.get(style, STYLE_PRESETS["通俗版"])
         system_prompt = SYSTEM_PROMPT + f"\n\n本次翻译风格要求：{style_hint}"
 
-        user_prompt = STAGE1_USER_PROMPT.format(raw_text=raw_text)
+        context = knowledge_context or "（无可用事实数据）"
+        user_prompt = (
+            STAGE1_USER_PROMPT
+            .replace("{knowledge_context}", context)
+            .replace("{raw_text}", raw_text)
+        )
 
         result = self.client.chat_json(
             user_prompt=user_prompt,
