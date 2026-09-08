@@ -15,10 +15,12 @@ __pycache__/
 node_modules/
 frontend-h5/dist/
 
-# IDE 自身配置文件（忽略后换电脑也不会带乱你的路径）
+# IDE
 .idea/
-.vscode/
 *.iml
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 
 # 环境变量和敏感信息
 .env

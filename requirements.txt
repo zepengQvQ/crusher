@@ -1,5 +1,5 @@
-streamlit>=1.30.0
-openai>=1.0.0
-python-dotenv>=1.0.0
-requests>=2.31.0
-mcp[cli]>=2.0.0
+# 旧 Streamlit/MCP 依赖已不再作为 Demo 主路径。
+# 请安装：
+#   pip install -e "backend-python/.[dev]"
+# 或锁定版本：
+#   pip install -r backend-python/requirements.lock

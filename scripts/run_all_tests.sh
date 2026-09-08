@@ -28,6 +28,9 @@ echo "==> P0-07"
 echo "==> P0-08"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_08" -v
 
+echo "==> P0-09"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_09" -v
+
 echo "==> H5 build"
 (cd "${ROOT}/frontend-h5" && npm run build)
 

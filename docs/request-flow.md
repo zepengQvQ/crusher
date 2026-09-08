@@ -1,12 +1,17 @@
-# 请求链路（P0-02 骨架）
+# 请求链路（当前 Demo）
 
 ```text
 H5 InputPage
   -> POST /api/v1/analyses
-  -> AnalyzeTextUseCase.submit + BackgroundTasks.run_mock
+  -> AnalyzeTextUseCase.submit
+  -> BackgroundTasks: AnalyzeTextUseCase.run
+       preprocess → classify → extract
+       → rule_review → evidence_validate → explain
   -> InMemoryTaskStore
   -> GET /api/v1/analyses/{task_id}
-  -> StatusPage / ReportPage
+  -> StatusPage（步骤卡） / ReportPage（结论+证据）
 ```
 
-真实规则与 LLM 将在 P0-05/P0-06 接入；当前 `run_mock` 只返回固定报告。
+- 默认 `MOCK_MODE=true`：不调用真实大模型，规则与抽取仍真实执行。
+- `demo_error=model_timeout|invalid_json|rate_limited`：强制失败，用于演示错误页。
+- 主链路不走 MCP，不生成 Mermaid。

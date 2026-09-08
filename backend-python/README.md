@@ -1,11 +1,12 @@
-# 金融话术粉碎机 - Python 服务端（P0-02 骨架）
+# crusher-backend
 
 ```bash
-cd backend-python
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+# 可选锁定版本：
+# pip install -r requirements.lock
 uvicorn app.main:app --reload --port 8000
 ```
 
-Swagger: http://localhost:8000/docs
+从仓库根目录也可用：`bash scripts/dev.sh` / `make setup`。

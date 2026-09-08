@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend-python"))
 
-from app.main import create_app  # noqa: E402
+try:
+    from app.main import create_app
+except ImportError as exc:  # pragma: no cover
+    raise SystemExit(
+        "无法导入 app。请先 pip install -e backend-python/. "
+        "或 export PYTHONPATH=backend-python"
+    ) from exc
 
 # 前端最常用的 schema，优先生成完整 typedef
 PRIORITY_SCHEMAS = [

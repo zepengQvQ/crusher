@@ -1,11 +1,21 @@
-.PHONY: dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 lint install export-openapi
+.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 lint install export-openapi
 
-install:
-	cd backend-python && pip install -e ".[dev]"
-	cd frontend-h5 && npm install
+setup:
+	bash scripts/dev.sh
+
+demo:
+	@echo "1) make setup（若尚未安装）"
+	@echo "2) 终端1: source backend-python/.venv/bin/activate && uvicorn app.main:app --reload --app-dir backend-python --port 8000"
+	@echo "3) 终端2: cd frontend-h5 && npm run dev"
+	@echo "4) 打开 http://localhost:5173 点示例分析；可用「模拟模型超时」看错误页"
+	@echo "5) make test"
+	@echo "样例说明: docs/demo-samples.md"
+	@echo "HTTP 示例: docs/http/analyze.http"
+
+install: setup
 
 dev-api:
-	cd backend-python && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	cd backend-python && ../backend-python/.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 dev-h5:
 	cd frontend-h5 && npm run dev
@@ -17,7 +27,8 @@ test-api:
 	cd backend-python && ../backend-python/.venv/bin/python -m unittest discover -s ../tests/api -v
 
 export-openapi:
-	backend-python/.venv/bin/python scripts/export_openapi.py
+	cd backend-python && ../backend-python/.venv/bin/python -c "import app" >/dev/null 2>&1 || pip install -e ".[dev]"
+	PYTHONPATH=backend-python backend-python/.venv/bin/python scripts/export_openapi.py
 
 test-p0-01:
 	python tests/p0_01/run_p0_01.py --only golden
@@ -34,6 +45,9 @@ test-p0-07:
 
 test-p0-08:
 	backend-python/.venv/bin/python -m unittest discover -s tests/p0_08 -v
+
+test-p0-09:
+	backend-python/.venv/bin/python -m unittest discover -s tests/p0_09 -v
 
 lint:
 	cd backend-python && ruff check app && pyright app || true

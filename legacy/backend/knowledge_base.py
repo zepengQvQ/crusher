@@ -1,24 +1,18 @@
 """
 金融知识库加载与查询（legacy 适配层）。
 
-P0-05 起：否定 / 数值 / 产品多候选逻辑统一走 backend-python RuleEngine，
-本模块保留旧函数签名，供 Streamlit 与旧测试调用。
+P0-09：不再修改 sys.path。请使用已安装的 crusher-backend
+（`pip install -e backend-python/.`）或设置 PYTHONPATH=backend-python。
 """
 from __future__ import annotations
 
-import sys
 from functools import lru_cache
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[2]
-_BACKEND = _REPO / "backend-python"
-if str(_BACKEND) not in sys.path:
-    sys.path.insert(0, str(_BACKEND))
+from app.domain.rules.engine import RuleEngine
+from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository
 
-from app.domain.rules.engine import RuleEngine  # noqa: E402
-from app.infrastructure.knowledge.local_files import (  # noqa: E402
-    LocalFileKnowledgeRepository,
-)
+_REPO = Path(__file__).resolve().parents[2]
 
 
 @lru_cache(maxsize=1)
@@ -73,11 +67,14 @@ def detect_terms_in_text(text: str) -> list[dict]:
 
 
 def detect_products(text: str) -> list[dict]:
-    """返回旧结构 list[dict]，仅包含置信度达标的候选。"""
     products_by_id = {p["id"]: p for p in get_products()}
     out = []
     for hit in _engine().detect_products(text):
-        base = dict(products_by_id.get(hit.product_id, {"id": hit.product_id, "name": hit.product_name}))
+        base = dict(
+            products_by_id.get(
+                hit.product_id, {"id": hit.product_id, "name": hit.product_name}
+            )
+        )
         base["confidence"] = hit.confidence
         base["evidence_quotes"] = hit.evidence_quotes
         out.append(base)

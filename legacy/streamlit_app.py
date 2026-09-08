@@ -13,6 +13,7 @@ import streamlit.components.v1 as components
 
 _LEGACY_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_LEGACY_DIR)
+# 仅让本目录下的 backend 包可导入；正式 Demo 请用 frontend-h5 + backend-python
 sys.path.insert(0, _LEGACY_DIR)
 
 from backend.config import LLMConfig, PROVIDER_DEFAULTS

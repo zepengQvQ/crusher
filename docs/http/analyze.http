@@ -1,0 +1,56 @@
+### Crusher Demo 请求示例（VS Code REST Client / IDEA HTTP Client）
+@base = http://127.0.0.1:8000
+
+### 健康检查（确认 mock_mode，且响应无 api_key）
+GET {{base}}/health
+
+### 成功分析：结构性存款
+POST {{base}}/api/v1/analyses
+Content-Type: application/json
+
+{
+  "text": "本产品为结构性存款，期限90天，挂钩美元兑日元汇率。若观察期内汇率始终位于145.00-155.00区间，则到期年化收益率4.80%；若突破区间，则到期年化收益率1.20%。",
+  "product_hint": "structured_deposit",
+  "locale": "zh-CN"
+}
+
+### 成功分析：消费贷（含风险）
+POST {{base}}/api/v1/analyses
+Content-Type: application/json
+
+{
+  "text": "本贷款年化利率（单利）为7.20%。逾期按罚息日利率计收，罚息为正常利率的2.5倍。逾期超过30天可宣布提前到期。提前还款需支付剩余本金3%的违约金。",
+  "product_hint": "loan",
+  "locale": "zh-CN"
+}
+
+### 否定句：不应报提前还款违约金
+POST {{base}}/api/v1/analyses
+Content-Type: application/json
+
+{
+  "text": "本贷款提前还款不收违约金，年化利率为6.00%。",
+  "product_hint": "loan"
+}
+
+### 演示失败：模型超时（应 failed，report=null）
+POST {{base}}/api/v1/analyses
+Content-Type: application/json
+
+{
+  "text": "任意文本",
+  "demo_error": "model_timeout"
+}
+
+### 演示失败：非法 JSON
+POST {{base}}/api/v1/analyses
+Content-Type: application/json
+
+{
+  "text": "任意文本",
+  "demo_error": "invalid_json"
+}
+
+### 查询任务（把 task_id 换成上一步返回值）
+@taskId = tsk_replace_me
+GET {{base}}/api/v1/analyses/{{taskId}}
