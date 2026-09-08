@@ -12,8 +12,9 @@ knowledge_base（见 backend/knowledge_client.py），两者共享同一套事�
 import os
 import sys
 
-# 将项目根目录加入 path，便于导入 backend
+# 将 legacy 目录加入 path，便于导入 backend
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "legacy"))
 
 from mcp.server.mcpserver import MCPServer  # noqa: E402
 

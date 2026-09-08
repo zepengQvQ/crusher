@@ -1,0 +1,53 @@
+"""错误码、任务状态、阶段状态。"""
+from enum import Enum
+
+
+class TaskStatus(str, Enum):
+    """整次分析任务：排队 / 进行中 / 成功 / 失败。"""
+
+    queued = "queued"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class StageStatus(str, Enum):
+    """某一个分析步骤的状态。"""
+
+    success = "success"
+    partial = "partial"
+    failed = "failed"
+    not_applicable = "not_applicable"
+
+
+class ErrorCode(str, Enum):
+    INPUT_TOO_LONG = "INPUT_TOO_LONG"
+    MODEL_TIMEOUT = "MODEL_TIMEOUT"
+    RATE_LIMITED = "RATE_LIMITED"
+    INVALID_MODEL_JSON = "INVALID_MODEL_JSON"
+    RULE_FAILED = "RULE_FAILED"
+    KNOWLEDGE_UNAVAILABLE = "KNOWLEDGE_UNAVAILABLE"
+    TASK_NOT_FOUND = "TASK_NOT_FOUND"
+    FORBIDDEN_CLIENT_CONFIG = "FORBIDDEN_CLIENT_CONFIG"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+
+
+# 给用户看的短说明（网页展示用）
+ERROR_USER_MESSAGES: dict[ErrorCode, str] = {
+    ErrorCode.INPUT_TOO_LONG: "文字太长了，请删短后再试",
+    ErrorCode.MODEL_TIMEOUT: "模型调用失败：等待超时",
+    ErrorCode.RATE_LIMITED: "模型调用失败：请求太频繁，请稍后再试",
+    ErrorCode.INVALID_MODEL_JSON: "模型调用失败：返回内容格式不对",
+    ErrorCode.RULE_FAILED: "规则检查失败，请稍后重试",
+    ErrorCode.KNOWLEDGE_UNAVAILABLE: "知识库暂时不可用",
+    ErrorCode.TASK_NOT_FOUND: "找不到这个任务（可能服务刚重启过，请重新分析）",
+    ErrorCode.FORBIDDEN_CLIENT_CONFIG: "网页不能传密钥或模型地址",
+    ErrorCode.INTERNAL_ERROR: "服务内部出错，请重试",
+}
+
+
+def user_message_for(code: ErrorCode, detail: str | None = None) -> str:
+    base = ERROR_USER_MESSAGES.get(code, ERROR_USER_MESSAGES[ErrorCode.INTERNAL_ERROR])
+    if detail and code == ErrorCode.INTERNAL_ERROR:
+        return f"{base}（{detail}）"
+    return base

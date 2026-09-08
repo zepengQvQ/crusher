@@ -1,0 +1,681 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "crusher-api",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analyses": {
+      "post": {
+        "summary": "Create Analysis",
+        "operationId": "create_analysis_api_v1_analyses_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAnalysisResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analyses/{task_id}": {
+      "get": {
+        "summary": "Get Analysis",
+        "operationId": "get_analysis_api_v1_analyses__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisReport": {
+        "properties": {
+          "product_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCandidate"
+            },
+            "type": "array",
+            "title": "Product Candidates"
+          },
+          "product_risk_grade": {
+            "$ref": "#/components/schemas/ProductRiskGrade"
+          },
+          "plain_language": {
+            "$ref": "#/components/schemas/PlainLanguage"
+          },
+          "key_parameters": {
+            "items": {
+              "$ref": "#/components/schemas/KeyParameter"
+            },
+            "type": "array",
+            "title": "Key Parameters"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "missing_disclosures": {
+            "items": {
+              "$ref": "#/components/schemas/MissingDisclosure"
+            },
+            "type": "array",
+            "title": "Missing Disclosures"
+          },
+          "general_references": {
+            "items": {
+              "$ref": "#/components/schemas/GeneralReference"
+            },
+            "type": "array",
+            "title": "General References"
+          },
+          "pending_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Questions",
+            "description": "待确认问题（可与 missing_disclosures 互补）"
+          },
+          "disclaimer": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Disclaimer",
+            "default": "本 Demo 不进行用户适当性评估，不构成投资建议。"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_risk_grade",
+          "plain_language"
+        ],
+        "title": "AnalysisReport",
+        "description": "完整分析报告。"
+      },
+      "CreateAnalysisResponse": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "task_status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task_id",
+          "task_status"
+        ],
+        "title": "CreateAnalysisResponse"
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "INPUT_TOO_LONG",
+          "MODEL_TIMEOUT",
+          "RATE_LIMITED",
+          "INVALID_MODEL_JSON",
+          "RULE_FAILED",
+          "KNOWLEDGE_UNAVAILABLE",
+          "TASK_NOT_FOUND",
+          "FORBIDDEN_CLIENT_CONFIG",
+          "INTERNAL_ERROR"
+        ],
+        "title": "ErrorCode"
+      },
+      "Evidence": {
+        "properties": {
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote",
+            "description": "原文摘录"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start",
+            "description": "起始字符下标"
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "End",
+            "description": "结束字符下标（不含）"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EvidenceSource",
+            "default": "input_text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quote",
+          "start",
+          "end"
+        ],
+        "title": "Evidence"
+      },
+      "EvidenceSource": {
+        "type": "string",
+        "enum": [
+          "input_text",
+          "knowledge"
+        ],
+        "title": "EvidenceSource"
+      },
+      "FactStatus": {
+        "type": "string",
+        "enum": [
+          "document_fact",
+          "calculated_fact",
+          "general_reference",
+          "not_disclosed",
+          "unknown"
+        ],
+        "title": "FactStatus",
+        "description": "字段从哪里来。"
+      },
+      "Finding": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "finding_severity": {
+            "$ref": "#/components/schemas/FindingSeverity"
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Explanation"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Evidence"
+          },
+          "rule_or_knowledge_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Rule Or Knowledge Id"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "finding_severity",
+          "explanation",
+          "evidence",
+          "rule_or_knowledge_id",
+          "confidence"
+        ],
+        "title": "Finding"
+      },
+      "FindingSeverity": {
+        "type": "string",
+        "enum": [
+          "high",
+          "mid",
+          "low"
+        ],
+        "title": "FindingSeverity",
+        "description": "单条风险发现的严重度（不要和产品评级混用）。"
+      },
+      "GeneralReference": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/FactStatus",
+            "default": "general_reference"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "source"
+        ],
+        "title": "GeneralReference"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "KeyParameter": {
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/ParameterKey"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FactStatus"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "status"
+        ],
+        "title": "KeyParameter"
+      },
+      "MissingDisclosure": {
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/ParameterKey"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "question"
+        ],
+        "title": "MissingDisclosure"
+      },
+      "ParameterKey": {
+        "type": "string",
+        "enum": [
+          "term",
+          "expected_return",
+          "early_redemption",
+          "fee_structure",
+          "principal_protection",
+          "product_risk_grade",
+          "amount"
+        ],
+        "title": "ParameterKey"
+      },
+      "PlainLanguage": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StageStatus",
+            "default": "success"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PlainLanguage"
+      },
+      "ProductCandidate": {
+        "properties": {
+          "product_type_id": {
+            "$ref": "#/components/schemas/ProductTypeId"
+          },
+          "product_type_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Product Type Name"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "evidence_quotes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Quotes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_type_id",
+          "product_type_name",
+          "confidence"
+        ],
+        "title": "ProductCandidate"
+      },
+      "ProductRiskGrade": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FactStatus"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ProductRiskGrade",
+        "description": "产品级风险评级（与 FindingSeverity 分开）。"
+      },
+      "ProductTypeId": {
+        "type": "string",
+        "enum": [
+          "structured_deposit",
+          "loan",
+          "snowball",
+          "insurance",
+          "fund",
+          "unknown"
+        ],
+        "title": "ProductTypeId"
+      },
+      "StageInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StageStatus"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "StageInfo"
+      },
+      "StageStatus": {
+        "type": "string",
+        "enum": [
+          "success",
+          "partial",
+          "failed",
+          "not_applicable"
+        ],
+        "title": "StageStatus",
+        "description": "某一个分析步骤的状态。"
+      },
+      "TaskResponse": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "task_status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageInfo"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_failure": {
+            "type": "boolean",
+            "title": "Is Failure",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task_id",
+          "task_status",
+          "created_at",
+          "updated_at",
+          "stages"
+        ],
+        "title": "TaskResponse"
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed"
+        ],
+        "title": "TaskStatus",
+        "description": "整次分析任务：排队 / 进行中 / 成功 / 失败。"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

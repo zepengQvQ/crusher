@@ -1,6 +1,8 @@
 """
-术语粉碎机 - Streamlit 前端主程序
-金融条款 AI 解读工作台：白话翻译 + 参数卡片 + 流程图 + 风险高亮
+术语粉碎机 - Streamlit 前端（legacy 对照入口）
+
+P0-02 起正式 Demo 使用 frontend-h5 + backend-python。
+本文件仅作结果对照，不再新增业务逻辑。
 """
 import json
 import os
@@ -9,8 +11,9 @@ import sys
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 将项目根目录加入 path，便于导入 backend
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_LEGACY_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_LEGACY_DIR)
+sys.path.insert(0, _LEGACY_DIR)
 
 from backend.config import LLMConfig, PROVIDER_DEFAULTS
 from backend.pipeline import TermCrusherPipeline
@@ -137,7 +140,7 @@ with st.sidebar:
 # ============================================================
 # 加载示例条款
 # ============================================================
-EXAMPLES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "examples.json")
+EXAMPLES_PATH = os.path.join(_PROJECT_ROOT, "data", "examples.json")
 
 @st.cache_data
 def load_examples():

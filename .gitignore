@@ -7,6 +7,13 @@ env/
 __pycache__/
 *.py[cod]
 *.so
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend-h5/dist/
 
 # IDE 自身配置文件（忽略后换电脑也不会带乱你的路径）
 .idea/

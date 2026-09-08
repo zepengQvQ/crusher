@@ -14,8 +14,7 @@ import re
 from functools import lru_cache
 
 _KNOWLEDGE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "knowledge",
 )
 
