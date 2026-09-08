@@ -4,6 +4,8 @@ import {
   Button,
   Cell,
   CellGroup,
+  Collapse,
+  CollapseItem,
   Empty,
   Field,
   NavBar,
@@ -20,8 +22,19 @@ import router from './router'
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
-;[Button, Cell, CellGroup, Empty, Field, NavBar, NoticeBar, Skeleton, Tag].forEach((c) =>
-  app.use(c),
-)
+;[
+  Button,
+  Cell,
+  CellGroup,
+  Collapse,
+  CollapseItem,
+  Empty,
+  Field,
+  NavBar,
+  NoticeBar,
+  Skeleton,
+  Tag,
+].forEach((c) => app.use(c))
+
 app.config.globalProperties.$toast = showToast
 app.mount('#app')

@@ -1,6 +1,7 @@
-"""分析文本用例（P0-05：规则复核接入）。
+"""分析文本用例（P0-06：事实分层 + 证据校验流水线）。
 
-模型只做通俗解释占位；产品识别与风险命中由 RuleEngine 确定性完成。
+固定顺序：预检 → 分类 → 抽取 → 规则复核 → 证据校验 → 通俗解释 → Report。
+行业常识只进 general_references；模型不生成 Mermaid，主链路不走 MCP。
 """
 from __future__ import annotations
 
@@ -17,10 +18,6 @@ from app.domain.models import (
     FactStatus,
     Finding,
     FindingSeverity,
-    GeneralReference,
-    KeyParameter,
-    MissingDisclosure,
-    ParameterKey,
     PlainLanguage,
     ProductCandidate,
     ProductRiskGrade,
@@ -30,6 +27,8 @@ from app.domain.models import (
 from app.domain.models.enums import EvidenceSource
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
 from app.domain.rules.engine import RuleEngine, RiskHit
+from app.domain.rules.evidence import validate_and_fix_findings
+from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
@@ -39,6 +38,15 @@ _SEVERITY = {
     "中": FindingSeverity.mid,
     "低": FindingSeverity.low,
 }
+
+PIPELINE_STAGES = (
+    "preprocess",
+    "classify",
+    "extract",
+    "rule_review",
+    "evidence_validate",
+    "explain",
+)
 
 
 class AnalyzeTextUseCase:
@@ -54,6 +62,7 @@ class AnalyzeTextUseCase:
         self._llm = llm_gateway
         self._settings = settings
         self._rules = RuleEngine(knowledge_repository)
+        self._extractor = FactExtractor(knowledge_repository)
 
     def submit(self, request: AnalyzeTextRequest) -> AnalysisTask:
         preview = request.text.strip().replace("\n", " ")[:80]
@@ -61,11 +70,8 @@ class AnalyzeTextUseCase:
             task_status=TaskStatus.queued,
             input_text_preview=preview,
             stages=[
-                StageInfo(name="preprocess", status=StageStatus.not_applicable, message="等待中"),
-                StageInfo(name="classify", status=StageStatus.not_applicable, message="等待中"),
-                StageInfo(name="extract", status=StageStatus.not_applicable, message="等待中"),
-                StageInfo(name="rule_review", status=StageStatus.not_applicable, message="等待中"),
-                StageInfo(name="explain", status=StageStatus.not_applicable, message="等待中"),
+                StageInfo(name=name, status=StageStatus.not_applicable, message="等待中")
+                for name in PIPELINE_STAGES
             ],
         )
         created = self._tasks.create(task)
@@ -104,42 +110,60 @@ class AnalyzeTextUseCase:
 
             products = self._rules.detect_products(request.text)
             if products:
-                top = products[0]
-                classify_msg = f"识别到 {len(products)} 个候选，首选 {top.product_name}"
+                classify_msg = (
+                    f"识别到 {len(products)} 个候选，首选 {products[0].product_name}"
+                )
+                product_type_id = products[0].product_id
             else:
                 classify_msg = "未达置信度阈值，产品类型为 unknown"
+                product_type_id = None
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
 
-            await self._mark_stage(task_id, "extract", StageStatus.success, "抽取完成（演示）")
+            extracted = self._extractor.extract(request.text, product_type_id=product_type_id)
+            await self._mark_stage(
+                task_id,
+                "extract",
+                StageStatus.success,
+                f"抽取完成：{sum(1 for p in extracted.key_parameters if p.status == FactStatus.document_fact)} 个原文事实",
+            )
 
             risk_hits = self._collect_risks(request.text, products)
-
             await self._mark_stage(
                 task_id,
                 "rule_review",
                 StageStatus.success,
-                f"规则复核完成：{len(risk_hits)} 条发现（允许为 0）",
+                f"规则复核完成：{len(risk_hits)} 条候选发现（允许为 0）",
             )
 
-            # 模型只接收规则结果做解释；不得要求凑数量
+            raw_findings = self._hits_to_findings(risk_hits)
+            findings = validate_and_fix_findings(request.text, raw_findings)
+            await self._mark_stage(
+                task_id,
+                "evidence_validate",
+                StageStatus.success,
+                f"证据校验完成：保留 {len(findings)}/{len(raw_findings)} 条",
+            )
+
+            # 通俗解释：只基于已校验事实；禁止要求模型输出 Mermaid
             prompt = (
                 RULE_REVIEW_SYSTEM
-                + "\n\n"
+                + "\n禁止输出 Mermaid 或任何可执行图表代码。\n\n"
                 + FINDINGS_USER_TEMPLATE.format(
                     raw_text=request.text[:2000],
                     rule_findings_json=json.dumps(
-                        [{"id": h.pattern_id, "name": h.name} for h in risk_hits],
+                        [{"id": f.id, "title": f.title} for f in findings],
                         ensure_ascii=False,
                     ),
                 )
             )
             await self._llm.complete(prompt)
-            await self._mark_stage(task_id, "explain", StageStatus.success, "解释完成（演示）")
+            plain = self._plain_language(extracted, findings)
+            await self._mark_stage(task_id, "explain", StageStatus.success, "解释完成")
 
             task = self._tasks.get(task_id)
             if task is None:
                 return
-            task.report = self._build_report(request.text, products, risk_hits)
+            task.report = self._build_report(products, extracted, findings, plain)
             task.task_status = TaskStatus.completed
             task.error_code = None
             task.error_message = None
@@ -159,7 +183,7 @@ class AnalyzeTextUseCase:
         status: StageStatus,
         message: str,
     ) -> None:
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.2)
         task = self._tasks.get(task_id)
         if task is None:
             return
@@ -187,7 +211,6 @@ class AnalyzeTextUseCase:
         log_task("task_failed", task_id, error_code=code.value)
 
     def _collect_risks(self, text: str, products) -> list[RiskHit]:
-        """按候选产品过滤规则；无候选时全量匹配。"""
         if not products:
             return self._rules.match_risks(text, product_type=None)
         merged: list[RiskHit] = []
@@ -200,7 +223,51 @@ class AnalyzeTextUseCase:
                 merged.append(hit)
         return merged
 
-    def _build_report(self, _text: str, products, risk_hits: list[RiskHit]) -> AnalysisReport:
+    def _hits_to_findings(self, risk_hits: list[RiskHit]) -> list[Finding]:
+        findings: list[Finding] = []
+        for hit in risk_hits:
+            findings.append(
+                Finding(
+                    id=hit.pattern_id,
+                    title=hit.name,
+                    finding_severity=_SEVERITY.get(hit.risk_level, FindingSeverity.mid),
+                    explanation=hit.explanation,
+                    evidence=[
+                        Evidence(
+                            quote=hit.quote,
+                            start=hit.start,
+                            end=hit.end,
+                            source=EvidenceSource.input_text,
+                        )
+                    ],
+                    rule_or_knowledge_id=hit.pattern_id,
+                    confidence=hit.confidence,
+                    needs_review=False,
+                )
+            )
+        return findings
+
+    def _plain_language(self, extracted: ExtractResult, findings: list[Finding]) -> str:
+        disclosed = [
+            f"{p.label}={p.value}"
+            for p in extracted.key_parameters
+            if p.status == FactStatus.document_fact and p.value
+        ]
+        missing = [p.label for p in extracted.key_parameters if p.status == FactStatus.not_disclosed]
+        parts = [
+            f"原文已写明：{'；'.join(disclosed) if disclosed else '（无结构化参数）'}。",
+            f"材料未说明：{'；'.join(missing) if missing else '无'}。",
+            f"规则命中风险 {len(findings)} 条（允许为 0）。",
+        ]
+        return "".join(parts)
+
+    def _build_report(
+        self,
+        products,
+        extracted: ExtractResult,
+        findings: list[Finding],
+        plain: str,
+    ) -> AnalysisReport:
         candidates: list[ProductCandidate] = []
         for p in products:
             try:
@@ -225,34 +292,6 @@ class AnalyzeTextUseCase:
                 )
             ]
 
-        findings: list[Finding] = []
-        for hit in risk_hits:
-            findings.append(
-                Finding(
-                    id=hit.pattern_id,
-                    title=hit.name,
-                    finding_severity=_SEVERITY.get(hit.risk_level, FindingSeverity.mid),
-                    explanation=hit.explanation,
-                    evidence=[
-                        Evidence(
-                            quote=hit.quote,
-                            start=hit.start,
-                            end=hit.end,
-                            source=EvidenceSource.input_text,
-                        )
-                    ],
-                    rule_or_knowledge_id=hit.pattern_id,
-                    confidence=hit.confidence,
-                    needs_review=False,
-                )
-            )
-
-        plain = (
-            f"程序规则命中 {len(findings)} 条风险（允许为 0，未凑数）。"
-            if findings
-            else "未命中已知风险模式；安全文本允许零发现，未为版面凑数。"
-        )
-
         return AnalysisReport(
             product_candidates=candidates,
             product_risk_grade=ProductRiskGrade(
@@ -261,39 +300,10 @@ class AnalyzeTextUseCase:
                 note="原文未明确风险等级",
             ),
             plain_language=PlainLanguage(text=plain, status=StageStatus.success),
-            key_parameters=[
-                KeyParameter(
-                    key=ParameterKey.term,
-                    label="投资期限",
-                    value=None,
-                    status=FactStatus.not_disclosed,
-                ),
-                KeyParameter(
-                    key=ParameterKey.principal_protection,
-                    label="本金保障",
-                    value=None,
-                    status=FactStatus.not_disclosed,
-                ),
-                KeyParameter(
-                    key=ParameterKey.expected_return,
-                    label="预期收益",
-                    value=None,
-                    status=FactStatus.not_disclosed,
-                ),
-            ],
+            key_parameters=list(extracted.key_parameters),
             findings=findings,
-            missing_disclosures=[
-                MissingDisclosure(
-                    key=ParameterKey.principal_protection,
-                    question="合同是否明确承诺本金保障？",
-                )
-            ],
-            general_references=[
-                GeneralReference(
-                    text="行业常识仅供参考，不能自动填入当前材料未披露字段。",
-                    source="docs/demo-scope.md",
-                )
-            ],
-            pending_questions=["是否支持提前赎回？"] if not findings else [],
+            missing_disclosures=list(extracted.missing_disclosures),
+            general_references=list(extracted.general_references),
+            pending_questions=list(extracted.pending_questions),
             disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
         )

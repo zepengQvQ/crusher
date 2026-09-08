@@ -63,6 +63,7 @@ function stageTitle(name) {
     classify: '产品识别',
     extract: '信息抽取',
     rule_review: '规则复核',
+    evidence_validate: '证据校验',
     explain: '通俗解释',
   }
   return map[name] || name

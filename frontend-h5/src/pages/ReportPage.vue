@@ -34,12 +34,25 @@
           v-if="!(report.findings || []).length"
           description="本次无风险发现（任务成功，不是失败）"
         />
-        <van-cell
-          v-for="(f, idx) in report.findings || []"
-          :key="f.id || idx"
-          :title="findingTitle(f)"
-          :label="f.explanation"
-        />
+        <van-collapse v-model="activeFindings">
+          <van-collapse-item
+            v-for="(f, idx) in report.findings || []"
+            :key="f.id || idx"
+            :name="String(f.id || idx)"
+            :title="findingTitle(f)"
+          >
+            <p class="finding-explain">{{ f.explanation }}</p>
+            <div
+              v-for="(ev, eidx) in f.evidence || []"
+              :key="eidx"
+              class="evidence"
+            >
+              <div class="evidence-label">原文证据</div>
+              <blockquote>{{ ev.quote }}</blockquote>
+              <p class="evidence-meta">位置 {{ ev.start }}–{{ ev.end }}</p>
+            </div>
+          </van-collapse-item>
+        </van-collapse>
       </div>
       <div class="block">
         <h3>缺失披露 / 待确认</h3>
@@ -78,6 +91,7 @@ const router = useRouter()
 const store = useTaskStore()
 const loading = ref(true)
 const report = ref(null)
+const activeFindings = ref([])
 
 const productName = computed(
   () => report.value?.product_candidates?.[0]?.product_type_name || '未知产品',
@@ -90,7 +104,7 @@ const productGradeText = computed(() => {
 })
 
 function formatParam(p) {
-  if (p.status === 'not_disclosed') return '未披露'
+  if (p.status === 'not_disclosed') return '材料未说明'
   if (p.key === 'amount' && p.amount != null) return String(p.amount)
   return p.value ?? '-'
 }
@@ -138,5 +152,33 @@ h3 {
   color: #9ca3af;
   font-size: 12px;
   line-height: 1.5;
+}
+.finding-explain {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+}
+.evidence {
+  margin-top: 8px;
+  padding: 10px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+.evidence-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+.evidence blockquote {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #111827;
+}
+.evidence-meta {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
 }
 </style>
