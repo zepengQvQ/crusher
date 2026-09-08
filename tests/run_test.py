@@ -14,6 +14,7 @@ import sys
 # 将项目根目录加入 path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "legacy"))
 
 from backend.config import load_config
 from backend.flowchart import FlowchartGenerator
@@ -111,12 +112,17 @@ def validate_translation(result, expected):
         if kw not in trans.get("plain_language", ""):
             errors.append(f"白话翻译缺少关键词: {kw}")
 
-    # 精确匹配字段
-    for field in ["product_type", "term", "early_redemption"]:
+    # 精确匹配字段；not_disclosed 必须严格相等，禁止跳过（P0-01）
+    for field in ["product_type", "term", "early_redemption", "fee_structure", "principal_protection"]:
         if field in expected:
             actual = trans.get(field, "")
             exp = expected[field]
-            if exp != "原文未说明" and exp not in actual and actual not in exp:
+            if exp == "not_disclosed":
+                if actual != "not_disclosed":
+                    errors.append(
+                        f"{field}: 期望 not_disclosed（原文未披露），实际为'{actual}'"
+                    )
+            elif exp not in actual and actual not in exp:
                 errors.append(f"{field}: 期望包含'{exp}'，实际为'{actual}'")
 
     # 包含匹配字段

@@ -1,0 +1,19 @@
+{
+  "fixture_id": "error_model_timeout",
+  "title": "模型超时不得冒充无风险",
+  "input": {
+    "raw_text": "本产品为结构性存款，期限90天。",
+    "simulated_failure": "model_timeout"
+  },
+  "expected": {
+    "task_status": "failed",
+    "stage_status": "failed",
+    "error_code": "MODEL_TIMEOUT",
+    "ui_must_not_show": [
+      "未发现风险",
+      "未识别到明显风险点"
+    ],
+    "findings_interpretation": "empty_findings_means_failure_not_safe",
+    "notes": "超时属于调用失败；findings=[] 时 UI/API 必须仍是失败态。"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "fixture_id": "negation_fund_principal_fee",
+  "title": "基金否定句：确保本金安全 + 管理费 0%",
+  "input": {
+    "raw_text": "本基金确保本金安全，管理费为 0%"
+  },
+  "expected": {
+    "must_not_match_risk_ids": [
+      "principal_not_guaranteed",
+      "high_management_fee"
+    ],
+    "must_not_match_risk_names": [
+      "本金不保证",
+      "高额管理及运营费用"
+    ],
+    "notes": "不得因出现「本金安全」「管理费」子串就命中不保本/高额管理费。"
+  }
+}

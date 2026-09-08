@@ -1,0 +1,39 @@
+{
+  "fixture_id": "golden_structured_deposit_demo",
+  "title": "结构性存款正向金标（原文未披露字段必须为 not_disclosed）",
+  "input": {
+    "raw_text": "本产品为结构性存款，期限90天，挂钩美元兑日元汇率。\n\n观察期：2026年8月20日至2026年11月18日（共90天，65个交易日）。\n\n收益规则：若观察期内任意一个交易日，美元兑日元汇率始终位于【145.00-155.00】区间内（含边界），则到期年化收益率为4.80%；若观察期内任一交易日汇率突破上述区间，则到期年化收益率为1.20%。",
+    "style": "通俗版"
+  },
+  "expected_report": {
+    "product_type_id": "structured_deposit",
+    "key_parameters": {
+      "term": {
+        "status": "document_fact",
+        "value_contains": ["90"]
+      },
+      "expected_return": {
+        "status": "document_fact",
+        "value_contains": ["4.80", "1.20"]
+      },
+      "early_redemption": {
+        "status": "not_disclosed",
+        "value": null
+      },
+      "fee_structure": {
+        "status": "not_disclosed",
+        "value": null
+      },
+      "principal_protection": {
+        "status": "not_disclosed",
+        "value": null
+      }
+    },
+    "forbidden_in_document_fields": [
+      "通常保本",
+      "一般保本",
+      "存款保险"
+    ],
+    "notes": "原文未写本金保障、提前赎回、费用；禁止把行业常识写入 document_fact。"
+  }
+}

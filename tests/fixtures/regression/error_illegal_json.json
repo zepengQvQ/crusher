@@ -1,0 +1,20 @@
+{
+  "fixture_id": "error_illegal_json",
+  "title": "非法 JSON 不得冒充无风险",
+  "input": {
+    "raw_text": "本产品为结构性存款，期限90天。",
+    "simulated_failure": "illegal_json",
+    "simulated_model_output": "这不是合法JSON，只是一段解释文字。"
+  },
+  "expected": {
+    "task_status": "failed",
+    "stage_status": "failed",
+    "error_code": "INVALID_MODEL_JSON",
+    "ui_must_not_show": [
+      "未发现风险",
+      "未识别到明显风险点"
+    ],
+    "findings_interpretation": "empty_findings_means_failure_not_safe",
+    "notes": "模型返回无法解析的 JSON 时必须显式失败，禁止降级为空风险列表并显示安全。"
+  }
+}

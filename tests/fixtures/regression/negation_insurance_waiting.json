@@ -1,0 +1,16 @@
+{
+  "fixture_id": "negation_insurance_waiting",
+  "title": "保险否定句：无等待期",
+  "input": {
+    "raw_text": "本保险无等待期"
+  },
+  "expected": {
+    "must_not_match_risk_ids": [
+      "waiting_period_no_claim"
+    ],
+    "must_not_match_risk_names": [
+      "等待期内不赔付"
+    ],
+    "notes": "不得报告「等待期内不赔付」。"
+  }
+}

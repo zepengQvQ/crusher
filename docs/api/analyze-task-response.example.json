@@ -1,0 +1,40 @@
+{
+  "_comment": "GET /api/v1/analyses/{task_id} 响应（与 TaskResponse 一致）",
+  "task_id": "tsk_demo_001",
+  "task_status": "completed",
+  "created_at": "2026-09-08T12:00:00+08:00",
+  "updated_at": "2026-09-08T12:00:08+08:00",
+  "stages": [
+    {
+      "name": "preprocess",
+      "status": "success",
+      "message": "输入校验通过"
+    },
+    {
+      "name": "classify",
+      "status": "success",
+      "message": "识别到产品候选"
+    },
+    {
+      "name": "extract",
+      "status": "success",
+      "message": "关键参数抽取完成"
+    },
+    {
+      "name": "rule_review",
+      "status": "success",
+      "message": "规则复核完成"
+    },
+    {
+      "name": "explain",
+      "status": "success",
+      "message": "通俗解释完成"
+    }
+  ],
+  "error_code": null,
+  "error_message": null,
+  "is_failure": false,
+  "report": {
+    "_ref": "见 analysis-report.example.json"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "fixture_id": "negation_loan_prepayment",
+  "title": "借贷否定句：提前还款不收违约金",
+  "input": {
+    "raw_text": "本贷款提前还款不收违约金"
+  },
+  "expected": {
+    "must_not_match_risk_ids": [
+      "prepayment_penalty"
+    ],
+    "must_not_match_risk_names": [
+      "提前还款违约金"
+    ],
+    "notes": "不得报告「存在提前还款违约金」。"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "_comment": "AnalysisReport（与 Pydantic AnalysisReport 一致；product_risk_grade ≠ finding_severity）",
+  "product_candidates": [
+    {
+      "product_type_id": "structured_deposit",
+      "product_type_name": "结构性存款",
+      "confidence": 0.86,
+      "evidence_quotes": ["结构性存款", "挂钩美元兑日元汇率"]
+    }
+  ],
+  "product_risk_grade": {
+    "value": "R2",
+    "status": "document_fact",
+    "note": "仅当原文明确给出风险等级时填写；否则 value=null 且 status=not_disclosed"
+  },
+  "plain_language": {
+    "text": "这是一款挂钩汇率的结构性存款……",
+    "status": "success"
+  },
+  "key_parameters": [
+    {
+      "key": "term",
+      "label": "投资期限",
+      "value": "90天",
+      "status": "document_fact",
+      "amount": null
+    },
+    {
+      "key": "expected_return",
+      "label": "预期收益",
+      "value": "区间内4.80%/年，突破区间1.20%/年",
+      "status": "document_fact",
+      "amount": null
+    },
+    {
+      "key": "early_redemption",
+      "label": "提前赎回",
+      "value": null,
+      "status": "not_disclosed",
+      "amount": null
+    },
+    {
+      "key": "fee_structure",
+      "label": "费用结构",
+      "value": null,
+      "status": "not_disclosed",
+      "amount": null
+    },
+    {
+      "key": "principal_protection",
+      "label": "本金保障",
+      "value": null,
+      "status": "not_disclosed",
+      "amount": null
+    },
+    {
+      "key": "amount",
+      "label": "金额示例",
+      "value": "10000.00",
+      "status": "document_fact",
+      "amount": "10000.00"
+    }
+  ],
+  "findings": [
+    {
+      "id": "fnd_001",
+      "title": "区间突破后收益骤降",
+      "finding_severity": "high",
+      "explanation": "观察期内任一交易日汇率突破区间，到期收益降为1.20%。",
+      "evidence": [
+        {
+          "quote": "若观察期内任一交易日汇率突破上述区间，则到期年化收益率为1.20%",
+          "start": 120,
+          "end": 160,
+          "source": "input_text"
+        }
+      ],
+      "rule_or_knowledge_id": "low_floor_return",
+      "confidence": 0.9,
+      "needs_review": false
+    }
+  ],
+  "missing_disclosures": [
+    {
+      "key": "early_redemption",
+      "question": "是否允许提前赎回？提前赎回是否有损失？"
+    },
+    {
+      "key": "principal_protection",
+      "question": "合同是否明确承诺本金保障？保障范围是什么？"
+    }
+  ],
+  "general_references": [
+    {
+      "status": "general_reference",
+      "text": "结构性存款在监管语境下常与存款保险相关，但不得据此自动填写当前材料的本金字段。",
+      "source": "knowledge/products.json#structured_deposit"
+    }
+  ],
+  "pending_questions": [
+    "是否支持提前赎回？"
+  ],
+  "disclaimer": "本 Demo 不进行用户适当性评估，不构成投资建议。"
+}

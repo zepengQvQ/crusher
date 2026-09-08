@@ -1,0 +1,27 @@
+{
+  "fixture_id": "golden_loan_demo",
+  "title": "借贷正向金标",
+  "input": {
+    "raw_text": "本贷款年化利率（单利）为7.20%，采用等额本息还款方式。若借款人未按期还款，逾期部分按日利率0.05%计收罚息，罚息利率为正常利率的2.5倍。逾期超过30天的，贷款人有权宣布贷款提前到期并要求一次性偿还全部本息。借款人提前还款需支付剩余本金3%的违约金。",
+    "style": "通俗版"
+  },
+  "expected_report": {
+    "product_type_id": "loan",
+    "key_parameters": {
+      "expected_return": {
+        "status": "document_fact",
+        "value_contains": ["7.20"]
+      },
+      "principal_protection": {
+        "status": "not_disclosed",
+        "value": null
+      }
+    },
+    "must_match_risk_ids": [
+      "high_penalty_interest",
+      "acceleration_clause",
+      "prepayment_penalty"
+    ],
+    "notes": "正向样例应能稳定命中罚息、加速到期、提前还款违约金；本金保障对贷款不适用/未作为保本承诺披露 → not_disclosed。"
+  }
+}

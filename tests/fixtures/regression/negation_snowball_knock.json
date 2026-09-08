@@ -1,0 +1,16 @@
+{
+  "fixture_id": "negation_snowball_knock",
+  "title": "雪球否定句：不设置敲入或敲出条件",
+  "input": {
+    "raw_text": "本产品不设置敲入或敲出条件"
+  },
+  "expected": {
+    "must_not_classify_product_ids": [
+      "snowball"
+    ],
+    "must_not_match_risk_ids": [
+      "knock_in_loss"
+    ],
+    "notes": "不得仅凭「敲入/敲出」字样识别为雪球产品，也不得据此报敲入亏损风险。"
+  }
+}
