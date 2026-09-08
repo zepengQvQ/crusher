@@ -18,8 +18,8 @@
 
 | 产品 ID | 中文名 | 演示样例来源 | 选择理由 |
 |---|---|---|---|
-| `structured_deposit` | 结构性存款 | `data/examples.json` 汇率挂钩样例；`tests/case_structured_deposit.json` | 现有用例与参数字段最完整，演示路径清晰 |
-| `loan` | 借贷（消费贷） | `data/examples.json` 借贷合同样例 | 条款要素明确（利率/罚息/违约金），适合展示风险发现与否定句回归 |
+| `structured_deposit` | 结构性存款 | `data/demo-样例条款.json` 汇率挂钩样例；`tests/样例-结构性存款.json` | 现有用例与参数字段最完整，演示路径清晰 |
+| `loan` | 借贷（消费贷） | `data/demo-样例条款.json` 借贷合同样例 | 条款要素明确（利率/罚息/违约金），适合展示风险发现与否定句回归 |
 
 其它知识库条目（雪球 / 保险 / 基金）**仅用于规则回归与误报防护**，不作为首版 Demo「已支持产品」对外宣称。
 
@@ -47,7 +47,7 @@
 | `POST` | `/api/v1/analyses` | 提交文本分析，立即返回 `task_id` |
 | `GET` | `/api/v1/analyses/{task_id}` | 查询任务与阶段结果 / 最终报告 |
 
-字段名与枚举以 `docs/api/*.example.json` 为准；后续 Pydantic / OpenAPI / H5 类型必须对齐，不允许各写一套。
+字段名以 `docs/api/` 下的示例 JSON 为准；后端、接口说明书、前端类型必须对齐，不允许各写一套。
 
 ---
 
@@ -77,22 +77,34 @@
 3. **失败态（必演）**  
    使用 mock：模型超时或非法 JSON → 页面必须显示「模型调用失败 / 返回格式错误」，**禁止**绿色「未发现风险」。
 4. **否定句防误报（可选，验收用）**  
-   跑 `tests/fixtures/regression/` 四组样例；P0-05 修复规则后应全部通过。
+   跑 `tests/fixtures/regression/` 四组样例；P0-05 起应由 `RuleEngine` 全部通过。
+
+### 3.1.1 样例从哪点 / 从哪拷
+
+| 场景 | 怎么用 |
+|------|--------|
+| 结构性存款 | H5「结构性存款」按钮；或 `data/demo-样例条款.json` 第 1 条 |
+| 消费贷（风险） | H5「消费贷」；或 `data/demo-样例条款.json` 第 5 条 |
+| 安全文本（零风险） | H5「安全文本（零风险）」 |
+| 否定句（不收违约金） | `tests/fixtures/golden/loan_negation.json` |
+| 失败演示 | H5「模拟模型超时」；或 `tests/fixtures/demo/mock_smoke_pack.json` |
+
+默认 `MOCK_MODE=true`，不需要真实 API Key。
 
 ### 3.2 字段语义：原文未披露
 
-| 旧写法（禁止当金标） | 冻结后写法 |
+| 旧写法（禁止当「标准答案」） | 冻结后写法 |
 |---|---|
-| `原文未说明` / `未知` / 空字符串当「没有」 | `not_disclosed` |
-| 「通常保本，但需以合同为准」等行业常识填入当前材料字段 | 当前材料字段保持 `not_disclosed`；常识如需展示必须标记为 `general_reference`，不得自动写入 `document_fact` |
+| `原文未说明` / `未知` / 空字符串当「没有」 | `not_disclosed`（原文没写） |
+| 「通常保本，但需以合同为准」等行业常识填入当前材料字段 | 当前材料字段保持 `not_disclosed`；常识如需展示必须标记为 `general_reference`（仅参考），不得当成当前合同事实 |
 
-金标与样例：`tests/fixtures/golden/`、`tests/expected_output_sample.json`。
+标准答案与样例：`tests/fixtures/golden/`、`tests/对照-期望输出样例.json`。
 
 ---
 
-## 4. 回归样本索引（输入与期望只改 fixture，不改断言语义）
+## 4. 防回退样例索引（只改样例文件里的输入/期望，不要改「测什么」本身）
 
-| Fixture | 正确结果（冻结） |
+| 样例文件 | 正确结果（冻结） |
 |---|---|
 | `tests/fixtures/regression/negation_fund_principal_fee.json` | 不得命中「本金不保证」「高额管理费」 |
 | `tests/fixtures/regression/negation_loan_prepayment.json` | 不得报告「存在提前还款违约金」 |
@@ -101,8 +113,8 @@
 | `tests/fixtures/regression/error_model_timeout.json` | 任务/阶段为失败，findings 不得被解释为「无风险」 |
 | `tests/fixtures/regression/error_illegal_json.json` | 同上，错误码为返回格式错误 |
 
-黑盒测试：`tests/p0_01/`。  
-**说明：P0-05 起否定句与数值规则由 `RuleEngine` 复核；四组 `negation_*.json` 应全部通过。**
+直接打接口的测试：`tests/p0_01/`。  
+**说明：P0-05 起否定句与数值规则由规则引擎再核对；四组 `negation_*.json` 应全部通过。**
 
 ---
 

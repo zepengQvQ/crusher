@@ -1,4 +1,4 @@
-/** Demo 示例（与 data/examples.json 对齐的脱敏片段）。 */
+/** Demo 示例（与 data/demo-样例条款.json 对齐的脱敏片段）。 */
 export const EXAMPLES = [
   {
     id: 'structured_deposit',

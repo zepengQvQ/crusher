@@ -9,8 +9,8 @@ demo:
 	@echo "3) 终端2: cd frontend-h5 && npm run dev"
 	@echo "4) 打开 http://localhost:5173 点示例分析；可用「模拟模型超时」看错误页"
 	@echo "5) make test"
-	@echo "样例说明: docs/demo-samples.md"
-	@echo "HTTP 示例: docs/http/analyze.http"
+	@echo "样例说明: docs/demo-支持范围与样例.md"
+	@echo "HTTP 示例: docs/http/示例-分析接口.http"
 
 install: setup
 

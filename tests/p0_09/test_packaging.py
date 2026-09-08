@@ -30,7 +30,7 @@ class PackagingContractTests(unittest.TestCase):
         self.assertTrue(launch.is_file())
         text = launch.read_text(encoding="utf-8")
         self.assertIn("Crusher API", text)
-        http = ROOT / "docs" / "http" / "analyze.http"
+        http = ROOT / "docs" / "http" / "示例-分析接口.http"
         self.assertTrue(http.is_file())
         self.assertIn("/api/v1/analyses", http.read_text(encoding="utf-8"))
 
@@ -41,10 +41,37 @@ class PackagingContractTests(unittest.TestCase):
             "MOCK_MODE",
             "make test",
             "scripts/dev.sh",
-            "java-python-map",
+            "docs/project.md",
+            "project.md",
             "不用 Docker",
         ):
             self.assertIn(needle, readme)
+
+    def test_docs_hub_and_project_md_convention(self):
+        hub = (ROOT / "docs" / "project.md").read_text(encoding="utf-8")
+        self.assertIn("文档怎么找", hub)
+        self.assertIn("开发地图-代码与请求链路.md", hub)
+        self.assertIn("demo-支持范围与样例.md", hub)
+        self.assertIn("agent-改代码约定.md", hub)
+        self.assertIn("整改实施清单.md", hub)
+        self.assertTrue((ROOT / "docs" / "开发地图-代码与请求链路.md").is_file())
+        self.assertTrue((ROOT / "docs" / "demo-支持范围与样例.md").is_file())
+        self.assertFalse((ROOT / "docs" / "demo-samples.md").exists())
+        self.assertFalse((ROOT / "docs" / "java-python-map.md").exists())
+        self.assertFalse((ROOT / "docs" / "README.md").exists())
+        self.assertFalse((ROOT / "docs" / "cursor.md").exists())
+        for rel in (
+            "backend-python/project.md",
+            "frontend-h5/project.md",
+            "tests/project.md",
+            "knowledge/project.md",
+            "data/demo-样例条款.json",
+            "docs/api/示例-创建分析请求.json",
+            "docs/http/示例-分析接口.http",
+            "tests/对照-期望输出样例.json",
+            "tests/样例-结构性存款.json",
+        ):
+            self.assertTrue((ROOT / rel).is_file(), rel)
 
     def test_backend_app_has_no_sys_path_mutation(self):
         app_root = ROOT / "backend-python" / "app"
@@ -61,10 +88,10 @@ class PackagingContractTests(unittest.TestCase):
         src = (ROOT / "scripts" / "export_openapi.py").read_text(encoding="utf-8")
         self.assertNotIn("sys.path.insert", src)
 
-    def test_demo_samples_doc_exists(self):
-        doc = ROOT / "docs" / "demo-samples.md"
-        self.assertTrue(doc.is_file())
-        self.assertIn("mock_smoke_pack", doc.read_text(encoding="utf-8"))
+    def test_demo_scope_lists_samples(self):
+        doc = (ROOT / "docs" / "demo-支持范围与样例.md").read_text(encoding="utf-8")
+        self.assertIn("样例从哪点", doc)
+        self.assertIn("mock_smoke_pack", doc)
 
 
 if __name__ == "__main__":

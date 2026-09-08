@@ -25,7 +25,7 @@ r3 = LLMClient.extract_mermaid(test3)
 assert "flowchart TD" in r3 and "A-->B" in r3
 print("Mermaid extract: OK")
 
-with open(_ROOT / "data" / "examples.json", "r", encoding="utf-8") as f:
+with open(_ROOT / "data" / "demo-样例条款.json", "r", encoding="utf-8") as f:
     examples = json.load(f)
 assert len(examples) == 5
 print(f"Examples loaded: {len(examples)} cases OK")

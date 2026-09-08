@@ -141,7 +141,7 @@ with st.sidebar:
 # ============================================================
 # 加载示例条款
 # ============================================================
-EXAMPLES_PATH = os.path.join(_PROJECT_ROOT, "data", "examples.json")
+EXAMPLES_PATH = os.path.join(_PROJECT_ROOT, "data", "demo-样例条款.json")
 
 @st.cache_data
 def load_examples():

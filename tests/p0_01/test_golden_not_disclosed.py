@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 GOLDEN_DIR = PROJECT_ROOT / "tests" / "fixtures" / "golden"
-LEGACY_SAMPLE = PROJECT_ROOT / "tests" / "expected_output_sample.json"
+LEGACY_SAMPLE = PROJECT_ROOT / "tests" / "对照-期望输出样例.json"
 
 
 class GoldenNotDisclosedTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class GoldenNotDisclosedTests(unittest.TestCase):
             self.assertNotIn("原文未说明", str(value))
 
     def test_case_structured_deposit_does_not_require_invented_principal(self):
-        case_path = PROJECT_ROOT / "tests" / "case_structured_deposit.json"
+        case_path = PROJECT_ROOT / "tests" / "样例-结构性存款.json"
         with case_path.open(encoding="utf-8") as f:
             case = json.load(f)
         expected = case["expected_translation"]

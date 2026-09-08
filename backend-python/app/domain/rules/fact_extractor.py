@@ -167,7 +167,7 @@ class FactExtractor:
         refs: list[GeneralReference] = [
             GeneralReference(
                 text="行业常识仅供参考，不能自动填入当前材料未披露字段。",
-                source="docs/demo-scope.md",
+                source="docs/demo-支持范围与样例.md",
             )
         ]
         if not product_type_id:
