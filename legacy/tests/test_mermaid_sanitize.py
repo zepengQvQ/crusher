@@ -1,10 +1,10 @@
 """
-验证 Mermaid 清洗函数能处理雪球产品等复杂场景
+验证 Mermaid 清洗函数（legacy 对照，Demo 主链路已不用 Mermaid）。
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "legacy"))
 
 from backend.flowchart import FlowchartGenerator
 

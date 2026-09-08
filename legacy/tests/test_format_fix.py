@@ -1,8 +1,8 @@
-"""验证阶段二提示词的 .replace() 修复"""
-import sys
+"""验证阶段二提示词的 .replace() 修复（legacy 对照）。"""
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "legacy"))
 
 from backend.prompts import STAGE2_USER_PROMPT
 

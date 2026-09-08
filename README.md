@@ -101,9 +101,12 @@ make test-api       # 仅接口测试
 | 任务突然找不到 | 内存任务，**重启 API 会丢**；重新点分析 |
 | 想关 Mock | `.env` 设 `MOCK_MODE=false` 并填真实 `LLM_API_KEY`（后续可接真模型） |
 
-## 整改清单
+## 文档
 
-[`docs/金融话术粉碎机-整改实施清单.md`](docs/金融话术粉碎机-整改实施清单.md)
+- 整改清单：[`docs/金融话术粉碎机-整改实施清单.md`](docs/金融话术粉碎机-整改实施清单.md)
+- Cursor 执行约束：[`docs/cursor.md`](docs/cursor.md)
+- Demo 范围：[`docs/demo-scope.md`](docs/demo-scope.md)
+- 演示样例：[`docs/demo-samples.md`](docs/demo-samples.md)
 
 ## 免责声明
 

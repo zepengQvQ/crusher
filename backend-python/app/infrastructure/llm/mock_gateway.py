@@ -1,4 +1,4 @@
-"""Mock LLM 网关（P0-02 不发起真实模型请求）。"""
+"""Mock LLM 网关（默认演示模式不发起真实模型请求）。"""
 
 
 class MockLlmGateway:

@@ -5,7 +5,7 @@ P0-01 错误语义黑盒测试。
 当前 risk_analyzer 在异常时直接返回 []，且页面可能显示安全文案 —— 本测试钉住正确契约。
 
 运行：
-  python -m unittest tests.p0_01.test_error_semantics -v
+  cd legacy && PYTHONPATH=.:../backend-python python -m unittest tests.test_error_semantics -v
 """
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "legacy"))
 
 from backend.llm_client import LLMClient  # noqa: E402

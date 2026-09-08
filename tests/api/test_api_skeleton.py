@@ -1,4 +1,4 @@
-"""P0-02：FastAPI 骨架冒烟（不依赖真实模型）。"""
+"""API 冒烟：创建任务并轮询到完成（不依赖真实模型）。"""
 from __future__ import annotations
 
 import sys

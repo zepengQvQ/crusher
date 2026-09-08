@@ -1,20 +1,18 @@
 """
-术语粉碎机 - 测试用例运行脚本
+术语粉碎机 - legacy 测试用例运行脚本（对照用，不进 make test）
 
 用法：
-  python tests/run_test.py                  # 运行所有测试用例（需要API Key）
-  python tests/run_test.py --offline        # 仅运行离线逻辑验证（无需API Key）
-  python tests/run_test.py --case case_id   # 运行指定用例
+  python legacy/tests/run_test.py --offline
 """
 import argparse
 import json
 import os
 import sys
 
-# 将项目根目录加入 path
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "legacy"))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_LEGACY = os.path.dirname(_HERE)
+PROJECT_ROOT = os.path.dirname(_LEGACY)
+sys.path.insert(0, _LEGACY)
 
 from backend.config import load_config
 from backend.flowchart import FlowchartGenerator
