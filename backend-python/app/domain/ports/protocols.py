@@ -3,6 +3,7 @@
 Java 对照：interface。Domain/Application 只依赖这些抽象。
 """
 from typing import Optional, Protocol
+import re
 
 from app.domain.models.task import AnalysisTask
 
@@ -21,14 +22,23 @@ class TaskStore(Protocol):
 
 
 class KnowledgeRepository(Protocol):
-    """知识库查询端口。P0-02 仅占位，内部主链路不走 MCP。"""
+    """知识库查询端口。主链路直接调用，不走 MCP。"""
 
     def ping(self) -> bool:
         ...
 
+    def list_products(self) -> list[dict]:
+        ...
+
+    def list_risk_patterns(self) -> list[dict]:
+        ...
+
+    def get_compiled_regex(self, pattern: str) -> re.Pattern[str]:
+        ...
+
 
 class LlmGateway(Protocol):
-    """大模型网关端口。P0-02 骨架使用 Mock，不真实调用。"""
+    """大模型网关端口。Demo 可用 Mock；确定性规则不经过此端口。"""
 
     async def complete(self, prompt: str) -> str:
         ...

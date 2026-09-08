@@ -1,7 +1,11 @@
-"""分析文本用例（P0-04：强类型报告）。"""
+"""分析文本用例（P0-05：规则复核接入）。
+
+模型只做通俗解释占位；产品识别与风险命中由 RuleEngine 确定性完成。
+"""
 from __future__ import annotations
 
 import asyncio
+import json
 
 from app.config.settings import Settings
 from app.domain.models import (
@@ -9,7 +13,10 @@ from app.domain.models import (
     AnalysisTask,
     AnalyzeTextRequest,
     DemoErrorKind,
+    Evidence,
     FactStatus,
+    Finding,
+    FindingSeverity,
     GeneralReference,
     KeyParameter,
     MissingDisclosure,
@@ -20,9 +27,18 @@ from app.domain.models import (
     ProductTypeId,
     StageInfo,
 )
+from app.domain.models.enums import EvidenceSource
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
+from app.domain.rules.engine import RuleEngine, RiskHit
+from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
+
+_SEVERITY = {
+    "高": FindingSeverity.high,
+    "中": FindingSeverity.mid,
+    "低": FindingSeverity.low,
+}
 
 
 class AnalyzeTextUseCase:
@@ -37,6 +53,7 @@ class AnalyzeTextUseCase:
         self._knowledge = knowledge_repository
         self._llm = llm_gateway
         self._settings = settings
+        self._rules = RuleEngine(knowledge_repository)
 
     def submit(self, request: AnalyzeTextRequest) -> AnalysisTask:
         preview = request.text.strip().replace("\n", " ")[:80]
@@ -85,16 +102,44 @@ class AnalyzeTextUseCase:
                 await self._fail(task_id, "classify", ErrorCode.KNOWLEDGE_UNAVAILABLE)
                 return
 
-            await self._mark_stage(task_id, "classify", StageStatus.success, "分类完成（演示）")
+            products = self._rules.detect_products(request.text)
+            if products:
+                top = products[0]
+                classify_msg = f"识别到 {len(products)} 个候选，首选 {top.product_name}"
+            else:
+                classify_msg = "未达置信度阈值，产品类型为 unknown"
+            await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
+
             await self._mark_stage(task_id, "extract", StageStatus.success, "抽取完成（演示）")
-            await self._mark_stage(task_id, "rule_review", StageStatus.success, "规则复核完成（演示）")
-            await self._llm.complete(f"[len={len(request.text)}]")
+
+            risk_hits = self._collect_risks(request.text, products)
+
+            await self._mark_stage(
+                task_id,
+                "rule_review",
+                StageStatus.success,
+                f"规则复核完成：{len(risk_hits)} 条发现（允许为 0）",
+            )
+
+            # 模型只接收规则结果做解释；不得要求凑数量
+            prompt = (
+                RULE_REVIEW_SYSTEM
+                + "\n\n"
+                + FINDINGS_USER_TEMPLATE.format(
+                    raw_text=request.text[:2000],
+                    rule_findings_json=json.dumps(
+                        [{"id": h.pattern_id, "name": h.name} for h in risk_hits],
+                        ensure_ascii=False,
+                    ),
+                )
+            )
+            await self._llm.complete(prompt)
             await self._mark_stage(task_id, "explain", StageStatus.success, "解释完成（演示）")
 
             task = self._tasks.get(task_id)
             if task is None:
                 return
-            task.report = self._build_mock_report()
+            task.report = self._build_report(request.text, products, risk_hits)
             task.task_status = TaskStatus.completed
             task.error_code = None
             task.error_message = None
@@ -141,25 +186,81 @@ class AnalyzeTextUseCase:
         self._tasks.save(task)
         log_task("task_failed", task_id, error_code=code.value)
 
-    def _build_mock_report(self) -> AnalysisReport:
-        return AnalysisReport(
-            product_candidates=[
+    def _collect_risks(self, text: str, products) -> list[RiskHit]:
+        """按候选产品过滤规则；无候选时全量匹配。"""
+        if not products:
+            return self._rules.match_risks(text, product_type=None)
+        merged: list[RiskHit] = []
+        seen: set[str] = set()
+        for product in products:
+            for hit in self._rules.match_risks(text, product_type=product.product_id):
+                if hit.pattern_id in seen:
+                    continue
+                seen.add(hit.pattern_id)
+                merged.append(hit)
+        return merged
+
+    def _build_report(self, _text: str, products, risk_hits: list[RiskHit]) -> AnalysisReport:
+        candidates: list[ProductCandidate] = []
+        for p in products:
+            try:
+                pid = ProductTypeId(p.product_id)
+            except ValueError:
+                pid = ProductTypeId.unknown
+            candidates.append(
                 ProductCandidate(
-                    product_type_id=ProductTypeId.structured_deposit,
-                    product_type_name="结构性存款",
-                    confidence=0.5,
-                    evidence_quotes=["（演示数据）"],
+                    product_type_id=pid,
+                    product_type_name=p.product_name,
+                    confidence=p.confidence,
+                    evidence_quotes=list(p.evidence_quotes),
                 )
-            ],
+            )
+        if not candidates:
+            candidates = [
+                ProductCandidate(
+                    product_type_id=ProductTypeId.unknown,
+                    product_type_name="未识别",
+                    confidence=0.0,
+                    evidence_quotes=[],
+                )
+            ]
+
+        findings: list[Finding] = []
+        for hit in risk_hits:
+            findings.append(
+                Finding(
+                    id=hit.pattern_id,
+                    title=hit.name,
+                    finding_severity=_SEVERITY.get(hit.risk_level, FindingSeverity.mid),
+                    explanation=hit.explanation,
+                    evidence=[
+                        Evidence(
+                            quote=hit.quote,
+                            start=hit.start,
+                            end=hit.end,
+                            source=EvidenceSource.input_text,
+                        )
+                    ],
+                    rule_or_knowledge_id=hit.pattern_id,
+                    confidence=hit.confidence,
+                    needs_review=False,
+                )
+            )
+
+        plain = (
+            f"程序规则命中 {len(findings)} 条风险（允许为 0，未凑数）。"
+            if findings
+            else "未命中已知风险模式；安全文本允许零发现，未为版面凑数。"
+        )
+
+        return AnalysisReport(
+            product_candidates=candidates,
             product_risk_grade=ProductRiskGrade(
                 value=None,
                 status=FactStatus.not_disclosed,
                 note="原文未明确风险等级",
             ),
-            plain_language=PlainLanguage(
-                text="这是演示结果：真实分析会在后续步骤接入。",
-                status=StageStatus.success,
-            ),
+            plain_language=PlainLanguage(text=plain, status=StageStatus.success),
             key_parameters=[
                 KeyParameter(
                     key=ParameterKey.term,
@@ -180,7 +281,7 @@ class AnalyzeTextUseCase:
                     status=FactStatus.not_disclosed,
                 ),
             ],
-            findings=[],  # 允许 0 条；成功空 findings ≠ 失败
+            findings=findings,
             missing_disclosures=[
                 MissingDisclosure(
                     key=ParameterKey.principal_protection,
@@ -193,6 +294,6 @@ class AnalyzeTextUseCase:
                     source="docs/demo-scope.md",
                 )
             ],
-            pending_questions=["是否支持提前赎回？"],
+            pending_questions=["是否支持提前赎回？"] if not findings else [],
             disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
         )

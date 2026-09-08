@@ -1,1 +1,5 @@
-# P0-02：规则引擎占位。真实否定/数值规则在 P0-05 实现。
+"""领域规则包（P0-05）：否定句、数值条件、产品多候选识别。"""
+
+from app.domain.rules.engine import RuleEngine, ProductHit, RiskHit
+
+__all__ = ["RuleEngine", "ProductHit", "RiskHit"]

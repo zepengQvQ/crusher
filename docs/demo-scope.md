@@ -102,7 +102,7 @@
 | `tests/fixtures/regression/error_illegal_json.json` | 同上，错误码为返回格式错误 |
 
 黑盒测试：`tests/p0_01/`。  
-**说明：P0-05 修复规则与错误语义前，否定句与部分错误语义测试预期失败（用于钉住缺陷）；P0-01 验收看文档与 fixture 是否冻结，不要求这些用例已绿。**
+**说明：P0-05 起否定句与数值规则由 `RuleEngine` 复核；四组 `negation_*.json` 应全部通过。**
 
 ---
 
