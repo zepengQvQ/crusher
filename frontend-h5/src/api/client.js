@@ -8,12 +8,12 @@ const http = axios.create({
 /**
  * 提交分析。
  * @param {string} text
- * @param {{ demoError?: string }} [options]
+ * @param {{ demoError?: string, productHint?: string }} [options]
  */
 export async function createAnalysis(text, options = {}) {
   const payload = {
     text,
-    product_hint: 'auto',
+    product_hint: options.productHint || 'auto',
     locale: 'zh-CN',
   }
   if (options.demoError) {
@@ -34,8 +34,39 @@ export async function healthCheck() {
 }
 
 export function pickErrorMessage(error) {
-  const detail = error?.response?.data?.detail
+  if (!error?.response) {
+    if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'
+    return '网络异常或服务不可达，请检查网络后重试'
+  }
+  const detail = error.response.data?.detail
   if (typeof detail === 'string') return detail
   if (detail?.message) return detail.message
-  return error?.message || '请求失败'
+  return error.message || '请求失败'
+}
+
+export async function copyText(text) {
+  const value = String(text || '')
+  if (!value) return false
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return true
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = value
+    ta.setAttribute('readonly', 'true')
+    ta.style.position = 'fixed'
+    ta.style.left = '-9999px'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
 }

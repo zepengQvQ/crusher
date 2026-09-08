@@ -10,6 +10,8 @@ import {
   Field,
   NavBar,
   NoticeBar,
+  Picker,
+  Popup,
   Skeleton,
   Tag,
   showToast,
@@ -32,9 +34,10 @@ app.use(router)
   Field,
   NavBar,
   NoticeBar,
+  Picker,
+  Popup,
   Skeleton,
   Tag,
 ].forEach((c) => app.use(c))
-
 app.config.globalProperties.$toast = showToast
 app.mount('#app')

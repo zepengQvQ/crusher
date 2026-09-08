@@ -1,10 +1,16 @@
 <template>
   <div class="page">
-    <van-nav-bar title="分析中" left-arrow @click-left="$router.push('/')" />
+    <van-nav-bar title="分析中" left-arrow @click-left="goHome" />
     <div class="block">
       <p class="meta">任务编号：{{ taskId }}</p>
       <p class="meta">任务状态：{{ statusLabel }}</p>
-      <van-skeleton title :row="3" :loading="!stages.length" />
+      <p class="meta">已用时：{{ elapsedLabel }}</p>
+      <van-notice-bar
+        v-if="slow"
+        left-icon="clock-o"
+        text="慢请求：分析仍在进行，请稍候…"
+      />
+      <van-skeleton title :row="3" :loading="!stages.length && !failed && !offline" />
       <van-cell-group v-if="stages.length" inset>
         <van-cell
           v-for="s in stages"
@@ -14,15 +20,27 @@
           :value="stageStatusText(s.status)"
         />
       </van-cell-group>
+      <van-empty v-if="offline" description="网络异常，无法轮询任务状态" />
       <van-button
-        v-if="failed"
+        v-if="failed || offline"
         block
         type="danger"
         round
+        class="touch-btn"
         style="margin-top: 16px"
         @click="goError"
       >
         查看失败原因
+      </van-button>
+      <van-button
+        block
+        round
+        plain
+        class="touch-btn"
+        style="margin-top: 10px"
+        @click="retry"
+      >
+        重试（保留输入）
       </van-button>
     </div>
   </div>
@@ -44,9 +62,15 @@ const taskStatus = ref('queued')
 const stages = ref([])
 const errorMessage = ref('')
 const errorCode = ref('')
+const elapsed = ref(0)
+const offline = ref(false)
 let timer = null
+let tickTimer = null
+let startedAt = Date.now()
 
 const failed = computed(() => taskStatus.value === 'failed')
+const slow = computed(() => elapsed.value >= 8 && taskStatus.value === 'running')
+const elapsedLabel = computed(() => `${elapsed.value} 秒`)
 const statusLabel = computed(() => {
   const map = {
     queued: '排队中',
@@ -79,21 +103,29 @@ function stageStatusText(status) {
   return map[status] || status
 }
 
+function goHome() {
+  router.push('/')
+}
+
 function goError() {
   store.setError(errorMessage.value || '分析失败', errorCode.value)
   router.replace({ name: 'error' })
 }
 
+function retry() {
+  router.replace({ name: 'input' })
+}
+
 async function poll() {
   try {
     const data = await getAnalysis(props.taskId)
+    offline.value = false
     taskStatus.value = data.task_status
     stages.value = data.stages || []
     store.setTask(props.taskId, data.task_status, data.stages || [])
 
     if (data.task_status === 'completed') {
       clearInterval(timer)
-      // 失败标志时绝不进报告页
       if (data.is_failure) {
         errorMessage.value = data.error_message || '分析失败'
         errorCode.value = data.error_code || ''
@@ -109,21 +141,29 @@ async function poll() {
     }
   } catch (e) {
     clearInterval(timer)
+    offline.value = true
     const msg = pickErrorMessage(e)
     const code = e?.response?.data?.detail?.error_code || ''
+    errorMessage.value = msg
+    errorCode.value = code
     store.setError(msg, code)
-    router.replace({ name: 'error' })
   }
 }
 
 onMounted(() => {
+  store.restoreFromStorage()
   store.setTask(props.taskId, 'queued')
+  startedAt = Date.now()
+  tickTimer = setInterval(() => {
+    elapsed.value = Math.floor((Date.now() - startedAt) / 1000)
+  }, 500)
   poll()
   timer = setInterval(poll, 800)
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (tickTimer) clearInterval(tickTimer)
 })
 </script>
 
@@ -132,5 +172,8 @@ onUnmounted(() => {
   margin: 0 0 8px;
   font-size: 13px;
   color: #6b7280;
+}
+.touch-btn {
+  min-height: 44px;
 }
 </style>

@@ -1,4 +1,4 @@
-.PHONY: dev-api dev-h5 test-api test-p0-01 test-p0-05 test-p0-06 lint install
+.PHONY: dev-api dev-h5 test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 lint install
 
 install:
 	cd backend-python && pip install -e ".[dev]"
@@ -25,6 +25,9 @@ test-p0-05:
 
 test-p0-06:
 	backend-python/.venv/bin/python -m unittest discover -s tests/p0_06 -v
+
+test-p0-07:
+	backend-python/.venv/bin/python -m unittest discover -s tests/p0_07 -v
 
 lint:
 	cd backend-python && ruff check app && pyright app || true

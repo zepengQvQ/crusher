@@ -22,17 +22,26 @@
     color: var(--crusher-ink);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
       'Microsoft YaHei', sans-serif;
+    overflow-x: hidden;
   }
   .page {
     max-width: 480px;
+    width: 100%;
     margin: 0 auto;
     min-height: 100vh;
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
   .block {
     margin: 12px;
     padding: 14px;
     background: #fff;
     border-radius: 10px;
+  }
+  button,
+  .van-button,
+  .touch-btn {
+    min-height: 44px;
   }
 </style>

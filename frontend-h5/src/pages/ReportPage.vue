@@ -1,17 +1,14 @@
 <template>
   <div class="page">
     <van-nav-bar title="分析报告" left-arrow @click-left="$router.push('/')" />
-    <van-notice-bar
-      left-icon="info-o"
-      :text="DISCLAIMER"
-    />
+    <van-notice-bar left-icon="info-o" :text="DISCLAIMER" />
     <div v-if="loading" class="block">
       <van-skeleton title :row="6" />
     </div>
     <template v-else-if="report">
       <div class="block">
-        <h3>通俗解释</h3>
-        <p>{{ report.plain_language?.text || '暂无通俗解释' }}</p>
+        <h3>一句结论</h3>
+        <p class="conclusion">{{ conclusion }}</p>
         <van-tag type="primary">{{ productName }}</van-tag>
         <p class="meta">
           产品风险评级：{{ productGradeText }}
@@ -19,6 +16,7 @@
           字段来源：{{ report.product_risk_grade?.status || '-' }}
         </p>
       </div>
+
       <div class="block">
         <h3>关键参数</h3>
         <van-cell
@@ -28,6 +26,7 @@
           :value="formatParam(p)"
         />
       </div>
+
       <div class="block">
         <h3>风险发现</h3>
         <van-empty
@@ -50,12 +49,37 @@
               <div class="evidence-label">原文证据</div>
               <blockquote>{{ ev.quote }}</blockquote>
               <p class="evidence-meta">位置 {{ ev.start }}–{{ ev.end }}</p>
+              <van-button
+                size="small"
+                plain
+                class="touch-btn"
+                @click="onCopy(ev.quote)"
+              >
+                复制证据
+              </van-button>
             </div>
           </van-collapse-item>
         </van-collapse>
       </div>
+
       <div class="block">
-        <h3>缺失披露 / 待确认</h3>
+        <h3>通俗解释</h3>
+        <p>{{ report.plain_language?.text || '暂无通俗解释' }}</p>
+      </div>
+
+      <div class="block">
+        <div class="row-between">
+          <h3>原文折叠</h3>
+          <van-button size="small" plain class="touch-btn" @click="sourceExpanded = !sourceExpanded">
+            {{ sourceExpanded ? '收起' : '展开' }}
+          </van-button>
+        </div>
+        <p class="source" :class="{ clamped: !sourceExpanded }">{{ sourceText }}</p>
+        <van-button block plain class="touch-btn" @click="onCopy(sourceText)">复制原文</van-button>
+      </div>
+
+      <div class="block">
+        <h3>待确认问题</h3>
         <van-cell
           v-for="(m, idx) in report.missing_disclosures || []"
           :key="'m' + idx"
@@ -66,12 +90,32 @@
           :key="'q' + idx"
           :title="q"
         />
+        <van-empty
+          v-if="!(report.missing_disclosures || []).length && !(report.pending_questions || []).length"
+          description="暂无待确认项"
+        />
       </div>
+
+      <div v-if="(report.general_references || []).length" class="block">
+        <h3>行业参考（非本材料事实）</h3>
+        <van-cell
+          v-for="(r, idx) in report.general_references"
+          :key="'r' + idx"
+          :title="r.text"
+          :label="r.source"
+        />
+      </div>
+
       <p class="disclaimer">{{ report.disclaimer || DISCLAIMER }}</p>
+      <div class="block">
+        <van-button block type="primary" round class="touch-btn" @click="$router.push('/')">
+          再分析一段
+        </van-button>
+      </div>
     </template>
     <div v-else class="block">
       <van-empty description="报告不存在" />
-      <van-button block type="primary" @click="$router.push('/')">返回重试</van-button>
+      <van-button block type="primary" class="touch-btn" @click="$router.push('/')">返回重试</van-button>
     </div>
   </div>
 </template>
@@ -79,7 +123,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAnalysis } from '../api/client'
+import { showToast } from 'vant'
+import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
 import { useTaskStore } from '../stores/task'
 
@@ -92,6 +137,8 @@ const store = useTaskStore()
 const loading = ref(true)
 const report = ref(null)
 const activeFindings = ref([])
+const sourceExpanded = ref(false)
+const sourceText = ref('')
 
 const productName = computed(
   () => report.value?.product_candidates?.[0]?.product_type_name || '未知产品',
@@ -99,8 +146,16 @@ const productName = computed(
 
 const productGradeText = computed(() => {
   const g = report.value?.product_risk_grade
-  if (!g || g.status === 'not_disclosed' || !g.value) return '未披露'
+  if (!g || g.status === 'not_disclosed' || !g.value) return '材料未说明'
   return g.value
+})
+
+const conclusion = computed(() => {
+  const findings = report.value?.findings || []
+  if (!findings.length) {
+    return '本次未命中已知风险模式（成功空结果，不是失败）。'
+  }
+  return `共发现 ${findings.length} 条风险，请展开查看原文证据。`
 })
 
 function formatParam(p) {
@@ -112,11 +167,24 @@ function formatParam(p) {
 function findingTitle(f) {
   const sev = f.finding_severity
   const label =
-    sev === FindingSeverity.high ? '高' : sev === FindingSeverity.mid ? '中' : sev === FindingSeverity.low ? '低' : sev
+    sev === FindingSeverity.high
+      ? '高'
+      : sev === FindingSeverity.mid
+        ? '中'
+        : sev === FindingSeverity.low
+          ? '低'
+          : sev
   return `${f.title || '发现'}（严重度:${label}）`
 }
 
+async function onCopy(text) {
+  const ok = await copyText(text)
+  showToast(ok ? '已复制' : '复制失败')
+}
+
 onMounted(async () => {
+  store.restoreFromStorage()
+  sourceText.value = store.draftText || ''
   try {
     const data = await getAnalysis(props.taskId)
     if (data.task_status === 'failed' || data.is_failure) {
@@ -125,6 +193,9 @@ onMounted(async () => {
       return
     }
     report.value = data.report
+    if (!sourceText.value && data.input_text_preview) {
+      sourceText.value = data.input_text_preview
+    }
   } catch (e) {
     store.setError(e?.response?.data?.detail?.message || e.message || '加载报告失败')
     router.replace({ name: 'error' })
@@ -138,6 +209,12 @@ onMounted(async () => {
 h3 {
   margin: 0 0 10px;
   font-size: 16px;
+}
+.conclusion {
+  margin: 0 0 10px;
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 600;
 }
 .meta {
   margin: 8px 0 0;
@@ -158,6 +235,7 @@ h3 {
   font-size: 14px;
   line-height: 1.5;
   color: #374151;
+  white-space: pre-wrap;
 }
 .evidence {
   margin-top: 8px;
@@ -171,14 +249,37 @@ h3 {
   margin-bottom: 4px;
 }
 .evidence blockquote {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 14px;
   line-height: 1.5;
   color: #111827;
+  white-space: pre-wrap;
 }
 .evidence-meta {
-  margin: 6px 0 0;
+  margin: 0 0 8px;
   font-size: 12px;
   color: #9ca3af;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.source {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.source.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.touch-btn {
+  min-height: 44px;
 }
 </style>

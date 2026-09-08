@@ -3,9 +3,26 @@
     <van-nav-bar title="金融话术粉碎机" />
     <van-notice-bar
       left-icon="info-o"
-      text="密钥只在本机 Python 程序的 .env 里配置；网页不能填 Key。重启服务后旧任务会丢失。"
+      text="密钥只在本机 .env；网页不能填 Key。重启服务后旧任务会丢失。"
     />
     <div class="block">
+      <van-field
+        is-link
+        readonly
+        name="product"
+        label="产品类型"
+        :model-value="productLabel"
+        placeholder="选择产品类型"
+        @click="showProductPicker = true"
+      />
+      <van-popup v-model:show="showProductPicker" position="bottom" round>
+        <van-picker
+          :columns="PRODUCT_OPTIONS"
+          @confirm="onProductConfirm"
+          @cancel="showProductPicker = false"
+        />
+      </van-popup>
+
       <van-field
         v-model="text"
         rows="8"
@@ -14,17 +31,28 @@
         maxlength="8000"
         show-word-limit
         placeholder="粘贴结构性存款或借贷相关条款…"
+        class="touch-field"
       />
       <div class="actions">
-        <van-button size="small" plain type="primary" @click="fillExample">填入示例</van-button>
-        <van-button size="small" plain @click="text = ''">清空</van-button>
+        <van-button
+          v-for="ex in EXAMPLES"
+          :key="ex.id"
+          size="small"
+          plain
+          type="primary"
+          class="touch-btn"
+          @click="fillExample(ex)"
+        >
+          {{ ex.name }}
+        </van-button>
+        <van-button size="small" plain class="touch-btn" @click="text = ''">清空</van-button>
       </div>
       <van-button
         type="primary"
         block
         round
+        class="touch-btn main-btn"
         :loading="loading"
-        style="margin-top: 12px"
         @click="onSubmit()"
       >
         开始分析
@@ -34,18 +62,18 @@
         round
         plain
         type="warning"
+        class="touch-btn"
         :loading="loading"
-        style="margin-top: 10px"
         @click="onSubmit('model_timeout')"
       >
-        演示：模拟模型超时（应显示调用失败）
+        演示：模拟模型超时
       </van-button>
       <van-button
         v-if="lastTaskId"
         block
         round
         plain
-        style="margin-top: 10px"
+        class="touch-btn"
         @click="resumeLast"
       >
         恢复上次任务 {{ lastTaskId }}
@@ -55,27 +83,46 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { createAnalysis, pickErrorMessage } from '../api/client'
+import { EXAMPLES, PRODUCT_OPTIONS } from '../data/examples'
 import { useTaskStore } from '../stores/task'
 
 const router = useRouter()
 const store = useTaskStore()
 const text = ref('')
+const productHint = ref('auto')
 const loading = ref(false)
 const lastTaskId = ref('')
+const showProductPicker = ref(false)
 
-const EXAMPLE =
-  '本产品为结构性存款，期限90天，挂钩美元兑日元汇率。若观察期内汇率始终位于145.00-155.00区间，则到期年化收益率4.80%；若突破区间，则到期年化收益率1.20%。'
-
-onMounted(() => {
-  lastTaskId.value = store.restoreFromStorage() || ''
+const productLabel = computed(() => {
+  const hit = PRODUCT_OPTIONS.find((o) => o.value === productHint.value)
+  return hit?.text || '自动识别'
 })
 
-function fillExample() {
-  text.value = EXAMPLE
+onMounted(() => {
+  store.restoreFromStorage()
+  lastTaskId.value = store.taskId || ''
+  if (store.draftText) text.value = store.draftText
+  if (store.productHint) productHint.value = store.productHint
+})
+
+function onProductConfirm({ selectedOptions }) {
+  const opt = selectedOptions?.[0]
+  if (opt?.value) productHint.value = opt.value
+  showProductPicker.value = false
+}
+
+function fillExample(ex) {
+  text.value = ex.text
+  if (ex.id === 'structured_deposit' || ex.id === 'loan') {
+    productHint.value = ex.id
+  } else {
+    productHint.value = 'auto'
+  }
 }
 
 function resumeLast() {
@@ -89,9 +136,13 @@ async function onSubmit(demoError) {
     showToast('请先粘贴条款文本')
     return
   }
+  store.setDraft(value, productHint.value)
   loading.value = true
   try {
-    const res = await createAnalysis(value, { demoError })
+    const res = await createAnalysis(value, {
+      demoError,
+      productHint: productHint.value,
+    })
     store.setTask(res.task_id, res.task_status)
     lastTaskId.value = res.task_id
     router.push({ name: 'status', params: { taskId: res.task_id } })
@@ -112,5 +163,14 @@ async function onSubmit(demoError) {
   gap: 8px;
   margin-top: 8px;
   flex-wrap: wrap;
+}
+.touch-btn {
+  min-height: 44px;
+}
+.main-btn {
+  margin-top: 12px;
+}
+.touch-field :deep(textarea) {
+  font-size: 16px; /* 避免 iOS 聚焦放大 */
 }
 </style>

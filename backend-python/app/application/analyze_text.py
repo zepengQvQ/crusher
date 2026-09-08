@@ -26,7 +26,7 @@ from app.domain.models import (
 )
 from app.domain.models.enums import EvidenceSource
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
-from app.domain.rules.engine import RuleEngine, RiskHit
+from app.domain.rules.engine import ProductHit, RuleEngine, RiskHit
 from app.domain.rules.evidence import validate_and_fix_findings
 from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
@@ -47,6 +47,14 @@ PIPELINE_STAGES = (
     "evidence_validate",
     "explain",
 )
+
+_VALID_HINTS = {
+    "structured_deposit",
+    "loan",
+    "snowball",
+    "insurance",
+    "fund",
+}
 
 
 class AnalyzeTextUseCase:
@@ -108,7 +116,7 @@ class AnalyzeTextUseCase:
                 await self._fail(task_id, "classify", ErrorCode.KNOWLEDGE_UNAVAILABLE)
                 return
 
-            products = self._rules.detect_products(request.text)
+            products = self._resolve_products(request.text, request.product_hint)
             if products:
                 classify_msg = (
                     f"识别到 {len(products)} 个候选，首选 {products[0].product_name}"
@@ -117,6 +125,8 @@ class AnalyzeTextUseCase:
             else:
                 classify_msg = "未达置信度阈值，产品类型为 unknown"
                 product_type_id = None
+            if request.product_hint and request.product_hint != "auto":
+                classify_msg = f"{classify_msg}（手动指定 {request.product_hint}）"
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
 
             extracted = self._extractor.extract(request.text, product_type_id=product_type_id)
@@ -209,6 +219,30 @@ class AnalyzeTextUseCase:
         task.report = None
         self._tasks.save(task)
         log_task("task_failed", task_id, error_code=code.value)
+
+    def _resolve_products(self, text: str, product_hint: str | None) -> list[ProductHit]:
+        """自动识别；若手动指定合法产品类型则置为首选。"""
+        detected = self._rules.detect_products(text)
+        hint = (product_hint or "auto").strip().lower()
+        if hint in ("", "auto") or hint not in _VALID_HINTS:
+            return detected
+
+        forced: ProductHit | None = None
+        for product in self._knowledge.list_products():
+            if product.get("id") != hint:
+                continue
+            forced = ProductHit(
+                product_id=str(product["id"]),
+                product_name=str(product.get("name") or product["id"]),
+                confidence=1.0,
+                evidence_quotes=[f"手动选择:{hint}"],
+            )
+            break
+        if forced is None:
+            return detected
+
+        rest = [p for p in detected if p.product_id != forced.product_id]
+        return [forced, *rest]
 
     def _collect_risks(self, text: str, products) -> list[RiskHit]:
         if not products:
