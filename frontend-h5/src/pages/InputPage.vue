@@ -61,6 +61,16 @@
         block
         round
         plain
+        class="touch-btn"
+        style="margin-top: 10px"
+        @click="$router.push('/dual')"
+      >
+        销售与材料对照
+      </van-button>
+      <van-button
+        block
+        round
+        plain
         type="warning"
         class="touch-btn"
         :loading="loading"

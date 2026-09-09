@@ -1,4 +1,12 @@
 """领域模型导出。"""
+from app.domain.models.claim_comparison import (
+    Claim,
+    ClaimComparison,
+    DualAnalysisReport,
+    DualAnalysisRequest,
+    EvidenceRef,
+    SourceDocument,
+)
 from app.domain.models.enums import (
     AnalysisScope,
     DemoErrorKind,
@@ -10,6 +18,7 @@ from app.domain.models.enums import (
     ProductTypeId,
 )
 from app.domain.models.llm import LlmExplainRequest, LlmExplanation
+from app.domain.models.p1_enums import ClaimStatus, ClaimSubject, SourceType
 from app.domain.models.report import (
     AnalysisReport,
     AnalysisTask,
@@ -32,13 +41,22 @@ from app.domain.models.report import (
 
 __all__ = [
     "AnalysisScope",
+    "Claim",
+    "ClaimComparison",
+    "ClaimStatus",
+    "ClaimSubject",
     "DemoErrorKind",
+    "DualAnalysisReport",
+    "DualAnalysisRequest",
+    "EvidenceRef",
     "EvidenceSource",
     "FactStatus",
     "FindingSeverity",
     "ParameterKey",
     "ProductHint",
     "ProductTypeId",
+    "SourceDocument",
+    "SourceType",
     "LlmExplainRequest",
     "LlmExplanation",
     "AnalysisReport",

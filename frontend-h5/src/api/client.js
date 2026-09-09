@@ -43,8 +43,13 @@ export async function getAnalysis(taskId) {
   return data
 }
 
-export async function healthCheck() {
-  const { data } = await http.get('/health')
+export async function createDualAnalysis(salesText, officialText, productHint = 'auto') {
+  const { data } = await http.post('/api/v1/dual-analyses', {
+    sales_text: salesText,
+    official_text: officialText,
+    product_hint: productHint || 'auto',
+    locale: 'zh-CN',
+  })
   return data
 }
 

@@ -1,6 +1,7 @@
 """组合根：显式构造依赖。"""
 from functools import lru_cache
 
+from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.config.settings import Settings, get_settings
 from app.domain.llm_errors import LlmConfigError
@@ -45,3 +46,8 @@ def get_analyze_text_use_case() -> AnalyzeTextUseCase:
         llm_gateway=build_llm_gateway(settings),
         settings=settings,
     )
+
+
+@lru_cache
+def get_analyze_dual_sources_use_case() -> AnalyzeDualSourcesUseCase:
+    return AnalyzeDualSourcesUseCase()

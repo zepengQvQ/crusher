@@ -39,6 +39,12 @@ PRIORITY_SCHEMAS = [
     "StageInfo",
     "ApiErrorDetail",
     "ApiErrorResponse",
+    "DualAnalysisRequest",
+    "DualAnalysisReport",
+    "ClaimComparison",
+    "Claim",
+    "SourceDocument",
+    "EvidenceRef",
 ]
 
 

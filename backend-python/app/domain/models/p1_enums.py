@@ -1,0 +1,28 @@
+"""P1 统一枚举：来源类型、对照状态等。"""
+from enum import Enum
+
+
+class SourceType(str, Enum):
+    sales_pitch = "sales_pitch"
+    official_document = "official_document"
+    user_input = "user_input"
+
+
+class ClaimStatus(str, Enum):
+    """销售主张相对正式材料的对照结果。"""
+
+    confirmed = "confirmed"  # 一致
+    not_found = "not_found"  # 正式材料未找到
+    conflict = "conflict"  # 存在冲突
+    conditional = "conditional"  # 正式材料有附加条件
+    uncertain = "uncertain"  # 无法判断
+
+
+class ClaimSubject(str, Enum):
+    """可对照的主张主题。"""
+
+    expected_return = "expected_return"
+    fee = "fee"
+    early_exit = "early_exit"
+    principal_protection = "principal_protection"
+    term = "term"

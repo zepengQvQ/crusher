@@ -12,13 +12,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
+from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
-from app.composition_root import get_analyze_text_use_case, get_task_store
+from app.composition_root import (
+    get_analyze_dual_sources_use_case,
+    get_analyze_text_use_case,
+    get_task_store,
+)
 from app.config.settings import Settings, get_settings
 from app.domain.models import (
     AnalysisReport,
     ApiErrorResponse,
     CreateAnalysisRequest,
+    DualAnalysisReport,
+    DualAnalysisRequest,
     StageInfo,
 )
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
@@ -43,6 +50,9 @@ FORBIDDEN_CLIENT_FIELDS = frozenset(
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 UseCaseDep = Annotated[AnalyzeTextUseCase, Depends(get_analyze_text_use_case)]
+DualUseCaseDep = Annotated[
+    AnalyzeDualSourcesUseCase, Depends(get_analyze_dual_sources_use_case)
+]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
 
@@ -149,7 +159,9 @@ def _is_text_too_long(errors: list[dict[str, object]]) -> bool:
         if typ not in {"string_too_long", "value_error.any_str.max_length"}:
             continue
         loc = err.get("loc") or ()
-        if isinstance(loc, (list, tuple)) and "text" in loc:
+        if isinstance(loc, (list, tuple)) and any(
+            name in loc for name in ("text", "sales_text", "official_text")
+        ):
             return True
     return False
 
@@ -237,3 +249,27 @@ def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
         resolved_product_type=task.resolved_product_type,
         analysis_scope=task.analysis_scope,
     )
+
+
+@router.post(
+    "/api/v1/dual-analyses",
+    response_model=DualAnalysisReport,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "材料不足或超长"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
+def create_dual_analysis(
+    body: DualAnalysisRequest,
+    use_case: DualUseCaseDep,
+) -> DualAnalysisReport:
+    """销售话术 vs 正式材料对照（同步返回，不走任务轮询）。"""
+    if not body.sales_text.strip() or not body.official_text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "VALIDATION_ERROR",
+                "message": "请同时提供销售话术与正式材料，单边为空无法对照",
+            },
+        )
+    return use_case.execute(body)

@@ -123,6 +123,55 @@
           }
         }
       }
+    },
+    "/api/v1/dual-analyses": {
+      "post": {
+        "summary": "Create Dual Analysis",
+        "description": "销售话术 vs 正式材料对照（同步返回，不走任务轮询）。",
+        "operationId": "create_dual_analysis_api_v1_dual_analyses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DualAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DualAnalysisReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "材料不足或超长",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -284,6 +333,150 @@
         "title": "ApiErrorResponse",
         "description": "FastAPI HTTPException / 校验失败统一外层。"
       },
+      "Claim": {
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Claim Id"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/ClaimSubject"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Summary"
+          },
+          "negated": {
+            "type": "boolean",
+            "title": "Negated",
+            "default": false
+          },
+          "numeric_value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Value"
+          },
+          "numeric_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "percent",
+                  "bp",
+                  "months",
+                  "days",
+                  "yuan"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Unit"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceRef"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claim_id",
+          "subject",
+          "summary",
+          "evidence"
+        ],
+        "title": "Claim",
+        "description": "从销售侧抽出的标准化主张。"
+      },
+      "ClaimComparison": {
+        "properties": {
+          "comparison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Comparison Id"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/ClaimSubject"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ClaimStatus"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Summary"
+          },
+          "sales_claim": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Claim"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "official_evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suggested_follow_up": {
+            "type": "string",
+            "title": "Suggested Follow Up",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "comparison_id",
+          "subject",
+          "status",
+          "summary"
+        ],
+        "title": "ClaimComparison",
+        "description": "一张对照卡：销售主张 vs 正式材料。"
+      },
+      "ClaimStatus": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "not_found",
+          "conflict",
+          "conditional",
+          "uncertain"
+        ],
+        "title": "ClaimStatus",
+        "description": "销售主张相对正式材料的对照结果。"
+      },
+      "ClaimSubject": {
+        "type": "string",
+        "enum": [
+          "expected_return",
+          "fee",
+          "early_exit",
+          "principal_protection",
+          "term"
+        ],
+        "title": "ClaimSubject",
+        "description": "可对照的主张主题。"
+      },
       "CreateAnalysisRequest": {
         "properties": {
           "text": {
@@ -350,6 +543,77 @@
         ],
         "title": "DemoErrorKind"
       },
+      "DualAnalysisReport": {
+        "properties": {
+          "sales_source": {
+            "$ref": "#/components/schemas/SourceDocument"
+          },
+          "official_source": {
+            "$ref": "#/components/schemas/SourceDocument"
+          },
+          "comparisons": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimComparison"
+            },
+            "type": "array",
+            "title": "Comparisons"
+          },
+          "pending_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Questions"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "本对照仅比较已提交材料中的表述，不判断合同法律效力，不对销售人员打分。"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sales_source",
+          "official_source"
+        ],
+        "title": "DualAnalysisReport",
+        "description": "双材料对照报告。"
+      },
+      "DualAnalysisRequest": {
+        "properties": {
+          "sales_text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Sales Text"
+          },
+          "official_text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Official Text"
+          },
+          "product_hint": {
+            "$ref": "#/components/schemas/ProductHint",
+            "default": "auto"
+          },
+          "locale": {
+            "type": "string",
+            "const": "zh-CN",
+            "title": "Locale",
+            "default": "zh-CN"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sales_text",
+          "official_text"
+        ],
+        "title": "DualAnalysisRequest",
+        "description": "POST /api/v1/dual-analyses 请求体。"
+      },
       "ErrorCode": {
         "type": "string",
         "enum": [
@@ -398,6 +662,64 @@
           "end"
         ],
         "title": "Evidence"
+      },
+      "EvidenceRef": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "End"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          },
+          "user_corrected": {
+            "type": "boolean",
+            "title": "User Corrected",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "quote",
+          "start",
+          "end"
+        ],
+        "title": "EvidenceRef",
+        "description": "对照用的证据引用（可带页码；纯文本页码为 None）。"
       },
       "EvidenceSource": {
         "type": "string",
@@ -697,6 +1019,52 @@
           "unknown"
         ],
         "title": "ProductTypeId"
+      },
+      "SourceDocument": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/SourceType"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Pages",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_type",
+          "name",
+          "text"
+        ],
+        "title": "SourceDocument",
+        "description": "一次对照中的一侧材料。"
+      },
+      "SourceType": {
+        "type": "string",
+        "enum": [
+          "sales_pitch",
+          "official_document",
+          "user_input"
+        ],
+        "title": "SourceType"
       },
       "StageInfo": {
         "properties": {

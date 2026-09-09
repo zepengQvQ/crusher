@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "ApiErrorDetail", "ApiErrorResponse", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "ApiErrorDetail", "ApiErrorResponse", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceRef", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -18,6 +18,30 @@ export const AnalysisScope = Object.freeze({
   supported: "supported",
   out_of_scope: "out_of_scope",
   needs_confirmation: "needs_confirmation",
+})
+
+/**
+ * @typedef {"confirmed"|"not_found"|"conflict"|"conditional"|"uncertain"} ClaimStatusValue
+ */
+
+export const ClaimStatus = Object.freeze({
+  confirmed: "confirmed",
+  not_found: "not_found",
+  conflict: "conflict",
+  conditional: "conditional",
+  uncertain: "uncertain",
+})
+
+/**
+ * @typedef {"expected_return"|"fee"|"early_exit"|"principal_protection"|"term"} ClaimSubjectValue
+ */
+
+export const ClaimSubject = Object.freeze({
+  expected_return: "expected_return",
+  fee: "fee",
+  early_exit: "early_exit",
+  principal_protection: "principal_protection",
+  term: "term",
 })
 
 /**
@@ -116,6 +140,16 @@ export const ProductTypeId = Object.freeze({
   insurance: "insurance",
   fund: "fund",
   unknown: "unknown",
+})
+
+/**
+ * @typedef {"sales_pitch"|"official_document"|"user_input"} SourceTypeValue
+ */
+
+export const SourceType = Object.freeze({
+  sales_pitch: "sales_pitch",
+  official_document: "official_document",
+  user_input: "user_input",
 })
 
 /**
@@ -268,5 +302,64 @@ export const TaskStatus = Object.freeze({
 /**
  * @typedef {Object} ApiErrorResponse
  * @property {ApiErrorDetail} detail
+ */
+
+/**
+ * @typedef {Object} DualAnalysisRequest
+ * @property {string} sales_text
+ * @property {string} official_text
+ * @property {ProductHintValue} [product_hint]
+ * @property {string} [locale]
+ */
+
+/**
+ * @typedef {Object} DualAnalysisReport
+ * @property {SourceDocument} sales_source
+ * @property {SourceDocument} official_source
+ * @property {Array<ClaimComparison>} [comparisons]
+ * @property {Array<string>} [pending_questions]
+ * @property {string} [disclaimer]
+ */
+
+/**
+ * @typedef {Object} ClaimComparison
+ * @property {string} comparison_id
+ * @property {ClaimSubjectValue} subject
+ * @property {ClaimStatusValue} status
+ * @property {string} summary
+ * @property {Claim} [sales_claim]
+ * @property {EvidenceRef} [official_evidence]
+ * @property {string} [suggested_follow_up]
+ */
+
+/**
+ * @typedef {Object} Claim
+ * @property {string} claim_id
+ * @property {ClaimSubjectValue} subject
+ * @property {string} summary
+ * @property {boolean} [negated]
+ * @property {string} [numeric_value]
+ * @property {"percent"|"bp"|"months"|"days"|"yuan"} [numeric_unit]
+ * @property {EvidenceRef} evidence
+ */
+
+/**
+ * @typedef {Object} SourceDocument
+ * @property {string} [source_id]
+ * @property {SourceTypeValue} source_type
+ * @property {string} name
+ * @property {string} text
+ * @property {number} [pages]
+ */
+
+/**
+ * @typedef {Object} EvidenceRef
+ * @property {string} source_id
+ * @property {string} quote
+ * @property {number} start
+ * @property {number} end
+ * @property {number} [page]
+ * @property {number} [confidence]
+ * @property {boolean} [user_corrected]
  */
 
