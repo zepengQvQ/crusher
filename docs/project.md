@@ -16,7 +16,7 @@
 | 查很长的历史任务单 | [`整改实施清单-P0.md`](整改实施清单-P0.md) |
 | P0 收口修复清单 | [`P0收口修复-Cursor执行清单.md`](P0收口修复-Cursor执行清单.md) |
 
-> P0-RC-03 已为贷款新增 `ParameterKey`（如 `annual_interest_rate`）。完整重导 OpenAPI / 契约快照留给 **P0-RC-05**；前端 `generated-types.js` 已先手工补枚举。
+> P0-RC-04：任务已绑定 `source_text`；完整重导 OpenAPI / 契约快照留给 **P0-RC-05**。
 
 ## 文件怎么命名的
 

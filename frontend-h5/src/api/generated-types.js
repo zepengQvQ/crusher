@@ -87,6 +87,7 @@ export const TaskStatus = Object.freeze({
  * @property {string} [optional] error_message
  * @property {AnalysisReport} [optional] report
  * @property {boolean} [optional] is_failure
+ * @property {string} [optional] source_text
  */
 
 /**

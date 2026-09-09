@@ -37,8 +37,10 @@ class H5PageContractTests(unittest.TestCase):
     def test_status_page_has_elapsed_and_retry(self):
         src = _read("pages", "StatusPage.vue")
         self.assertIn("elapsed", src)
-        self.assertIn("重试", src)
+        self.assertIn("重新查询", src)
+        self.assertIn("重新分析", src)
         self.assertIn("慢请求", src)
+        self.assertIn("setTimeout", src)
 
     def test_report_page_order_and_source_fold(self):
         src = _read("pages", "ReportPage.vue")
@@ -48,6 +50,8 @@ class H5PageContractTests(unittest.TestCase):
         self.assertIn("原文折叠", src)
         self.assertIn("材料未说明", src)
         self.assertIn("copyText", src)
+        self.assertIn("data.source_text", src)
+        self.assertIn("product_candidates", src)
 
     def test_error_page_keeps_draft_for_retry(self):
         src = _read("pages", "ErrorPage.vue")
@@ -55,6 +59,8 @@ class H5PageContractTests(unittest.TestCase):
         self.assertIn("保留输入", src)
         self.assertIn("重新分析", src)
         self.assertIn("这不是", src)
+        self.assertIn("source_text", src)
+        self.assertIn("props.taskId", src)
     def test_no_runtime_cdn_in_h5_src(self):
         offenders = []
         for path in H5.rglob("*"):

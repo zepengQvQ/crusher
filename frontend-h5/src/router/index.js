@@ -10,7 +10,12 @@ const router = createRouter({
     { path: '/', name: 'input', component: InputPage },
     { path: '/status/:taskId', name: 'status', component: StatusPage, props: true },
     { path: '/report/:taskId', name: 'report', component: ReportPage, props: true },
-    { path: '/error', name: 'error', component: ErrorPage },
+    {
+      path: '/error/:taskId?',
+      name: 'error',
+      component: ErrorPage,
+      props: true,
+    },
   ],
 })
 

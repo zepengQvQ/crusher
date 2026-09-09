@@ -94,6 +94,7 @@ class AnalyzeTextUseCase:
         task = AnalysisTask(
             task_status=TaskStatus.queued,
             input_text_preview=preview,
+            source_text=request.text,
             stages=[
                 StageInfo(name=name, status=StageStatus.not_applicable, message="等待中")
                 for name in PIPELINE_STAGES

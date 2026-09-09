@@ -10,7 +10,7 @@
         left-icon="clock-o"
         text="慢请求：分析仍在进行，请稍候…"
       />
-      <van-skeleton title :row="3" :loading="!stages.length && !failed && !offline" />
+      <van-skeleton title :row="3" :loading="!stages.length && !failed && !needManualPoll" />
       <van-cell-group v-if="stages.length" inset>
         <van-cell
           v-for="s in stages"
@@ -20,9 +20,12 @@
           :value="stageStatusText(s.status)"
         />
       </van-cell-group>
-      <van-empty v-if="offline" description="网络异常，无法轮询任务状态" />
+      <van-empty
+        v-if="needManualPoll"
+        :description="offlineHint"
+      />
       <van-button
-        v-if="failed || offline"
+        v-if="failed"
         block
         type="danger"
         round
@@ -33,14 +36,25 @@
         查看失败原因
       </van-button>
       <van-button
+        v-if="needManualPoll"
+        block
+        type="primary"
+        round
+        class="touch-btn"
+        style="margin-top: 16px"
+        @click="manualRepoll"
+      >
+        重新查询当前任务
+      </van-button>
+      <van-button
         block
         round
         plain
         class="touch-btn"
         style="margin-top: 10px"
-        @click="retry"
+        @click="retryAnalyze"
       >
-        重试（保留输入）
+        重新分析（保留输入）
       </van-button>
     </div>
   </div>
@@ -63,10 +77,14 @@ const stages = ref([])
 const errorMessage = ref('')
 const errorCode = ref('')
 const elapsed = ref(0)
-const offline = ref(false)
-let timer = null
+const networkFails = ref(0)
+const needManualPoll = ref(false)
+const offlineHint = ref('网络异常，已暂停自动查询')
+let pollTimer = null
 let tickTimer = null
 let startedAt = Date.now()
+let active = true
+let polling = false
 
 const failed = computed(() => taskStatus.value === 'failed')
 const slow = computed(() => elapsed.value >= 8 && taskStatus.value === 'running')
@@ -109,23 +127,42 @@ function goHome() {
 
 function goError() {
   store.setError(errorMessage.value || '分析失败', errorCode.value)
-  router.replace({ name: 'error' })
+  router.replace({ name: 'error', params: { taskId: props.taskId } })
 }
 
-function retry() {
+function retryAnalyze() {
   router.replace({ name: 'input' })
 }
 
+function clearPollTimer() {
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
+  }
+}
+
+function scheduleNext(ms = 800) {
+  clearPollTimer()
+  if (!active) return
+  pollTimer = setTimeout(() => {
+    poll()
+  }, ms)
+}
+
 async function poll() {
+  if (!active || polling) return
+  polling = true
   try {
     const data = await getAnalysis(props.taskId)
-    offline.value = false
+    if (!active) return
+    networkFails.value = 0
+    needManualPoll.value = false
     taskStatus.value = data.task_status
     stages.value = data.stages || []
     store.setTask(props.taskId, data.task_status, data.stages || [])
 
     if (data.task_status === 'completed') {
-      clearInterval(timer)
+      clearPollTimer()
       if (data.is_failure) {
         errorMessage.value = data.error_message || '分析失败'
         errorCode.value = data.error_code || ''
@@ -133,24 +170,50 @@ async function poll() {
         return
       }
       router.replace({ name: 'report', params: { taskId: props.taskId } })
-    } else if (data.task_status === 'failed') {
-      clearInterval(timer)
+      return
+    }
+    if (data.task_status === 'failed') {
+      clearPollTimer()
       errorMessage.value = data.error_message || '分析失败'
       errorCode.value = data.error_code || ''
       goError()
+      return
     }
+    scheduleNext(800)
   } catch (e) {
-    clearInterval(timer)
-    offline.value = true
-    const msg = pickErrorMessage(e)
+    if (!active) return
+    networkFails.value += 1
     const code = e?.response?.data?.detail?.error_code || ''
+    const msg = pickErrorMessage(e)
     errorMessage.value = msg
     errorCode.value = code
     store.setError(msg, code)
+    if (code === 'TASK_NOT_FOUND') {
+      needManualPoll.value = true
+      offlineHint.value = '任务可能因服务重启而丢失，请返回重新分析'
+      clearPollTimer()
+      return
+    }
+    if (networkFails.value >= 3) {
+      needManualPoll.value = true
+      offlineHint.value = '网络异常，已暂停自动查询。可点「重新查询当前任务」。'
+      clearPollTimer()
+      return
+    }
+    scheduleNext(1000)
+  } finally {
+    polling = false
   }
 }
 
+function manualRepoll() {
+  needManualPoll.value = false
+  networkFails.value = 0
+  poll()
+}
+
 onMounted(() => {
+  active = true
   store.restoreFromStorage()
   store.setTask(props.taskId, 'queued')
   startedAt = Date.now()
@@ -158,11 +221,11 @@ onMounted(() => {
     elapsed.value = Math.floor((Date.now() - startedAt) / 1000)
   }, 500)
   poll()
-  timer = setInterval(poll, 800)
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  active = false
+  clearPollTimer()
   if (tickTimer) clearInterval(tickTimer)
 })
 </script>

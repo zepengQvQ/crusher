@@ -45,7 +45,7 @@
         >
           {{ ex.name }}
         </van-button>
-        <van-button size="small" plain class="touch-btn" @click="text = ''">清空</van-button>
+        <van-button size="small" plain class="touch-btn" @click="onClear">清空</van-button>
       </div>
       <van-button
         type="primary"
@@ -123,6 +123,13 @@ function fillExample(ex) {
   } else {
     productHint.value = 'auto'
   }
+  store.setDraft(text.value, productHint.value)
+}
+
+function onClear() {
+  text.value = ''
+  store.clearDraft()
+  store.setDraft('', productHint.value)
 }
 
 function resumeLast() {
@@ -150,6 +157,7 @@ async function onSubmit(demoError) {
     const msg = pickErrorMessage(e)
     const code = e?.response?.data?.detail?.error_code || ''
     store.setError(msg, code)
+    // POST 尚未建任务：无 taskId，仅用内存草稿
     router.push({ name: 'error' })
   } finally {
     loading.value = false

@@ -10,8 +10,17 @@
         <div class="draft-title">保留输入</div>
         <p class="draft-text">{{ draftText }}</p>
       </div>
+      <van-empty v-else description="暂无可恢复的原文，请返回首页重新粘贴" />
 
-      <van-button block type="primary" round class="touch-btn" @click="retryWithDraft">
+      <van-button
+        block
+        type="primary"
+        round
+        class="touch-btn"
+        :loading="retrying"
+        :disabled="!draftText"
+        @click="retryWithDraft"
+      >
         重新分析
       </van-button>
       <van-button block round plain class="touch-btn" style="margin-top: 10px" @click="$router.push('/')">
@@ -25,8 +34,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { createAnalysis, pickErrorMessage } from '../api/client'
+import { createAnalysis, getAnalysis, pickErrorMessage } from '../api/client'
 import { useTaskStore } from '../stores/task'
+
+const props = defineProps({
+  taskId: { type: String, default: '' },
+})
 
 const router = useRouter()
 const store = useTaskStore()
@@ -43,10 +56,30 @@ const message = computed(() => {
 })
 const code = computed(() => store.lastErrorCode || '')
 
-onMounted(() => {
+onMounted(async () => {
   store.restoreFromStorage()
-  draftText.value = store.draftText || ''
   productHint.value = store.productHint || 'auto'
+  if (props.taskId) {
+    // 有 taskId：只能用该任务的 source_text，禁止回退全局草稿
+    try {
+      const data = await getAnalysis(props.taskId)
+      draftText.value = data.source_text || ''
+      if (data.error_message) {
+        store.setError(data.error_message, data.error_code || '')
+      }
+    } catch (e) {
+      const detail = e?.response?.data?.detail
+      if (detail?.error_code === 'TASK_NOT_FOUND' || e?.response?.status === 404) {
+        store.setError('任务可能因服务重启而丢失', 'TASK_NOT_FOUND')
+      } else {
+        store.setError(pickErrorMessage(e), detail?.error_code || '')
+      }
+      draftText.value = ''
+    }
+    return
+  }
+  // 无 taskId：仅限 POST 尚未建任务的网络错误，用 Pinia 内存草稿
+  draftText.value = store.draftText || ''
 })
 
 async function retryWithDraft() {

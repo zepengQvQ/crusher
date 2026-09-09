@@ -5,16 +5,32 @@
     <div v-if="loading" class="block">
       <van-skeleton title :row="6" />
     </div>
+    <div v-else-if="loadError" class="block">
+      <van-empty :description="loadError" />
+      <van-button block type="primary" class="touch-btn" @click="$router.push('/')">
+        返回重试
+      </van-button>
+    </div>
     <template v-else-if="report">
       <div class="block">
         <h3>一句结论</h3>
         <p class="conclusion">{{ conclusion }}</p>
-        <van-tag type="primary">{{ productName }}</van-tag>
         <p class="meta">
           产品风险评级：{{ productGradeText }}
           <span class="sep">｜</span>
           字段来源：{{ report.product_risk_grade?.status || '-' }}
         </p>
+      </div>
+
+      <div class="block">
+        <h3>产品候选</h3>
+        <van-cell
+          v-for="(c, idx) in report.product_candidates || []"
+          :key="c.product_type_id + idx"
+          :title="c.product_type_name || c.product_type_id"
+          :label="candidateLabel(c)"
+          :value="`置信度 ${(Number(c.confidence) || 0).toFixed(2)}`"
+        />
       </div>
 
       <div class="block">
@@ -81,12 +97,12 @@
       <div class="block">
         <h3>待确认问题</h3>
         <van-cell
-          v-for="(m, idx) in report.missing_disclosures || []"
-          :key="'m' + idx"
-          :title="m.question || m.key"
+          v-for="(q, idx) in pendingItems"
+          :key="'q' + idx"
+          :title="q"
         />
         <van-empty
-          v-if="!(report.missing_disclosures || []).length"
+          v-if="!pendingItems.length"
           description="暂无待确认项"
         />
       </div>
@@ -108,10 +124,6 @@
         </van-button>
       </div>
     </template>
-    <div v-else class="block">
-      <van-empty description="报告不存在" />
-      <van-button block type="primary" class="touch-btn" @click="$router.push('/')">返回重试</van-button>
-    </div>
   </div>
 </template>
 
@@ -130,14 +142,11 @@ const props = defineProps({
 const router = useRouter()
 const store = useTaskStore()
 const loading = ref(true)
+const loadError = ref('')
 const report = ref(null)
 const activeFindings = ref([])
 const sourceExpanded = ref(false)
 const sourceText = ref('')
-
-const productName = computed(
-  () => report.value?.product_candidates?.[0]?.product_type_name || '未知产品',
-)
 
 const productGradeText = computed(() => {
   const g = report.value?.product_risk_grade
@@ -152,6 +161,30 @@ const conclusion = computed(() => {
   }
   return `共发现 ${findings.length} 条风险，请展开查看原文证据。`
 })
+
+const pendingItems = computed(() => {
+  const seen = new Set()
+  const out = []
+  for (const m of report.value?.missing_disclosures || []) {
+    const q = (m.question || m.key || '').trim()
+    if (!q || seen.has(q)) continue
+    seen.add(q)
+    out.push(q)
+  }
+  for (const q of report.value?.pending_questions || []) {
+    const text = String(q || '').trim()
+    if (!text || seen.has(text)) continue
+    seen.add(text)
+    out.push(text)
+  }
+  return out
+})
+
+function candidateLabel(c) {
+  const quotes = (c.evidence_quotes || []).filter(Boolean)
+  if (!quotes.length) return '暂无识别证据'
+  return `证据：${quotes.slice(0, 3).join('；')}`
+}
 
 function formatParam(p) {
   if (p.status === 'not_disclosed') return '材料未说明'
@@ -179,21 +212,32 @@ async function onCopy(text) {
 
 onMounted(async () => {
   store.restoreFromStorage()
-  sourceText.value = store.draftText || ''
+  // 故意不使用 Pinia 草稿冒充本任务原文
   try {
     const data = await getAnalysis(props.taskId)
+    if (data.task_status === 'queued' || data.task_status === 'running') {
+      router.replace({ name: 'status', params: { taskId: props.taskId } })
+      return
+    }
     if (data.task_status === 'failed' || data.is_failure) {
       store.setError(data.error_message || '模型调用失败', data.error_code || '')
-      router.replace({ name: 'error' })
+      router.replace({ name: 'error', params: { taskId: props.taskId } })
+      return
+    }
+    if (!data.report) {
+      loadError.value = '报告不存在'
       return
     }
     report.value = data.report
-    if (!sourceText.value && data.input_text_preview) {
-      sourceText.value = data.input_text_preview
-    }
+    sourceText.value = data.source_text || ''
   } catch (e) {
-    store.setError(e?.response?.data?.detail?.message || e.message || '加载报告失败')
-    router.replace({ name: 'error' })
+    const code = e?.response?.data?.detail?.error_code || ''
+    const msg = e?.response?.data?.detail?.message || e.message || '加载报告失败'
+    if (code === 'TASK_NOT_FOUND' || e?.response?.status === 404) {
+      loadError.value = '任务可能因服务重启而丢失'
+    } else {
+      loadError.value = msg
+    }
   } finally {
     loading.value = false
   }

@@ -182,6 +182,8 @@ class AnalysisTask(StrictModel):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     input_text_preview: str = ""
+    # 仅存本进程内存；GET 按 task_id 返回，供报告/失败重试用
+    source_text: str = ""
     stages: list[StageInfo] = Field(default_factory=list)
     error_code: Optional[ErrorCode] = None
     error_message: Optional[str] = None

@@ -52,6 +52,7 @@ class TaskResponse(BaseModel):
     error_message: Optional[str] = None
     report: Optional[AnalysisReport] = None
     is_failure: bool = False
+    source_text: str = ""
 
 
 class AnalyzeBody(BaseModel):
@@ -148,4 +149,5 @@ def get_analysis(
         error_message=task.error_message,
         report=None if failed else task.report,
         is_failure=failed,
+        source_text=task.source_text or "",
     )
