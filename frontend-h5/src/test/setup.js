@@ -11,11 +11,14 @@ import {
   NoticeBar,
   Picker,
   Popup,
+  Radio,
+  RadioGroup,
   Skeleton,
   Tag,
 } from 'vant'
 import { vi } from 'vitest'
 import 'vant/lib/index.css'
+import 'fake-indexeddb/auto'
 
 vi.mock('vant', async (importOriginal) => {
   const actual = await importOriginal()
@@ -37,6 +40,8 @@ config.global.plugins = [
   NoticeBar,
   Picker,
   Popup,
+  Radio,
+  RadioGroup,
   Skeleton,
   Tag,
 ]

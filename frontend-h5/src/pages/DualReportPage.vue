@@ -20,7 +20,13 @@
           <div class="pending-title">建议继续核对</div>
           <p v-for="(q, i) in report.pending_questions" :key="i" class="pending-item">· {{ q }}</p>
         </div>
-        <van-button block round plain class="touch-btn" @click="$router.push('/dual')">
+        <ReportActions
+          :report="report"
+          kind="dual"
+          title="对照报告"
+          source-text=""
+        />
+        <van-button block round plain class="touch-btn" style="margin-top: 8px" @click="$router.push('/dual')">
           再对照一组
         </van-button>
         <van-button block round plain class="touch-btn" style="margin-top: 8px" @click="$router.push('/')">
@@ -34,6 +40,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import ClaimComparisonCard from '../components/ClaimComparisonCard.vue'
+import ReportActions from '../components/ReportActions.vue'
 
 const DUAL_STORE_KEY = 'crusher_dual_report'
 const report = ref(null)

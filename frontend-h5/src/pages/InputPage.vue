@@ -81,6 +81,16 @@
         block
         round
         plain
+        class="touch-btn"
+        style="margin-top: 10px"
+        @click="$router.push('/history')"
+      >
+        本地已保存报告
+      </van-button>
+      <van-button
+        block
+        round
+        plain
         type="warning"
         class="touch-btn"
         :loading="loading"
