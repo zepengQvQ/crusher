@@ -64,6 +64,10 @@ _VALID_HINTS = {
     "fund",
 }
 
+# Demo 正式支持的产品；其它识别结果只提示范围，不做完整分析
+DEMO_SUPPORTED_PRODUCTS = frozenset({"structured_deposit", "loan"})
+SCOPE_PENDING_QUESTION = "当前 Demo 仅支持结构性存款和贷款，请重新选择或补充材料。"
+
 # 已有 Finding 时，模型不得写这些「无风险」结论
 _CONTRADICTION_RE = re.compile(
     r"(未发现风险|没有风险|无风险|未发现任何风险|不存在风险)",
@@ -131,6 +135,10 @@ class AnalyzeTextUseCase:
             if request.product_hint and request.product_hint != "auto":
                 classify_msg = f"{classify_msg}（手动指定 {request.product_hint}）"
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
+
+            if product_type_id not in DEMO_SUPPORTED_PRODUCTS:
+                await self._finish_out_of_scope(task_id, products, request)
+                return
 
             extracted = self._extractor.extract(request.text, product_type_id=product_type_id)
             disclosed_n = sum(
@@ -292,16 +300,103 @@ class AnalyzeTextUseCase:
 
     def _collect_risks(self, text: str, products) -> list[RiskHit]:
         if not products:
-            return self._rules.match_risks(text, product_type=None)
+            return []
+        primary = products[0].product_id
+        if primary not in DEMO_SUPPORTED_PRODUCTS:
+            return []
         merged: list[RiskHit] = []
         seen: set[str] = set()
         for product in products:
+            if product.product_id not in DEMO_SUPPORTED_PRODUCTS:
+                continue
             for hit in self._rules.match_risks(text, product_type=product.product_id):
                 if hit.pattern_id in seen:
                     continue
                 seen.add(hit.pattern_id)
                 merged.append(hit)
         return merged
+
+    async def _finish_out_of_scope(
+        self,
+        task_id: str,
+        products: list[ProductHit],
+        request: AnalyzeTextRequest,
+    ) -> None:
+        """unknown / 非首批产品：不跑全量规则，只提示 Demo 范围。"""
+        await self._mark_stage(task_id, "extract", StageStatus.success, "不在支持范围，跳过参数抽取")
+        await self._mark_stage(task_id, "rule_review", StageStatus.success, "不在支持范围，跳过规则复核")
+        await self._mark_stage(
+            task_id, "evidence_validate", StageStatus.success, "不在支持范围，跳过证据校验"
+        )
+
+        if request.demo_error == DemoErrorKind.model_timeout:
+            await self._fail(task_id, "explain", ErrorCode.MODEL_TIMEOUT)
+            return
+        if request.demo_error == DemoErrorKind.invalid_json:
+            await self._fail(task_id, "explain", ErrorCode.INVALID_MODEL_JSON)
+            return
+        if request.demo_error == DemoErrorKind.rate_limited:
+            await self._fail(task_id, "explain", ErrorCode.RATE_LIMITED)
+            return
+
+        await self._mark_stage(task_id, "explain", StageStatus.success, "范围提示完成")
+        task = self._tasks.get(task_id)
+        if task is None:
+            return
+        task.report = self._build_out_of_scope_report(products)
+        task.task_status = TaskStatus.completed
+        task.error_code = None
+        task.error_message = None
+        self._tasks.save(task)
+        log_task("task_completed", task_id, findings=0, out_of_scope=True)
+
+    def _build_out_of_scope_report(self, products: list[ProductHit]) -> AnalysisReport:
+        candidates: list[ProductCandidate] = []
+        if not products:
+            candidates = [
+                ProductCandidate(
+                    product_type_id=ProductTypeId.unknown,
+                    product_type_name="未识别",
+                    confidence=0.0,
+                    evidence_quotes=[],
+                )
+            ]
+        else:
+            primary = products[0]
+            try:
+                pid = ProductTypeId(primary.product_id)
+            except ValueError:
+                pid = ProductTypeId.unknown
+            name = primary.product_name
+            if "out of scope" not in name.lower():
+                name = f"{name}（out of scope）"
+            candidates = [
+                ProductCandidate(
+                    product_type_id=pid,
+                    product_type_name=name,
+                    confidence=primary.confidence,
+                    evidence_quotes=list(primary.evidence_quotes),
+                )
+            ]
+
+        return AnalysisReport(
+            product_candidates=candidates,
+            product_risk_grade=ProductRiskGrade(
+                value=None,
+                status=FactStatus.not_disclosed,
+                note="原文未明确风险等级",
+            ),
+            plain_language=PlainLanguage(
+                text="当前材料不在 Demo 支持范围内，未做完整风险分析。",
+                status=StageStatus.success,
+            ),
+            key_parameters=[],
+            findings=[],
+            missing_disclosures=[],
+            general_references=[],
+            pending_questions=[SCOPE_PENDING_QUESTION],
+            disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+        )
 
     def _hits_to_findings(self, risk_hits: list[RiskHit]) -> list[Finding]:
         findings: list[Finding] = []

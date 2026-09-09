@@ -6,10 +6,17 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from app.domain.ports.protocols import KnowledgeRepository
-from app.domain.rules.negation import DEFAULT_NEGATION_CUES, is_negated_near
+from app.domain.rules.negation import (
+    DEFAULT_NEGATION_CUES,
+    expand_to_clause,
+    is_negated_near,
+    strong_sentence_span,
+)
 
 # 低于该置信度的产品候选丢弃，整体视为 unknown（调用方处理）
 PRODUCT_CONFIDENCE_THRESHOLD = 0.5
+# 同一强句内关键词首尾最大距离（字符）
+MAX_KEYWORD_SPAN = 48
 
 
 @dataclass(frozen=True)
@@ -68,7 +75,6 @@ class RuleEngine:
     def _score_product(self, text: str, product: dict) -> Optional[ProductHit]:
         strong = list(product.get("strong_aliases") or [])
         weak = list(product.get("weak_aliases") or [])
-        # 兼容旧字段：未拆分时 aliases 全部当 strong，但过短弱信号需降权
         if not strong and not weak:
             aliases = list(product.get("aliases") or [])
             for a in aliases:
@@ -113,7 +119,6 @@ class RuleEngine:
 
     def _match_one_pattern(self, text: str, pattern: dict) -> Optional[RiskHit]:
         pattern_id = str(pattern["id"])
-        # 正向保障类表述：不得命中「本金不保证」
         if pattern_id == "principal_not_guaranteed":
             if re.search(r"确保本金|本金安全|保证本金", text):
                 if not re.search(r"不保证本金|本金(可能)?(面临)?亏损|本金损失|本金受损", text):
@@ -127,13 +132,16 @@ class RuleEngine:
         if span is None:
             return None
         start, end, quote = span
-        # 锚定片段末尾：覆盖「提前还款不收违约金」这类否定夹在中间的句子
+        # 锚定命中片段右端：覆盖「提前还款不收违约金」这类否定夹在中间的句子
         if is_negated_near(text, end, cues=cues, window=window):
             return None
-
-        if not self._numeric_ok(text, pattern):
+        if is_negated_near(text, start, cues=cues, window=window):
             return None
 
+        if not self._numeric_ok(text, pattern, start=start, end=end):
+            return None
+
+        start, end, quote = expand_to_clause(text, start, end)
         return RiskHit(
             pattern_id=pattern_id,
             name=str(pattern["name"]),
@@ -153,23 +161,16 @@ class RuleEngine:
     ) -> Optional[tuple[int, int, str]]:
         regex = pattern.get("regex") or ""
         keywords: Sequence[str] = pattern.get("keywords") or []
+        max_span = int(pattern.get("max_keyword_span") or MAX_KEYWORD_SPAN)
 
         if match_mode == "regex_only":
             return self._regex_span(text, regex)
 
         if match_mode == "all_keywords":
-            if not keywords or any(kw not in text for kw in keywords):
-                # 关键词不全时仍可尝试 regex
-                if regex:
-                    return self._regex_span(text, regex)
-                return None
-            # 取原文中最靠后的关键词作证据（通常是风险宾语，如「违约金」）
-            positioned = [(text.find(kw), kw) for kw in keywords]
-            positioned = [(i, kw) for i, kw in positioned if i >= 0]
-            idx, key = max(positioned, key=lambda item: item[0])
-            return idx, idx + len(key), key
+            return self._all_keywords_span(text, keywords, max_span=max_span, regex=regex)
 
-        # 默认：先 regex，再 any keyword
+        # 默认：先 regex，再 any keyword（关键词不得单独充当高风险泛化触发时，
+        # 各 pattern 应改用 regex_only / all_keywords）
         if regex:
             span = self._regex_span(text, regex)
             if span is not None:
@@ -178,6 +179,49 @@ class RuleEngine:
             idx = text.find(kw)
             if idx >= 0:
                 return idx, idx + len(kw), kw
+        return None
+
+    def _all_keywords_span(
+        self,
+        text: str,
+        keywords: Sequence[str],
+        *,
+        max_span: int,
+        regex: str,
+    ) -> Optional[tuple[int, int, str]]:
+        if not keywords:
+            return self._regex_span(text, regex) if regex else None
+
+        # 在每个强句内寻找全部关键词
+        cursor = 0
+        while cursor < len(text):
+            sent_start, sent_end = strong_sentence_span(text, cursor)
+            sentence = text[sent_start:sent_end]
+            positions: list[tuple[int, int, str]] = []
+            ok = True
+            for kw in keywords:
+                local = sentence.find(kw)
+                if local < 0:
+                    ok = False
+                    break
+                abs_start = sent_start + local
+                positions.append((abs_start, abs_start + len(kw), kw))
+            if ok and positions:
+                span_start = min(p[0] for p in positions)
+                span_end = max(p[1] for p in positions)
+                if span_end - span_start <= max_span:
+                    return span_start, span_end, text[span_start:span_end]
+            if regex:
+                compiled = self._knowledge.get_compiled_regex(regex)
+                m = compiled.search(sentence)
+                if m:
+                    abs_start = sent_start + m.start()
+                    abs_end = sent_start + m.end()
+                    return abs_start, abs_end, text[abs_start:abs_end]
+            if sent_end <= cursor:
+                cursor += 1
+            else:
+                cursor = sent_end
         return None
 
     def _regex_span(self, text: str, regex: str) -> Optional[tuple[int, int, str]]:
@@ -189,17 +233,28 @@ class RuleEngine:
             return None
         return m.start(), m.end(), m.group(0)
 
-    def _numeric_ok(self, text: str, pattern: dict) -> bool:
+    def _numeric_ok(
+        self,
+        text: str,
+        pattern: dict,
+        *,
+        start: int = 0,
+        end: int | None = None,
+    ) -> bool:
         rule = pattern.get("numeric_rule")
         if not rule:
             return True
         field_regex = str(rule.get("extract_regex") or "")
         if not field_regex:
             raise ValueError(f"风险模式 {pattern.get('id')} 的 numeric_rule 缺少 extract_regex")
+        # 优先在命中片段所在强句内取数，避免跨句误用
+        if end is None:
+            end = len(text)
+        sent_start, sent_end = strong_sentence_span(text, start)
+        search_text = text[sent_start:sent_end]
         compiled = self._knowledge.get_compiled_regex(field_regex)
-        m = compiled.search(text)
+        m = compiled.search(search_text) or compiled.search(text)
         if not m:
-            # 没有数值则不凭纯关键词报「高额」类风险
             return False
         try:
             value = float(m.group(1))

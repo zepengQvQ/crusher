@@ -1,4 +1,4 @@
-.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 lint install export-openapi
+.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 lint install export-openapi
 
 setup:
 	bash scripts/dev.sh
@@ -51,6 +51,9 @@ test-p0-09:
 
 test-p0-rc-01:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p0_rc_01 -v
+
+test-p0-rc-02:
+	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p0_rc_02 -v
 
 lint:
 	cd backend-python && ruff check app && pyright app || true
