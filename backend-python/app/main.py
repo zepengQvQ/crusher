@@ -5,10 +5,11 @@ Java 对照：SpringBootApplication + 全局 CORS。
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.settings import get_settings
-from app.interfaces.http.routes import router
+from app.interfaces.http.routes import request_validation_exception_handler, router
 from app.shared.logging_utils import setup_logging
 
 
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.include_router(router)
     return app
 

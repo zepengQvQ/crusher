@@ -10,6 +10,7 @@ __all__ = [
     "FactStatus",
     "FindingSeverity",
     "ProductTypeId",
+    "ProductHint",
     "ParameterKey",
     "DemoErrorKind",
     "EvidenceSource",
@@ -41,6 +42,14 @@ class ProductTypeId(str, Enum):
     insurance = "insurance"
     fund = "fund"
     unknown = "unknown"
+
+
+class ProductHint(str, Enum):
+    """接口允许的手动产品提示（首版仅自动 / 结构性存款 / 贷款）。"""
+
+    auto = "auto"
+    structured_deposit = "structured_deposit"
+    loan = "loan"
 
 
 class ParameterKey(str, Enum):

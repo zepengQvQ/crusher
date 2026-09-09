@@ -24,10 +24,18 @@ class GeneratedTypesSyncTests(unittest.TestCase):
                 self.assertIn(json.dumps(value, ensure_ascii=False), gen)
 
         # 关键 DTO 必须有 JSDoc typedef
-        for dto in ("AnalysisReport", "Finding", "Evidence", "TaskResponse"):
+        for dto in (
+            "AnalysisReport",
+            "Finding",
+            "Evidence",
+            "TaskResponse",
+            "CreateAnalysisRequest",
+        ):
             self.assertIn(f"@typedef {dto}", gen)
             self.assertTrue(re.search(rf"export const SCHEMA_NAMES = .*\"{dto}\"", gen))
 
+        self.assertIn("export const ProductHint", gen)
+        self.assertIn("source_text", gen)
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,36 +1,35 @@
-"""HTTP 接口（P0-04：响应使用强类型 Report）。"""
+"""HTTP 接口：请求/响应与 OpenAPI 同源。"""
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.composition_root import get_analyze_text_use_case, get_task_store
 from app.config.settings import Settings, get_settings
-from app.domain.models import (
-    AnalysisReport,
-    AnalyzeTextRequest,
-    DemoErrorKind,
-    StageInfo,
-)
+from app.domain.models import AnalysisReport, CreateAnalysisRequest, StageInfo
 from app.infrastructure.task_store.memory import InMemoryTaskStore
 from app.shared.enums import ErrorCode, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
 
 router = APIRouter()
 
-_FORBIDDEN_CLIENT_FIELDS = {
-    "api_key",
-    "llm_api_key",
-    "base_url",
-    "llm_base_url",
-    "authorization",
-    "token",
-    "secret",
-}
+FORBIDDEN_CLIENT_FIELDS = frozenset(
+    {
+        "api_key",
+        "llm_api_key",
+        "base_url",
+        "llm_base_url",
+        "authorization",
+        "token",
+        "secret",
+    }
+)
 
 
 class CreateAnalysisResponse(BaseModel):
@@ -55,27 +54,51 @@ class TaskResponse(BaseModel):
     source_text: str = ""
 
 
-class AnalyzeBody(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+def _forbidden_fields_from_validation(errors: list[dict[str, Any]]) -> list[str]:
+    hit: set[str] = set()
+    for err in errors:
+        loc = err.get("loc") or ()
+        for part in loc:
+            if not isinstance(part, str):
+                continue
+            key = part.lower()
+            if key in FORBIDDEN_CLIENT_FIELDS:
+                hit.add(key)
+        if err.get("type") == "extra_forbidden":
+            for part in loc:
+                if isinstance(part, str) and part.lower() in FORBIDDEN_CLIENT_FIELDS:
+                    hit.add(part.lower())
+    return sorted(hit)
 
-    text: str = Field(..., min_length=1)
-    product_hint: str = "auto"
-    locale: str = "zh-CN"
-    demo_error: Optional[DemoErrorKind] = None
 
-
-def _reject_forbidden_keys(payload: dict[str, Any]) -> None:
-    lower_keys = {str(k).lower() for k in payload.keys()}
-    hit = lower_keys & _FORBIDDEN_CLIENT_FIELDS
-    if hit:
-        raise HTTPException(
+async def request_validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    """把非法请求映射成稳定 4xx，不把内部校验原文直接丢给 H5。"""
+    del request  # 未使用；签名需与 FastAPI handler 一致
+    errors = exc.errors()
+    forbidden = _forbidden_fields_from_validation(errors)
+    if forbidden:
+        return JSONResponse(
             status_code=400,
-            detail={
-                "error_code": ErrorCode.FORBIDDEN_CLIENT_CONFIG.value,
-                "message": user_message_for(ErrorCode.FORBIDDEN_CLIENT_CONFIG),
-                "fields": sorted(hit),
+            content={
+                "detail": {
+                    "error_code": ErrorCode.FORBIDDEN_CLIENT_CONFIG.value,
+                    "message": user_message_for(ErrorCode.FORBIDDEN_CLIENT_CONFIG),
+                    "fields": forbidden,
+                }
             },
         )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": {
+                "error_code": "VALIDATION_ERROR",
+                "message": "请求参数不合法",
+            }
+        },
+    )
 
 
 @router.get("/health")
@@ -87,20 +110,19 @@ def health(settings: Settings = Depends(get_settings)) -> dict[str, object]:
 
 @router.post("/api/v1/analyses", response_model=CreateAnalysisResponse)
 async def create_analysis(
-    request: Request,
+    body: CreateAnalysisRequest,
     background_tasks: BackgroundTasks,
     use_case: AnalyzeTextUseCase = Depends(get_analyze_text_use_case),
     settings: Settings = Depends(get_settings),
 ) -> CreateAnalysisResponse:
-    raw = await request.json()
-    if not isinstance(raw, dict):
-        raise HTTPException(status_code=400, detail={"message": "请求体必须是 JSON 对象"})
-    _reject_forbidden_keys(raw)
-
-    try:
-        body = AnalyzeBody.model_validate(raw)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=422, detail={"message": str(exc)}) from exc
+    if body.demo_error is not None and not settings.mock_mode:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "DEMO_ERROR_NOT_ALLOWED",
+                "message": "真实模式下不能使用 demo_error",
+            },
+        )
 
     if len(body.text) > settings.max_input_chars:
         raise HTTPException(
@@ -112,14 +134,8 @@ async def create_analysis(
             },
         )
 
-    analyze_req = AnalyzeTextRequest(
-        text=body.text,
-        product_hint=body.product_hint,
-        locale=body.locale,
-        demo_error=body.demo_error,
-    )
-    task = use_case.submit(analyze_req)
-    background_tasks.add_task(use_case.run, task.task_id, analyze_req)
+    task = use_case.submit(body)
+    background_tasks.add_task(use_case.run, task.task_id, body)
     return CreateAnalysisResponse(task_id=task.task_id, task_status=task.task_status)
 
 

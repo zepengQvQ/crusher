@@ -1,5 +1,5 @@
 {
-  "_comment": "POST /api/v1/analyses 请求体（与 AnalyzeBody / OpenAPI 一致）",
+  "_comment": "POST /api/v1/analyses 请求体（与 CreateAnalysisRequest / OpenAPI 一致）",
   "text": "本产品为保本浮动收益型结构性存款，产品期限90天，挂钩美元兑日元汇率……",
   "product_hint": "auto",
   "locale": "zh-CN",

@@ -25,7 +25,7 @@ from app.domain.models import (
     ProductTypeId,
     StageInfo,
 )
-from app.domain.models.enums import EvidenceSource, ParameterKey
+from app.domain.models.enums import EvidenceSource, ParameterKey, ProductHint
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
 from app.domain.rules.engine import ProductHit, RuleEngine, RiskHit
 from app.domain.rules.evidence import validate_and_fix_findings
@@ -133,8 +133,8 @@ class AnalyzeTextUseCase:
             else:
                 classify_msg = "未达置信度阈值，产品类型为 unknown"
                 product_type_id = None
-            if request.product_hint and request.product_hint != "auto":
-                classify_msg = f"{classify_msg}（手动指定 {request.product_hint}）"
+            if request.product_hint != ProductHint.auto:
+                classify_msg = f"{classify_msg}（手动指定 {request.product_hint.value}）"
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
 
             if product_type_id not in DEMO_SUPPORTED_PRODUCTS:
@@ -275,10 +275,13 @@ class AnalyzeTextUseCase:
         self._tasks.save(task)
         log_task("task_failed", task_id, error_code=code.value)
 
-    def _resolve_products(self, text: str, product_hint: str | None) -> list[ProductHit]:
+    def _resolve_products(self, text: str, product_hint: ProductHint | str | None) -> list[ProductHit]:
         """自动识别；若手动指定合法产品类型则置为首选。"""
         detected = self._rules.detect_products(text)
-        hint = (product_hint or "auto").strip().lower()
+        if isinstance(product_hint, ProductHint):
+            hint = product_hint.value
+        else:
+            hint = (product_hint or "auto").strip().lower()
         if hint in ("", "auto") or hint not in _VALID_HINTS:
             return detected
 

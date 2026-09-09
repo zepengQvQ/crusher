@@ -24,8 +24,9 @@ except ImportError as exc:  # pragma: no cover
 
 # 前端最常用的 schema，优先生成完整 typedef
 PRIORITY_SCHEMAS = [
-    "TaskResponse",
+    "CreateAnalysisRequest",
     "CreateAnalysisResponse",
+    "TaskResponse",
     "AnalysisReport",
     "Finding",
     "Evidence",

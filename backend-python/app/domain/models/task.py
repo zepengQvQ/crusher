@@ -3,6 +3,7 @@ from app.domain.models.report import (
     AnalysisReport,
     AnalysisTask,
     AnalyzeTextRequest,
+    CreateAnalysisRequest,
     StageInfo,
 )
 
@@ -10,5 +11,6 @@ __all__ = [
     "AnalysisReport",
     "AnalysisTask",
     "AnalyzeTextRequest",
+    "CreateAnalysisRequest",
     "StageInfo",
 ]

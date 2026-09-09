@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Literal, Optional, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -18,6 +18,7 @@ from app.domain.models.enums import (
     FactStatus,
     FindingSeverity,
     ParameterKey,
+    ProductHint,
     ProductTypeId,
 )
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus
@@ -169,11 +170,25 @@ class StageResult(StrictModel, Generic[T]):
     message: str = ""
 
 
-class AnalyzeTextRequest(StrictModel):
-    text: str = Field(..., min_length=1)
-    product_hint: str = "auto"
-    locale: str = "zh-CN"
+class CreateAnalysisRequest(StrictModel):
+    """POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。"""
+
+    text: str = Field(..., min_length=1, description="待分析原文")
+    product_hint: ProductHint = ProductHint.auto
+    locale: Literal["zh-CN"] = "zh-CN"
     demo_error: Optional[DemoErrorKind] = None
+
+    @field_validator("text")
+    @classmethod
+    def _text_must_be_non_blank(cls, value: str) -> str:
+        text = (value or "").strip()
+        if not text:
+            raise ValueError("text must not be blank")
+        return text
+
+
+# 兼容旧名：与 CreateAnalysisRequest 为同一类型
+AnalyzeTextRequest = CreateAnalysisRequest
 
 
 class AnalysisTask(StrictModel):

@@ -29,6 +29,16 @@
       "post": {
         "summary": "Create Analysis",
         "operationId": "create_analysis_api_v1_analyses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -36,6 +46,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CreateAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -152,6 +172,43 @@
         "title": "AnalysisReport",
         "description": "完整分析报告。"
       },
+      "CreateAnalysisRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text",
+            "description": "待分析原文"
+          },
+          "product_hint": {
+            "$ref": "#/components/schemas/ProductHint",
+            "default": "auto"
+          },
+          "locale": {
+            "type": "string",
+            "const": "zh-CN",
+            "title": "Locale",
+            "default": "zh-CN"
+          },
+          "demo_error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DemoErrorKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "CreateAnalysisRequest",
+        "description": "POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。"
+      },
       "CreateAnalysisResponse": {
         "properties": {
           "task_id": {
@@ -169,6 +226,15 @@
           "task_status"
         ],
         "title": "CreateAnalysisResponse"
+      },
+      "DemoErrorKind": {
+        "type": "string",
+        "enum": [
+          "model_timeout",
+          "invalid_json",
+          "rate_limited"
+        ],
+        "title": "DemoErrorKind"
       },
       "ErrorCode": {
         "type": "string",
@@ -419,7 +485,11 @@
           "fee_structure",
           "principal_protection",
           "product_risk_grade",
-          "amount"
+          "amount",
+          "annual_interest_rate",
+          "repayment_method",
+          "penalty_interest",
+          "prepayment_fee"
         ],
         "title": "ParameterKey"
       },
@@ -474,6 +544,16 @@
           "confidence"
         ],
         "title": "ProductCandidate"
+      },
+      "ProductHint": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "structured_deposit",
+          "loan"
+        ],
+        "title": "ProductHint",
+        "description": "接口允许的手动产品提示（首版仅自动 / 结构性存款 / 贷款）。"
       },
       "ProductRiskGrade": {
         "properties": {
@@ -612,6 +692,11 @@
             "type": "boolean",
             "title": "Is Failure",
             "default": false
+          },
+          "source_text": {
+            "type": "string",
+            "title": "Source Text",
+            "default": ""
           }
         },
         "additionalProperties": false,

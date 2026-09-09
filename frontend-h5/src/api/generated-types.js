@@ -4,9 +4,15 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "CreateAnalysisResponse", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "HTTPValidationError", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValidationError"]
+export const SCHEMA_NAMES = ["AnalysisReport", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "HTTPValidationError", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValidationError"]
 
 export const DISCLAIMER = '本 Demo 不进行用户适当性评估，不构成投资建议。'
+
+export const DemoErrorKind = Object.freeze({
+  model_timeout: "model_timeout",
+  invalid_json: "invalid_json",
+  rate_limited: "rate_limited",
+})
 
 export const ErrorCode = Object.freeze({
   INPUT_TOO_LONG: "INPUT_TOO_LONG",
@@ -53,6 +59,12 @@ export const ParameterKey = Object.freeze({
   prepayment_fee: "prepayment_fee",
 })
 
+export const ProductHint = Object.freeze({
+  auto: "auto",
+  structured_deposit: "structured_deposit",
+  loan: "loan",
+})
+
 export const ProductTypeId = Object.freeze({
   structured_deposit: "structured_deposit",
   loan: "loan",
@@ -77,6 +89,20 @@ export const TaskStatus = Object.freeze({
 })
 
 /**
+ * @typedef CreateAnalysisRequest
+ * @property {string} text
+ * @property {ProductHint} [optional] product_hint
+ * @property {string} [optional] locale
+ * @property {DemoErrorKind} [optional] demo_error
+ */
+
+/**
+ * @typedef CreateAnalysisResponse
+ * @property {string} task_id
+ * @property {TaskStatus} task_status
+ */
+
+/**
  * @typedef TaskResponse
  * @property {string} task_id
  * @property {TaskStatus} task_status
@@ -88,12 +114,6 @@ export const TaskStatus = Object.freeze({
  * @property {AnalysisReport} [optional] report
  * @property {boolean} [optional] is_failure
  * @property {string} [optional] source_text
- */
-
-/**
- * @typedef CreateAnalysisResponse
- * @property {string} task_id
- * @property {TaskStatus} task_status
  */
 
 /**

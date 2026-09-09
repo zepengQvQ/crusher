@@ -1,5 +1,11 @@
 import axios from 'axios'
 
+/**
+ * @typedef {import('./generated-types.js').CreateAnalysisRequest} CreateAnalysisRequest
+ * @typedef {import('./generated-types.js').CreateAnalysisResponse} CreateAnalysisResponse
+ * @typedef {import('./generated-types.js').TaskResponse} TaskResponse
+ */
+
 const http = axios.create({
   baseURL: '',
   timeout: 15000,
@@ -9,8 +15,10 @@ const http = axios.create({
  * 提交分析。
  * @param {string} text
  * @param {{ demoError?: string, productHint?: string }} [options]
+ * @returns {Promise<CreateAnalysisResponse>}
  */
 export async function createAnalysis(text, options = {}) {
+  /** @type {CreateAnalysisRequest} */
   const payload = {
     text,
     product_hint: options.productHint || 'auto',
@@ -23,6 +31,11 @@ export async function createAnalysis(text, options = {}) {
   return data
 }
 
+/**
+ * 查询任务状态与报告。
+ * @param {string} taskId
+ * @returns {Promise<TaskResponse>}
+ */
 export async function getAnalysis(taskId) {
   const { data } = await http.get(`/api/v1/analyses/${taskId}`)
   return data
