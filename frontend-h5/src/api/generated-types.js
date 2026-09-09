@@ -4,9 +4,15 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "HTTPValidationError", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValidationError"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "HTTPValidationError", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValidationError"]
 
 export const DISCLAIMER = '本 Demo 不进行用户适当性评估，不构成投资建议。'
+
+export const AnalysisScope = Object.freeze({
+  supported: "supported",
+  out_of_scope: "out_of_scope",
+  needs_confirmation: "needs_confirmation",
+})
 
 export const DemoErrorKind = Object.freeze({
   model_timeout: "model_timeout",
@@ -119,6 +125,9 @@ export const TaskStatus = Object.freeze({
 /**
  * @typedef AnalysisReport
  * @property {Array<ProductCandidate>} [optional] product_candidates
+ * @property {ProductTypeId} [optional] resolved_product_type
+ * @property {AnalysisScope} [optional] analysis_scope
+ * @property {string} [optional] scope_reason
  * @property {ProductRiskGrade} product_risk_grade
  * @property {PlainLanguage} plain_language
  * @property {Array<KeyParameter>} [optional] key_parameters

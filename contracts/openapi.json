@@ -116,6 +116,25 @@
             "type": "array",
             "title": "Product Candidates"
           },
+          "resolved_product_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductTypeId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_scope": {
+            "$ref": "#/components/schemas/AnalysisScope",
+            "default": "supported"
+          },
+          "scope_reason": {
+            "type": "string",
+            "title": "Scope Reason",
+            "default": ""
+          },
           "product_risk_grade": {
             "$ref": "#/components/schemas/ProductRiskGrade"
           },
@@ -173,6 +192,16 @@
         ],
         "title": "AnalysisReport",
         "description": "完整分析报告。"
+      },
+      "AnalysisScope": {
+        "type": "string",
+        "enum": [
+          "supported",
+          "out_of_scope",
+          "needs_confirmation"
+        ],
+        "title": "AnalysisScope",
+        "description": "一次分析的范围状态。"
       },
       "CreateAnalysisRequest": {
         "properties": {

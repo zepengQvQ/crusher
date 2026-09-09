@@ -19,6 +19,7 @@ from app.domain.llm_errors import (
 )
 from app.domain.models import (
     AnalysisReport,
+    AnalysisScope,
     AnalysisTask,
     AnalyzeTextRequest,
     DemoErrorKind,
@@ -28,6 +29,7 @@ from app.domain.models import (
     FindingSeverity,
     PlainLanguage,
     ProductCandidate,
+    ProductResolution,
     ProductRiskGrade,
     ProductTypeId,
     StageInfo,
@@ -67,6 +69,9 @@ _VALID_HINTS = {
 # Demo 正式支持的产品；其它识别结果只提示范围，不做完整分析
 DEMO_SUPPORTED_PRODUCTS = frozenset({"structured_deposit", "loan"})
 SCOPE_PENDING_QUESTION = "当前 Demo 仅支持结构性存款和贷款，请重新选择或补充材料。"
+CONFIRM_PENDING_QUESTION = "产品类型存在冲突，请确认后重新分析。"
+_LOAN_TEXT_MARKERS = ("贷款", "消费贷", "借款", "等额本息", "年化利率")
+_DEPOSIT_TEXT_MARKERS = ("结构性存款", "结构存款", "观察区间", "挂钩型存款")
 
 # 已有 Finding 时，模型不得写这些「无风险」结论
 _CONTRADICTION_RE = re.compile(
@@ -130,22 +135,20 @@ class AnalyzeTextUseCase:
                 await self._fail(task_id, "classify", ErrorCode.KNOWLEDGE_UNAVAILABLE)
                 return
 
-            products = self._resolve_products(request.text, request.product_hint)
-            if products:
-                classify_msg = (
-                    f"识别到 {len(products)} 个候选，首选 {products[0].product_name}"
-                )
-                product_type_id = products[0].product_id
-            else:
-                classify_msg = "未达置信度阈值，产品类型为 unknown"
-                product_type_id = None
-            if request.product_hint != ProductHint.auto:
-                classify_msg = f"{classify_msg}（手动指定 {request.product_hint.value}）"
+            resolution = self._resolve_product_decision(request.text, request.product_hint)
+            classify_msg = resolution.reason
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
 
-            if product_type_id not in DEMO_SUPPORTED_PRODUCTS:
-                await self._finish_out_of_scope(task_id, products, request)
+            if resolution.analysis_scope != AnalysisScope.supported:
+                await self._finish_scope_gate(task_id, resolution, request)
                 return
+
+            product_type_id = (
+                resolution.resolved_product_type.value
+                if resolution.resolved_product_type is not None
+                else None
+            )
+            assert product_type_id is not None
 
             extracted = self._extractor.extract(request.text, product_type_id=product_type_id)
             disclosed_n = sum(
@@ -164,7 +167,7 @@ class AnalyzeTextUseCase:
                 f"抽取完成：原文事实 {disclosed_n}，未说明 {missing_n}",
             )
 
-            risk_hits = self._collect_risks(request.text, products)
+            risk_hits = self._collect_risks(request.text, product_type_id)
             await self._mark_stage(
                 task_id,
                 "rule_review",
@@ -236,7 +239,12 @@ class AnalyzeTextUseCase:
             task = self._tasks.get(task_id)
             if task is None:
                 return
-            task.report = self._build_report(products, extracted, findings, plain)
+            task.report = self._build_report(
+                resolution,
+                extracted,
+                findings,
+                plain,
+            )
             task.task_status = TaskStatus.completed
             task.error_code = None
             task.error_message = None
@@ -282,80 +290,176 @@ class AnalyzeTextUseCase:
         self._tasks.save(task)
         log_task("task_failed", task_id, error_code=code.value)
 
-    def _resolve_products(
+    def _resolve_product_decision(
         self,
         text: str,
         product_hint: ProductHint | str | None,
-    ) -> list[ProductHit]:
-        """自动识别；若手动指定合法产品类型则置为首选。"""
-        detected = self._rules.detect_products(text)
+    ) -> ProductResolution:
+        """生成唯一产品决议；后续抽取/规则只能读此 DTO。"""
         if isinstance(product_hint, ProductHint):
-            hint = product_hint.value
+            hint = product_hint
         else:
-            hint = (product_hint or "auto").strip().lower()
-        if hint in ("", "auto") or hint not in _VALID_HINTS:
-            return detected
+            raw = (product_hint or "auto").strip().lower()
+            hint = ProductHint(raw) if raw in {e.value for e in ProductHint} else ProductHint.auto
 
-        forced: ProductHit | None = None
-        for product in self._knowledge.list_products():
-            if product.get("id") != hint:
-                continue
-            forced = ProductHit(
-                product_id=str(product["id"]),
-                product_name=str(product.get("name") or product["id"]),
-                confidence=1.0,
-                evidence_quotes=[f"手动选择:{hint}"],
+        detected = self._rules.detect_products(text)
+        # 受支持产品优先排序，避免保险等附带词抢第一
+        detected_sorted = sorted(
+            detected,
+            key=lambda p: (
+                0 if p.product_id in DEMO_SUPPORTED_PRODUCTS else 1,
+                -p.confidence,
+            ),
+        )
+        candidates = self._hits_to_candidates(detected_sorted)
+        text_loan = self._text_has_markers(text, _LOAN_TEXT_MARKERS)
+        text_deposit = self._text_has_markers(text, _DEPOSIT_TEXT_MARKERS)
+        supported_hits = [p for p in detected_sorted if p.product_id in DEMO_SUPPORTED_PRODUCTS]
+
+        if hint == ProductHint.structured_deposit and text_loan and not text_deposit:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                candidates=candidates,
+                reason="手动选择结构性存款，但原文更像贷款，需确认产品类型",
             )
-            break
-        if forced is None:
-            return detected
+        if hint == ProductHint.loan and text_deposit and not text_loan:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                candidates=candidates,
+                reason="手动选择贷款，但原文更像结构性存款，需确认产品类型",
+            )
+        if hint == ProductHint.structured_deposit and text_loan and text_deposit:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                candidates=candidates,
+                reason="手动选择与原文产品信号冲突，需确认",
+            )
+        if hint == ProductHint.loan and text_loan and text_deposit:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                candidates=candidates,
+                reason="手动选择与原文产品信号冲突，需确认",
+            )
 
-        rest = [p for p in detected if p.product_id != forced.product_id]
-        return [forced, *rest]
+        if hint in (ProductHint.structured_deposit, ProductHint.loan):
+            resolved = ProductTypeId(hint.value)
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=resolved,
+                analysis_scope=AnalysisScope.supported,
+                candidates=candidates or self._hits_to_candidates(
+                    [
+                        ProductHit(
+                            product_id=hint.value,
+                            product_name=hint.value,
+                            confidence=1.0,
+                            evidence_quotes=[f"手动选择:{hint.value}"],
+                        )
+                    ]
+                ),
+                reason=f"手动指定 {hint.value}",
+            )
 
-    def _collect_risks(self, text: str, products) -> list[RiskHit]:
-        if not products:
+        # auto
+        strong_supported = [p for p in supported_hits if p.confidence >= 0.85]
+        if len(strong_supported) >= 2:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                candidates=candidates,
+                reason="自动识别到多个受支持产品，需确认",
+            )
+        if len(supported_hits) == 1 or (len(strong_supported) == 1 and len(supported_hits) >= 1):
+            primary = strong_supported[0] if strong_supported else supported_hits[0]
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=ProductTypeId(primary.product_id),
+                analysis_scope=AnalysisScope.supported,
+                candidates=candidates,
+                reason=f"自动识别首选 {primary.product_name}",
+            )
+        if text_loan and text_deposit:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                candidates=candidates,
+                reason="原文同时出现贷款与结构性存款信号，需确认",
+            )
+        if text_loan:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=ProductTypeId.loan,
+                analysis_scope=AnalysisScope.supported,
+                candidates=candidates,
+                reason="根据原文贷款信号识别为贷款",
+            )
+        if text_deposit:
+            return ProductResolution(
+                requested_hint=hint,
+                resolved_product_type=ProductTypeId.structured_deposit,
+                analysis_scope=AnalysisScope.supported,
+                candidates=candidates,
+                reason="根据原文识别为结构性存款",
+            )
+        return ProductResolution(
+            requested_hint=hint,
+            resolved_product_type=None,
+            analysis_scope=AnalysisScope.out_of_scope,
+            candidates=candidates,
+            reason="未识别到 Demo 支持的产品类型",
+        )
+
+    @staticmethod
+    def _text_has_markers(text: str, markers: tuple[str, ...]) -> bool:
+        return any(m in text for m in markers)
+
+    @staticmethod
+    def _hits_to_candidates(products: list[ProductHit]) -> list[ProductCandidate]:
+        out: list[ProductCandidate] = []
+        for p in products:
+            try:
+                pid = ProductTypeId(p.product_id)
+            except ValueError:
+                pid = ProductTypeId.unknown
+            out.append(
+                ProductCandidate(
+                    product_type_id=pid,
+                    product_type_name=p.product_name,
+                    confidence=p.confidence,
+                    evidence_quotes=list(p.evidence_quotes),
+                )
+            )
+        return out
+
+    def _collect_risks(self, text: str, product_type_id: str) -> list[RiskHit]:
+        if product_type_id not in DEMO_SUPPORTED_PRODUCTS:
             return []
-        primary = products[0].product_id
-        if primary not in DEMO_SUPPORTED_PRODUCTS:
-            return []
-        merged: list[RiskHit] = []
-        seen: set[str] = set()
-        for product in products:
-            if product.product_id not in DEMO_SUPPORTED_PRODUCTS:
-                continue
-            for hit in self._rules.match_risks(text, product_type=product.product_id):
-                if hit.pattern_id in seen:
-                    continue
-                seen.add(hit.pattern_id)
-                merged.append(hit)
-        return merged
+        return list(self._rules.match_risks(text, product_type=product_type_id))
 
-    async def _finish_out_of_scope(
+    async def _finish_scope_gate(
         self,
         task_id: str,
-        products: list[ProductHit],
+        resolution: ProductResolution,
         request: AnalyzeTextRequest,
     ) -> None:
-        """unknown / 非首批产品：不跑全量规则，只提示 Demo 范围。"""
-        await self._mark_stage(
-            task_id,
-            "extract",
-            StageStatus.success,
-            "不在支持范围，跳过参数抽取",
-        )
-        await self._mark_stage(
-            task_id,
-            "rule_review",
-            StageStatus.success,
-            "不在支持范围，跳过规则复核",
-        )
-        await self._mark_stage(
-            task_id,
-            "evidence_validate",
-            StageStatus.success,
-            "不在支持范围，跳过证据校验",
-        )
+        """超范围 / 待确认：不跑抽取与规则，阶段记 not_applicable。"""
+        for stage in ("extract", "rule_review", "evidence_validate"):
+            await self._mark_stage(
+                task_id,
+                stage,
+                StageStatus.not_applicable,
+                "未进入完整分析",
+            )
 
         if request.demo_error == DemoErrorKind.model_timeout:
             await self._fail(task_id, "explain", ErrorCode.MODEL_TIMEOUT)
@@ -367,20 +471,33 @@ class AnalyzeTextUseCase:
             await self._fail(task_id, "explain", ErrorCode.RATE_LIMITED)
             return
 
-        await self._mark_stage(task_id, "explain", StageStatus.success, "范围提示完成")
+        await self._mark_stage(task_id, "explain", StageStatus.success, "范围说明完成")
         task = self._tasks.get(task_id)
         if task is None:
             return
-        task.report = self._build_out_of_scope_report(products)
+        task.report = self._build_scope_gate_report(resolution)
         task.task_status = TaskStatus.completed
         task.error_code = None
         task.error_message = None
         self._tasks.save(task)
-        log_task("task_completed", task_id, findings=0, out_of_scope=True)
+        log_task(
+            "task_completed",
+            task_id,
+            findings=0,
+            out_of_scope=resolution.analysis_scope == AnalysisScope.out_of_scope,
+            needs_confirmation=resolution.analysis_scope
+            == AnalysisScope.needs_confirmation,
+        )
 
-    def _build_out_of_scope_report(self, products: list[ProductHit]) -> AnalysisReport:
-        candidates: list[ProductCandidate] = []
-        if not products:
+    def _build_scope_gate_report(self, resolution: ProductResolution) -> AnalysisReport:
+        if resolution.analysis_scope == AnalysisScope.needs_confirmation:
+            plain = "产品类型存在冲突，请确认后重新分析。本次未做完整风险分析。"
+            pending = [CONFIRM_PENDING_QUESTION]
+        else:
+            plain = "当前 Demo 未分析该产品，请选择结构性存款或贷款。本次未做完整风险分析。"
+            pending = [SCOPE_PENDING_QUESTION]
+        candidates = list(resolution.candidates)
+        if not candidates:
             candidates = [
                 ProductCandidate(
                     product_type_id=ProductTypeId.unknown,
@@ -389,40 +506,37 @@ class AnalyzeTextUseCase:
                     evidence_quotes=[],
                 )
             ]
-        else:
-            primary = products[0]
-            try:
-                pid = ProductTypeId(primary.product_id)
-            except ValueError:
-                pid = ProductTypeId.unknown
-            name = primary.product_name
-            if "out of scope" not in name.lower():
-                name = f"{name}（out of scope）"
-            candidates = [
-                ProductCandidate(
-                    product_type_id=pid,
-                    product_type_name=name,
-                    confidence=primary.confidence,
-                    evidence_quotes=list(primary.evidence_quotes),
+        elif resolution.analysis_scope == AnalysisScope.out_of_scope:
+            tagged: list[ProductCandidate] = []
+            for c in candidates:
+                name = c.product_type_name
+                if "out of scope" not in name.lower():
+                    name = f"{name}（out of scope）"
+                tagged.append(
+                    ProductCandidate(
+                        product_type_id=c.product_type_id,
+                        product_type_name=name,
+                        confidence=c.confidence,
+                        evidence_quotes=list(c.evidence_quotes),
+                    )
                 )
-            ]
-
+            candidates = tagged
         return AnalysisReport(
             product_candidates=candidates,
+            resolved_product_type=resolution.resolved_product_type,
+            analysis_scope=resolution.analysis_scope,
+            scope_reason=resolution.reason,
             product_risk_grade=ProductRiskGrade(
                 value=None,
                 status=FactStatus.not_disclosed,
                 note="原文未明确风险等级",
             ),
-            plain_language=PlainLanguage(
-                text="当前材料不在 Demo 支持范围内，未做完整风险分析。",
-                status=StageStatus.success,
-            ),
+            plain_language=PlainLanguage(text=plain, status=StageStatus.success),
             key_parameters=[],
             findings=[],
             missing_disclosures=[],
             general_references=[],
-            pending_questions=[SCOPE_PENDING_QUESTION],
+            pending_questions=pending,
             disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
         )
 
@@ -452,31 +566,18 @@ class AnalyzeTextUseCase:
 
     def _build_report(
         self,
-        products,
+        resolution: ProductResolution,
         extracted: ExtractResult,
         findings: list[Finding],
         plain: str,
     ) -> AnalysisReport:
-        candidates: list[ProductCandidate] = []
-        for p in products:
-            try:
-                pid = ProductTypeId(p.product_id)
-            except ValueError:
-                pid = ProductTypeId.unknown
-            candidates.append(
-                ProductCandidate(
-                    product_type_id=pid,
-                    product_type_name=p.product_name,
-                    confidence=p.confidence,
-                    evidence_quotes=list(p.evidence_quotes),
-                )
-            )
-        if not candidates:
+        candidates = list(resolution.candidates)
+        if not candidates and resolution.resolved_product_type is not None:
             candidates = [
                 ProductCandidate(
-                    product_type_id=ProductTypeId.unknown,
-                    product_type_name="未识别",
-                    confidence=0.0,
+                    product_type_id=resolution.resolved_product_type,
+                    product_type_name=resolution.resolved_product_type.value,
+                    confidence=1.0,
                     evidence_quotes=[],
                 )
             ]
@@ -504,6 +605,9 @@ class AnalyzeTextUseCase:
 
         return AnalysisReport(
             product_candidates=candidates,
+            resolved_product_type=resolution.resolved_product_type,
+            analysis_scope=AnalysisScope.supported,
+            scope_reason=resolution.reason,
             product_risk_grade=risk_grade,
             plain_language=PlainLanguage(text=plain, status=StageStatus.success),
             key_parameters=list(extracted.key_parameters),

@@ -1,5 +1,6 @@
 """领域模型导出。"""
 from app.domain.models.enums import (
+    AnalysisScope,
     DemoErrorKind,
     EvidenceSource,
     FactStatus,
@@ -21,12 +22,14 @@ from app.domain.models.report import (
     MissingDisclosure,
     PlainLanguage,
     ProductCandidate,
+    ProductResolution,
     ProductRiskGrade,
     StageInfo,
     StageResult,
 )
 
 __all__ = [
+    "AnalysisScope",
     "DemoErrorKind",
     "EvidenceSource",
     "FactStatus",
@@ -46,6 +49,7 @@ __all__ = [
     "MissingDisclosure",
     "PlainLanguage",
     "ProductCandidate",
+    "ProductResolution",
     "ProductRiskGrade",
     "StageInfo",
     "StageResult",

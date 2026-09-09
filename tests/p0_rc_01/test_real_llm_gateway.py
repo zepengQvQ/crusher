@@ -169,7 +169,8 @@ class RealGatewayPipelineTests(unittest.TestCase):
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         gw = OpenAiCompatibleLlmGateway(_settings(mock_mode=False), client=client)
-        task = self._run(gw, "结构性存款期限90天。")
+        # 与 _run 的 product_hint=loan 一致，避免产品冲突走范围门而跳过 LLM
+        task = self._run(gw, "本贷款借款期限90天，年化利率7.2%。")
         self.assertEqual(task.task_status, TaskStatus.failed)
         self.assertEqual(task.error_code, ErrorCode.RATE_LIMITED)
         self.assertIsNone(task.report)
@@ -181,7 +182,7 @@ class RealGatewayPipelineTests(unittest.TestCase):
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         gw = OpenAiCompatibleLlmGateway(_settings(mock_mode=False), client=client)
-        task = self._run(gw, "结构性存款期限90天。")
+        task = self._run(gw, "本贷款借款期限90天，年化利率7.2%。")
         self.assertEqual(task.task_status, TaskStatus.failed)
         self.assertEqual(task.error_code, ErrorCode.MODEL_TIMEOUT)
         self.assertIsNone(task.report)
@@ -192,7 +193,7 @@ class RealGatewayPipelineTests(unittest.TestCase):
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         gw = OpenAiCompatibleLlmGateway(_settings(mock_mode=False), client=client)
-        task = self._run(gw, "结构性存款期限90天。")
+        task = self._run(gw, "本贷款借款期限90天，年化利率7.2%。")
         self.assertEqual(task.task_status, TaskStatus.failed)
         self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
         self.assertIsNone(task.report)
@@ -206,7 +207,7 @@ class RealGatewayPipelineTests(unittest.TestCase):
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         gw = OpenAiCompatibleLlmGateway(_settings(mock_mode=False), client=client)
-        task = self._run(gw, "结构性存款期限90天。")
+        task = self._run(gw, "本贷款借款期限90天，年化利率7.2%。")
         self.assertEqual(task.task_status, TaskStatus.failed)
         self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
 

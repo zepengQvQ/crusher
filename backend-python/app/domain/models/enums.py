@@ -11,6 +11,7 @@ __all__ = [
     "FindingSeverity",
     "ProductTypeId",
     "ProductHint",
+    "AnalysisScope",
     "ParameterKey",
     "DemoErrorKind",
     "EvidenceSource",
@@ -50,6 +51,14 @@ class ProductHint(str, Enum):
     auto = "auto"
     structured_deposit = "structured_deposit"
     loan = "loan"
+
+
+class AnalysisScope(str, Enum):
+    """一次分析的范围状态。"""
+
+    supported = "supported"
+    out_of_scope = "out_of_scope"
+    needs_confirmation = "needs_confirmation"
 
 
 class ParameterKey(str, Enum):

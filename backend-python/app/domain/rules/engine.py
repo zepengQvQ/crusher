@@ -105,6 +105,8 @@ class RuleEngine:
 
         for alias in strong:
             for idx in self._iter_alias_starts(text, alias):
+                if self._alias_blocked_by_context(text, idx, alias, product):
+                    continue
                 end = idx + len(alias)
                 if is_target_negated(text, idx, end, cues=cues, window=window):
                     continue
@@ -114,6 +116,8 @@ class RuleEngine:
 
         for alias in weak:
             for idx in self._iter_alias_starts(text, alias):
+                if self._alias_blocked_by_context(text, idx, alias, product):
+                    continue
                 end = idx + len(alias)
                 if is_target_negated(text, idx, end, cues=cues, window=window):
                     continue
@@ -130,6 +134,15 @@ class RuleEngine:
             confidence=confidence,
             evidence_quotes=evidence,
         )
+
+    @staticmethod
+    def _alias_blocked_by_context(text: str, idx: int, alias: str, product: dict) -> bool:
+        """排除「存款保险」等误触发非支持产品的上下文。"""
+        pid = str(product.get("id") or "")
+        if pid == "insurance" and alias == "保险":
+            if idx >= 2 and text[idx - 2 : idx] == "存款":
+                return True
+        return False
 
     @staticmethod
     def _iter_alias_starts(text: str, alias: str) -> list[int]:

@@ -155,9 +155,16 @@ const productGradeText = computed(() => {
 })
 
 const conclusion = computed(() => {
+  const scope = report.value?.analysis_scope || 'supported'
+  if (scope === 'out_of_scope') {
+    return '当前 Demo 未分析该产品，请选择结构性存款或贷款'
+  }
+  if (scope === 'needs_confirmation') {
+    return '产品类型存在冲突，请确认后重新分析'
+  }
   const findings = report.value?.findings || []
   if (!findings.length) {
-    return '本次未命中已知风险模式（成功空结果，不是失败）。'
+    return '未命中当前已配置规则，不等于产品没有风险'
   }
   return `共发现 ${findings.length} 条风险，请展开查看原文证据。`
 })

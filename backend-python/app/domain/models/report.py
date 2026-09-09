@@ -13,6 +13,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.models.enums import (
+    AnalysisScope,
     DemoErrorKind,
     EvidenceSource,
     FactStatus,
@@ -139,6 +140,9 @@ class AnalysisReport(StrictModel):
     """完整分析报告。"""
 
     product_candidates: list[ProductCandidate] = Field(default_factory=list)
+    resolved_product_type: ProductTypeId | None = None
+    analysis_scope: AnalysisScope = AnalysisScope.supported
+    scope_reason: str = ""
     product_risk_grade: ProductRiskGrade
     plain_language: PlainLanguage
     key_parameters: list[KeyParameter] = Field(default_factory=list)
@@ -153,6 +157,19 @@ class AnalysisReport(StrictModel):
         default="本 Demo 不进行用户适当性评估，不构成投资建议。",
         min_length=1,
     )
+
+
+class ProductResolution(StrictModel):
+    """分类阶段唯一产品决议；后续步骤不得重新猜产品。
+
+    Java 对照：分类服务返回的 Decision DTO。
+    """
+
+    requested_hint: ProductHint = ProductHint.auto
+    resolved_product_type: ProductTypeId | None = None
+    analysis_scope: AnalysisScope = AnalysisScope.out_of_scope
+    candidates: list[ProductCandidate] = Field(default_factory=list)
+    reason: str = ""
 
 
 class StageInfo(StrictModel):
