@@ -4,9 +4,15 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "HTTPValidationError", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValidationError"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "ApiErrorDetail", "ApiErrorResponse", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "ErrorCode", "Evidence", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+
+export const MAX_INPUT_CHARS = 8000
 
 export const DISCLAIMER = '本 Demo 不进行用户适当性评估，不构成投资建议。'
+
+/**
+ * @typedef {"supported"|"out_of_scope"|"needs_confirmation"} AnalysisScopeValue
+ */
 
 export const AnalysisScope = Object.freeze({
   supported: "supported",
@@ -14,11 +20,19 @@ export const AnalysisScope = Object.freeze({
   needs_confirmation: "needs_confirmation",
 })
 
+/**
+ * @typedef {"model_timeout"|"invalid_json"|"rate_limited"} DemoErrorKindValue
+ */
+
 export const DemoErrorKind = Object.freeze({
   model_timeout: "model_timeout",
   invalid_json: "invalid_json",
   rate_limited: "rate_limited",
 })
+
+/**
+ * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"INTERNAL_ERROR"} ErrorCodeValue
+ */
 
 export const ErrorCode = Object.freeze({
   INPUT_TOO_LONG: "INPUT_TOO_LONG",
@@ -32,10 +46,18 @@ export const ErrorCode = Object.freeze({
   INTERNAL_ERROR: "INTERNAL_ERROR",
 })
 
+/**
+ * @typedef {"input_text"|"knowledge"} EvidenceSourceValue
+ */
+
 export const EvidenceSource = Object.freeze({
   input_text: "input_text",
   knowledge: "knowledge",
 })
+
+/**
+ * @typedef {"document_fact"|"calculated_fact"|"general_reference"|"not_disclosed"|"unknown"} FactStatusValue
+ */
 
 export const FactStatus = Object.freeze({
   document_fact: "document_fact",
@@ -45,11 +67,19 @@ export const FactStatus = Object.freeze({
   unknown: "unknown",
 })
 
+/**
+ * @typedef {"high"|"mid"|"low"} FindingSeverityValue
+ */
+
 export const FindingSeverity = Object.freeze({
   high: "high",
   mid: "mid",
   low: "low",
 })
+
+/**
+ * @typedef {"term"|"expected_return"|"early_redemption"|"fee_structure"|"principal_protection"|"product_risk_grade"|"amount"|"annual_interest_rate"|"repayment_method"|"penalty_interest"|"prepayment_fee"} ParameterKeyValue
+ */
 
 export const ParameterKey = Object.freeze({
   term: "term",
@@ -65,11 +95,19 @@ export const ParameterKey = Object.freeze({
   prepayment_fee: "prepayment_fee",
 })
 
+/**
+ * @typedef {"auto"|"structured_deposit"|"loan"} ProductHintValue
+ */
+
 export const ProductHint = Object.freeze({
   auto: "auto",
   structured_deposit: "structured_deposit",
   loan: "loan",
 })
+
+/**
+ * @typedef {"structured_deposit"|"loan"|"snowball"|"insurance"|"fund"|"unknown"} ProductTypeIdValue
+ */
 
 export const ProductTypeId = Object.freeze({
   structured_deposit: "structured_deposit",
@@ -80,12 +118,20 @@ export const ProductTypeId = Object.freeze({
   unknown: "unknown",
 })
 
+/**
+ * @typedef {"success"|"partial"|"failed"|"not_applicable"} StageStatusValue
+ */
+
 export const StageStatus = Object.freeze({
   success: "success",
   partial: "partial",
   failed: "failed",
   not_applicable: "not_applicable",
 })
+
+/**
+ * @typedef {"queued"|"running"|"completed"|"failed"} TaskStatusValue
+ */
 
 export const TaskStatus = Object.freeze({
   queued: "queued",
@@ -95,133 +141,132 @@ export const TaskStatus = Object.freeze({
 })
 
 /**
- * @typedef CreateAnalysisRequest
+ * @typedef {Object} CreateAnalysisRequest
  * @property {string} text
- * @property {ProductHint} [optional] product_hint
- * @property {string} [optional] locale
- * @property {DemoErrorKind} [optional] demo_error
+ * @property {ProductHintValue} [product_hint]
+ * @property {string} [locale]
+ * @property {DemoErrorKindValue} [demo_error]
  */
 
 /**
- * @typedef CreateAnalysisResponse
+ * @typedef {Object} CreateAnalysisResponse
  * @property {string} task_id
- * @property {TaskStatus} task_status
+ * @property {TaskStatusValue} task_status
  */
 
 /**
- * @typedef TaskResponse
+ * @typedef {Object} TaskResponse
  * @property {string} task_id
- * @property {TaskStatus} task_status
+ * @property {TaskStatusValue} task_status
  * @property {string} created_at
  * @property {string} updated_at
  * @property {Array<StageInfo>} stages
- * @property {ErrorCode} [optional] error_code
- * @property {string} [optional] error_message
- * @property {AnalysisReport} [optional] report
- * @property {boolean} [optional] is_failure
- * @property {string} [optional] source_text
- * @property {ProductHint} [optional] product_hint
- * @property {ProductTypeId} [optional] resolved_product_type
- * @property {AnalysisScope} [optional] analysis_scope
+ * @property {ErrorCodeValue} [error_code]
+ * @property {string} [error_message]
+ * @property {AnalysisReport} [report]
+ * @property {boolean} [is_failure]
+ * @property {string} [source_text]
+ * @property {ProductHintValue} [product_hint]
+ * @property {ProductTypeIdValue} [resolved_product_type]
+ * @property {AnalysisScopeValue} [analysis_scope]
  */
 
 /**
- * @typedef AnalysisReport
- * @property {Array<ProductCandidate>} [optional] product_candidates
- * @property {ProductTypeId} [optional] resolved_product_type
- * @property {AnalysisScope} [optional] analysis_scope
- * @property {string} [optional] scope_reason
+ * @typedef {Object} AnalysisReport
+ * @property {Array<ProductCandidate>} [product_candidates]
+ * @property {ProductTypeIdValue} [resolved_product_type]
+ * @property {AnalysisScopeValue} [analysis_scope]
+ * @property {string} [scope_reason]
  * @property {ProductRiskGrade} product_risk_grade
  * @property {PlainLanguage} plain_language
- * @property {Array<KeyParameter>} [optional] key_parameters
- * @property {Array<Finding>} [optional] findings
- * @property {Array<MissingDisclosure>} [optional] missing_disclosures
- * @property {Array<GeneralReference>} [optional] general_references
- * @property {Array<string>} [optional] pending_questions
- * @property {string} [optional] disclaimer
+ * @property {Array<KeyParameter>} [key_parameters]
+ * @property {Array<Finding>} [findings]
+ * @property {Array<MissingDisclosure>} [missing_disclosures]
+ * @property {Array<GeneralReference>} [general_references]
+ * @property {Array<string>} [pending_questions]
+ * @property {string} [disclaimer]
  */
 
 /**
- * @typedef Finding
+ * @typedef {Object} Finding
  * @property {string} id
  * @property {string} title
- * @property {FindingSeverity} finding_severity
+ * @property {FindingSeverityValue} finding_severity
  * @property {string} explanation
  * @property {Array<Evidence>} evidence
  * @property {string} rule_or_knowledge_id
  * @property {number} confidence
- * @property {boolean} [optional] needs_review
+ * @property {boolean} [needs_review]
  */
 
 /**
- * @typedef Evidence
+ * @typedef {Object} Evidence
  * @property {string} quote
  * @property {number} start
  * @property {number} end
- * @property {EvidenceSource} [optional] source
+ * @property {EvidenceSourceValue} [source]
  */
 
 /**
- * @typedef KeyParameter
- * @property {ParameterKey} key
+ * @typedef {Object} KeyParameter
+ * @property {ParameterKeyValue} key
  * @property {string} label
- * @property {string} [optional] value
- * @property {FactStatus} status
- * @property {string} [optional] amount
+ * @property {string} [value]
+ * @property {FactStatusValue} status
+ * @property {string} [amount]
  */
 
 /**
- * @typedef ProductCandidate
- * @property {ProductTypeId} product_type_id
+ * @typedef {Object} ProductCandidate
+ * @property {ProductTypeIdValue} product_type_id
  * @property {string} product_type_name
  * @property {number} confidence
- * @property {Array<string>} [optional] evidence_quotes
+ * @property {Array<string>} [evidence_quotes]
  */
 
 /**
- * @typedef ProductRiskGrade
- * @property {string} [optional] value
- * @property {FactStatus} status
- * @property {string} [optional] note
+ * @typedef {Object} ProductRiskGrade
+ * @property {string} [value]
+ * @property {FactStatusValue} status
+ * @property {string} [note]
  */
 
 /**
- * @typedef PlainLanguage
+ * @typedef {Object} PlainLanguage
  * @property {string} text
- * @property {StageStatus} [optional] status
+ * @property {StageStatusValue} [status]
  */
 
 /**
- * @typedef MissingDisclosure
- * @property {ParameterKey} key
+ * @typedef {Object} MissingDisclosure
+ * @property {ParameterKeyValue} key
  * @property {string} question
  */
 
 /**
- * @typedef GeneralReference
- * @property {FactStatus} [optional] status
+ * @typedef {Object} GeneralReference
+ * @property {FactStatusValue} [status]
  * @property {string} text
  * @property {string} source
  */
 
 /**
- * @typedef StageInfo
+ * @typedef {Object} StageInfo
  * @property {string} name
- * @property {StageStatus} status
- * @property {string} [optional] message
+ * @property {StageStatusValue} status
+ * @property {string} [message]
  */
 
 /**
- * @typedef HTTPValidationError
- * @property {Array<ValidationError>} [optional] detail
+ * @typedef {Object} ApiErrorDetail
+ * @property {string} error_code
+ * @property {string} message
+ * @property {Array<string>} [fields]
+ * @property {number} [max_input_chars]
  */
 
 /**
- * @typedef ValidationError
- * @property {Array<string|number>} loc
- * @property {string} msg
- * @property {string} type
- * @property {any} [optional] input
- * @property {Object} [optional] ctx
+ * @typedef {Object} ApiErrorResponse
+ * @property {ApiErrorDetail} detail
  */
 

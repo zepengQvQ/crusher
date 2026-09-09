@@ -31,7 +31,7 @@ class GeneratedTypesSyncTests(unittest.TestCase):
             "TaskResponse",
             "CreateAnalysisRequest",
         ):
-            self.assertIn(f"@typedef {dto}", gen)
+            self.assertIn(f"@typedef {{Object}} {dto}", gen)
             self.assertTrue(re.search(rf"export const SCHEMA_NAMES = .*\"{dto}\"", gen))
 
         self.assertIn("export const ProductHint", gen)

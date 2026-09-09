@@ -15,9 +15,15 @@ from pydantic import BaseModel, ConfigDict
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.composition_root import get_analyze_text_use_case, get_task_store
 from app.config.settings import Settings, get_settings
-from app.domain.models import AnalysisReport, CreateAnalysisRequest, StageInfo
+from app.domain.models import (
+    AnalysisReport,
+    ApiErrorResponse,
+    CreateAnalysisRequest,
+    StageInfo,
+)
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
 from app.infrastructure.task_store.memory import InMemoryTaskStore
+from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
 
@@ -115,6 +121,17 @@ async def request_validation_exception_handler(
                 }
             },
         )
+    if _is_text_too_long(errors):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": {
+                    "error_code": ErrorCode.INPUT_TOO_LONG.value,
+                    "message": user_message_for(ErrorCode.INPUT_TOO_LONG),
+                    "max_input_chars": MAX_INPUT_CHARS,
+                }
+            },
+        )
     return JSONResponse(
         status_code=422,
         content={
@@ -126,6 +143,17 @@ async def request_validation_exception_handler(
     )
 
 
+def _is_text_too_long(errors: list[dict[str, object]]) -> bool:
+    for err in errors:
+        typ = str(err.get("type") or "")
+        if typ not in {"string_too_long", "value_error.any_str.max_length"}:
+            continue
+        loc = err.get("loc") or ()
+        if isinstance(loc, (list, tuple)) and "text" in loc:
+            return True
+    return False
+
+
 @router.get("/health")
 def health(settings: SettingsDep) -> dict[str, object]:
     info = settings.public_info()
@@ -133,7 +161,14 @@ def health(settings: SettingsDep) -> dict[str, object]:
     return info
 
 
-@router.post("/api/v1/analyses", response_model=CreateAnalysisResponse)
+@router.post(
+    "/api/v1/analyses",
+    response_model=CreateAnalysisResponse,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "业务拒绝或输入超长"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
 async def create_analysis(
     body: CreateAnalysisRequest,
     background_tasks: BackgroundTasks,
@@ -150,13 +185,14 @@ async def create_analysis(
             },
         )
 
-    if len(body.text) > settings.max_input_chars:
+    # 上限已由 CreateAnalysisRequest.max_length 契约校验；此处兜底与常量一致
+    if len(body.text) > MAX_INPUT_CHARS:
         raise HTTPException(
             status_code=400,
             detail={
                 "error_code": ErrorCode.INPUT_TOO_LONG.value,
                 "message": user_message_for(ErrorCode.INPUT_TOO_LONG),
-                "max_input_chars": settings.max_input_chars,
+                "max_input_chars": MAX_INPUT_CHARS,
             },
         )
 
@@ -165,7 +201,14 @@ async def create_analysis(
     return CreateAnalysisResponse(task_id=task.task_id, task_status=task.task_status)
 
 
-@router.get("/api/v1/analyses/{task_id}", response_model=TaskResponse)
+@router.get(
+    "/api/v1/analyses/{task_id}",
+    response_model=TaskResponse,
+    responses={
+        404: {"model": ApiErrorResponse, "description": "任务不存在"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
 def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
     """按 task_id 查询状态与原文；失败任务不返回报告。"""
     task = store.get(task_id)

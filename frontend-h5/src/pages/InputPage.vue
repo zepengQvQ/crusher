@@ -28,7 +28,7 @@
         rows="8"
         autosize
         type="textarea"
-        maxlength="8000"
+        :maxlength="MAX_INPUT_CHARS"
         show-word-limit
         placeholder="粘贴结构性存款或借贷相关条款…"
         class="touch-field"
@@ -87,6 +87,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { createAnalysis, pickErrorMessage } from '../api/client'
+import { MAX_INPUT_CHARS } from '../api/generated-types'
 import { EXAMPLES, PRODUCT_OPTIONS } from '../data/examples'
 import { useTaskStore } from '../stores/task'
 

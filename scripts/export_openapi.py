@@ -37,6 +37,8 @@ PRIORITY_SCHEMAS = [
     "MissingDisclosure",
     "GeneralReference",
     "StageInfo",
+    "ApiErrorDetail",
+    "ApiErrorResponse",
 ]
 
 
@@ -46,7 +48,11 @@ def _ref_name(ref: str) -> str:
 
 def _js_type(prop: dict[str, Any], schemas: dict[str, Any]) -> str:
     if "$ref" in prop:
-        return _ref_name(prop["$ref"])
+        name = _ref_name(prop["$ref"])
+        target = schemas.get(name) or {}
+        if "enum" in target:
+            return f"{name}Value"
+        return name
     if "anyOf" in prop:
         parts = [_js_type(p, schemas) for p in prop["anyOf"]]
         # 常见 Optional
@@ -54,6 +60,8 @@ def _js_type(prop: dict[str, Any], schemas: dict[str, Any]) -> str:
         if not parts:
             return "null"
         return "|".join(parts) if len(parts) > 1 else parts[0]
+    if "enum" in prop:
+        return "|".join(json.dumps(v, ensure_ascii=False) for v in prop["enum"])
     t = prop.get("type")
     if t == "array":
         items = prop.get("items") or {}
@@ -75,7 +83,14 @@ def _js_type(prop: dict[str, Any], schemas: dict[str, Any]) -> str:
 
 def _emit_enum(name: str, schema: dict[str, Any]) -> list[str]:
     values = schema.get("enum") or []
-    lines = [f"export const {name} = Object.freeze({{"]
+    union = "|".join(json.dumps(v, ensure_ascii=False) for v in values) or "string"
+    lines = [
+        "/**",
+        f" * @typedef {{{union}}} {name}Value",
+        " */",
+        "",
+        f"export const {name} = Object.freeze({{",
+    ]
     for v in values:
         key = re.sub(r"[^a-zA-Z0-9_]", "_", str(v))
         if key and key[0].isdigit():
@@ -89,13 +104,24 @@ def _emit_enum(name: str, schema: dict[str, Any]) -> list[str]:
 def _emit_typedef(name: str, schema: dict[str, Any], schemas: dict[str, Any]) -> list[str]:
     props = schema.get("properties") or {}
     required = set(schema.get("required") or [])
-    lines = ["/**", f" * @typedef {name}"]
+    lines = ["/**", f" * @typedef {{Object}} {name}"]
     for pname, pschema in props.items():
-        opt = "" if pname in required else " [optional]"
-        lines.append(f" * @property {{{_js_type(pschema, schemas)}}}{opt} {pname}")
+        typ = _js_type(pschema, schemas)
+        if pname in required:
+            lines.append(f" * @property {{{typ}}} {pname}")
+        else:
+            lines.append(f" * @property {{{typ}}} [{pname}]")
     lines.append(" */")
     lines.append("")
     return lines
+
+
+def _max_input_chars(components: dict[str, Any]) -> int:
+    try:
+        text_schema = components["CreateAnalysisRequest"]["properties"]["text"]
+        return int(text_schema["maxLength"])
+    except (KeyError, TypeError, ValueError):
+        return 8000
 
 
 def main() -> None:
@@ -108,6 +134,7 @@ def main() -> None:
 
     components = schema.get("components", {}).get("schemas", {})
     names = sorted(components.keys())
+    max_chars = _max_input_chars(components)
 
     lines: list[str] = [
         "/**",
@@ -118,11 +145,13 @@ def main() -> None:
         "",
         f"export const SCHEMA_NAMES = {json.dumps(names, ensure_ascii=False)}",
         "",
+        f"export const MAX_INPUT_CHARS = {max_chars}",
+        "",
         "export const DISCLAIMER = '本 Demo 不进行用户适当性评估，不构成投资建议。'",
         "",
     ]
 
-    # 全部 enum
+    # 全部 enum（含 Value typedef）
     for name in names:
         sch = components[name]
         if "enum" in sch:

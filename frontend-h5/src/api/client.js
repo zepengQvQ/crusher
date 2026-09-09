@@ -4,6 +4,8 @@ import axios from 'axios'
  * @typedef {import('./generated-types.js').CreateAnalysisRequest} CreateAnalysisRequest
  * @typedef {import('./generated-types.js').CreateAnalysisResponse} CreateAnalysisResponse
  * @typedef {import('./generated-types.js').TaskResponse} TaskResponse
+ * @typedef {import('./generated-types.js').ProductHintValue} ProductHintValue
+ * @typedef {import('./generated-types.js').DemoErrorKindValue} DemoErrorKindValue
  */
 
 const http = axios.create({
@@ -14,7 +16,7 @@ const http = axios.create({
 /**
  * 提交分析。
  * @param {string} text
- * @param {{ demoError?: string, productHint?: string }} [options]
+ * @param {{ demoError?: DemoErrorKindValue, productHint?: ProductHintValue }} [options]
  * @returns {Promise<CreateAnalysisResponse>}
  */
 export async function createAnalysis(text, options = {}) {

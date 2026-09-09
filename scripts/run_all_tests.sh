@@ -8,6 +8,11 @@ if [[ ! -x "$PY" ]]; then
   echo "请先执行：make setup"
   exit 1
 fi
+if [[ ! -d "${ROOT}/frontend-h5/node_modules/vitest" ]]; then
+  echo "找不到前端 vitest（node_modules 未同步）。"
+  echo "请先执行：make setup"
+  exit 1
+fi
 export PYTHONPATH="${ROOT}/backend-python:${ROOT}:${PYTHONPATH:-}"
 # 回归默认走 Mock，避免本机 .env 的 MOCK_MODE=false 打到真模型
 export MOCK_MODE="${MOCK_MODE:-true}"
@@ -53,6 +58,9 @@ echo "==> P0-RC-10"
 echo "==> P0-RC-11"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_11" -v
 
+echo "==> P0-RC-12"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_12" -v
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 
@@ -70,6 +78,9 @@ echo "==> P0-09"
 
 echo "==> H5 vitest"
 (cd "${ROOT}/frontend-h5" && npm test)
+
+echo "==> H5 typecheck"
+(cd "${ROOT}/frontend-h5" && npm run typecheck)
 
 echo "==> H5 build"
 (cd "${ROOT}/frontend-h5" && npm run build)

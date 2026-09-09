@@ -7,6 +7,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.shared.constants import MAX_INPUT_CHARS
+
 # 优先读项目根目录 .env，其次 backend-python/.env
 _ROOT_ENV = Path(__file__).resolve().parents[3] / ".env"
 _LOCAL_ENV = Path(__file__).resolve().parents[2] / ".env"
@@ -33,8 +35,8 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.3
     llm_max_tokens: int = 2048
 
-    # 输入上限（超出返回 INPUT_TOO_LONG）
-    max_input_chars: int = 8000
+    # 输入上限：契约固定为 MAX_INPUT_CHARS
+    max_input_chars: int = MAX_INPUT_CHARS
 
     def has_api_key(self) -> bool:
         return bool(self.llm_api_key.strip()) and self.llm_api_key.strip() != "sk-your-api-key-here"
@@ -45,11 +47,14 @@ class Settings(BaseSettings):
             "mock_mode": self.mock_mode,
             "llm_provider": self.llm_provider,
             "llm_model": self.llm_model,
-            "max_input_chars": self.max_input_chars,
+            "max_input_chars": MAX_INPUT_CHARS,
             "has_api_key": self.has_api_key(),
         }
 
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    # Demo 契约：无论 .env 如何写，公开上限与 Schema maxLength 保持一致
+    settings.max_input_chars = MAX_INPUT_CHARS
+    return settings

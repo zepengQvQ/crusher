@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 本地 Demo 启动提示（不用 Docker）。
 # 用法：bash scripts/dev.sh
+# 可重复执行：始终按 lock / pyproject 同步依赖，不要求手工删目录。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -21,28 +22,24 @@ if [[ ! -f .env ]]; then
 fi
 
 if [[ ! -d backend-python/.venv ]]; then
-  echo "首次：创建后端虚拟环境并安装依赖…"
+  echo "创建后端虚拟环境…"
   python3 -m venv backend-python/.venv
-  # shellcheck disable=SC1091
-  source backend-python/.venv/bin/activate
-  pip install -U pip
-  pip install -e "backend-python/.[dev]"
-  if ! pip install -r backend-python/requirements.lock; then
-    echo "警告：requirements.lock 安装未完全成功，已用 editable 开发依赖；请检查网络后重试。"
-  fi
-else
-  if [[ ! -x backend-python/.venv/bin/python ]]; then
-    echo "backend-python/.venv 存在但不可用，请删除后执行：make setup"
-    exit 1
-  fi
-  # shellcheck disable=SC1091
-  source backend-python/.venv/bin/activate
+fi
+if [[ ! -x backend-python/.venv/bin/python ]]; then
+  echo "backend-python/.venv 存在但不可用，请删除后执行：make setup"
+  exit 1
+fi
+# shellcheck disable=SC1091
+source backend-python/.venv/bin/activate
+echo "同步后端依赖…"
+pip install -U pip
+pip install -e "backend-python/.[dev]"
+if ! pip install -r backend-python/requirements.lock; then
+  echo "警告：requirements.lock 安装未完全成功，已用 editable 开发依赖；请检查网络后重试。"
 fi
 
-if [[ ! -d frontend-h5/node_modules ]]; then
-  echo "首次：安装前端依赖…"
-  (cd frontend-h5 && npm install)
-fi
+echo "同步前端依赖（npm ci）…"
+(cd frontend-h5 && npm ci)
 
 echo
 echo "======== 请开两个终端 ========"

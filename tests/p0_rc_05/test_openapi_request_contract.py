@@ -69,7 +69,7 @@ class OpenApiContractTests(unittest.TestCase):
         gen = (ROOT / "frontend-h5" / "src" / "api" / "generated-types.js").read_text(
             encoding="utf-8"
         )
-        self.assertIn("@typedef CreateAnalysisRequest", gen)
+        self.assertIn("@typedef {Object} CreateAnalysisRequest", gen)
         self.assertIn("export const ProductHint", gen)
         self.assertIn("source_text", gen)
         self.assertIn("annual_interest_rate", gen)

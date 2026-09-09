@@ -22,6 +22,7 @@ from app.domain.models.enums import (
     ProductHint,
     ProductTypeId,
 )
+from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus
 
 T = TypeVar("T")
@@ -187,6 +188,21 @@ class StageResult(StrictModel, Generic[T]):
     message: str = ""
 
 
+class ApiErrorDetail(StrictModel):
+    """稳定 4xx 错误体（与 HTTP 实际 payload 一致）。"""
+
+    error_code: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1)
+    fields: list[str] | None = None
+    max_input_chars: int | None = None
+
+
+class ApiErrorResponse(StrictModel):
+    """FastAPI HTTPException / 校验失败统一外层。"""
+
+    detail: ApiErrorDetail
+
+
 class CreateAnalysisRequest(StrictModel):
     """POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。
 
@@ -194,7 +210,12 @@ class CreateAnalysisRequest(StrictModel):
     业务不变量：text 去空白后非空；product_hint 仅允许首版枚举；locale 仅 zh-CN。
     """
 
-    text: str = Field(..., min_length=1, description="待分析原文")
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_INPUT_CHARS,
+        description="待分析原文",
+    )
     product_hint: ProductHint = ProductHint.auto
     locale: Literal["zh-CN"] = "zh-CN"
     demo_error: DemoErrorKind | None = None
