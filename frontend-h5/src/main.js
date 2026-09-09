@@ -12,6 +12,8 @@ import {
   NoticeBar,
   Picker,
   Popup,
+  Radio,
+  RadioGroup,
   Skeleton,
   Tag,
   showToast,
@@ -36,6 +38,8 @@ app.use(router)
   NoticeBar,
   Picker,
   Popup,
+  Radio,
+  RadioGroup,
   Skeleton,
   Tag,
 ].forEach((c) => app.use(c))
