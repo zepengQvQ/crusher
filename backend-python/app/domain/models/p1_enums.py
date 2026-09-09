@@ -46,3 +46,26 @@ class CalculationKind(str, Enum):
 class DayCountBasis(str, Enum):
     days_360 = "360"
     days_365 = "365"
+
+
+class DiffStatus(str, Enum):
+    """两款产品同一维度的对比状态。"""
+
+    same = "same"
+    different = "different"
+    missing_a = "missing_a"
+    missing_b = "missing_b"
+    both_missing = "both_missing"
+    incomparable = "incomparable"
+
+
+class ProductFactDimension(str, Enum):
+    product_type = "product_type"
+    term = "term"
+    amount = "amount"
+    return_or_rate = "return_or_rate"
+    early_exit = "early_exit"
+    fees = "fees"
+    principal_protection = "principal_protection"
+    main_risks = "main_risks"
+    undisclosed = "undisclosed"

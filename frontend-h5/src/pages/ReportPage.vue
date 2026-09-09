@@ -138,6 +138,12 @@
         />
       </div>
 
+      <div class="block">
+        <van-button block plain type="primary" class="touch-btn" @click="goCompareSecond">
+          加入第二款产品对照
+        </van-button>
+      </div>
+
       <p class="disclaimer">{{ report.disclaimer || DISCLAIMER }}</p>
       <div class="block">
         <van-button block type="primary" round class="touch-btn" @click="$router.push('/')">
@@ -240,6 +246,15 @@ function findingTitle(f) {
 async function onCopy(text) {
   const ok = await copyText(text)
   showToast(ok ? '已复制' : '复制失败')
+}
+
+function goCompareSecond() {
+  try {
+    sessionStorage.setItem('crusher_compare_a', sourceText.value || '')
+  } catch {
+    /* ignore */
+  }
+  router.push('/compare')
 }
 
 onMounted(async () => {

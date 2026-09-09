@@ -52,6 +52,11 @@ PRIORITY_SCHEMAS = [
     "CalculateScenarioRequest",
     "CalculationResult",
     "ExtractedDecimalField",
+    "ProductCompareRequest",
+    "ProductComparisonReport",
+    "DimensionComparison",
+    "ProductFacts",
+    "FactSideValue",
 ]
 
 

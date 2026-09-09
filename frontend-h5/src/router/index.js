@@ -8,6 +8,7 @@ import DualReportPage from '../pages/DualReportPage.vue'
 import ExtractConfirmPage from '../pages/ExtractConfirmPage.vue'
 import DocumentUploadPage from '../pages/DocumentUploadPage.vue'
 import ReportHistoryPage from '../pages/ReportHistoryPage.vue'
+import ProductComparePage from '../pages/ProductComparePage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -18,6 +19,7 @@ const router = createRouter({
     { path: '/upload', name: 'upload', component: DocumentUploadPage },
     { path: '/extract-confirm', name: 'extract-confirm', component: ExtractConfirmPage },
     { path: '/history', name: 'history', component: ReportHistoryPage },
+    { path: '/compare', name: 'compare', component: ProductComparePage },
     { path: '/status/:taskId', name: 'status', component: StatusPage, props: true },
     { path: '/report/:taskId', name: 'report', component: ReportPage, props: true },
     {

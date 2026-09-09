@@ -329,6 +329,45 @@
           }
         }
       }
+    },
+    "/api/v1/product-comparisons": {
+      "post": {
+        "summary": "Create Product Comparison",
+        "description": "两款产品固定维度事实对照；不输出推荐或综合评分。",
+        "operationId": "create_product_comparison_api_v1_product_comparisons_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductComparisonReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -891,6 +930,54 @@
         ],
         "title": "DemoErrorKind"
       },
+      "DiffStatus": {
+        "type": "string",
+        "enum": [
+          "same",
+          "different",
+          "missing_a",
+          "missing_b",
+          "both_missing",
+          "incomparable"
+        ],
+        "title": "DiffStatus",
+        "description": "两款产品同一维度的对比状态。"
+      },
+      "DimensionComparison": {
+        "properties": {
+          "dimension": {
+            "$ref": "#/components/schemas/ProductFactDimension"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DiffStatus"
+          },
+          "side_a": {
+            "$ref": "#/components/schemas/FactSideValue"
+          },
+          "side_b": {
+            "$ref": "#/components/schemas/FactSideValue"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dimension",
+          "label",
+          "status",
+          "side_a",
+          "side_b"
+        ],
+        "title": "DimensionComparison"
+      },
       "DualAnalysisReport": {
         "properties": {
           "sales_source": {
@@ -1172,6 +1259,58 @@
         "title": "ExtractedDocument",
         "description": "用户确认前的提取结果（可编辑文本）。"
       },
+      "FactSideValue": {
+        "properties": {
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display"
+          },
+          "normalized": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FieldStatus",
+            "default": "missing"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "nature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nature"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FactSideValue",
+        "description": "某一侧在固定维度上的值。"
+      },
       "FactStatus": {
         "type": "string",
         "enum": [
@@ -1183,6 +1322,17 @@
         ],
         "title": "FactStatus",
         "description": "字段从哪里来。"
+      },
+      "FieldStatus": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "missing",
+          "conflicting",
+          "uncertain"
+        ],
+        "title": "FieldStatus",
+        "description": "抽取字段状态（计算器预填等）。"
       },
       "Finding": {
         "properties": {
@@ -1490,6 +1640,137 @@
           "confidence"
         ],
         "title": "ProductCandidate"
+      },
+      "ProductCompareRequest": {
+        "properties": {
+          "text_a": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text A"
+          },
+          "text_b": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text B"
+          },
+          "product_hint_a": {
+            "$ref": "#/components/schemas/ProductHint",
+            "default": "auto"
+          },
+          "product_hint_b": {
+            "$ref": "#/components/schemas/ProductHint",
+            "default": "auto"
+          },
+          "label_a": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Label A",
+            "default": "产品 A"
+          },
+          "label_b": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Label B",
+            "default": "产品 B"
+          },
+          "locale": {
+            "type": "string",
+            "const": "zh-CN",
+            "title": "Locale",
+            "default": "zh-CN"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text_a",
+          "text_b"
+        ],
+        "title": "ProductCompareRequest"
+      },
+      "ProductComparisonReport": {
+        "properties": {
+          "product_a": {
+            "$ref": "#/components/schemas/ProductFacts"
+          },
+          "product_b": {
+            "$ref": "#/components/schemas/ProductFacts"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/DimensionComparison"
+            },
+            "type": "array",
+            "title": "Dimensions"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "本对照仅按固定维度并列展示已提交材料中的事实与缺失项，不对产品做选择判断，不构成投资建议。"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_a",
+          "product_b"
+        ],
+        "title": "ProductComparisonReport"
+      },
+      "ProductFactDimension": {
+        "type": "string",
+        "enum": [
+          "product_type",
+          "term",
+          "amount",
+          "return_or_rate",
+          "early_exit",
+          "fees",
+          "principal_protection",
+          "main_risks",
+          "undisclosed"
+        ],
+        "title": "ProductFactDimension"
+      },
+      "ProductFacts": {
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Product Id"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "product_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductTypeId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Source Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_id",
+          "label",
+          "source_text"
+        ],
+        "title": "ProductFacts"
       },
       "ProductHint": {
         "type": "string",

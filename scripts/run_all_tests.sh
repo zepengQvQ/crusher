@@ -73,6 +73,9 @@ echo "==> P1-03"
 echo "==> P1-04"
 "$PY" -m unittest discover -s "${ROOT}/tests/p1_04" -v
 
+echo "==> P1-06"
+"$PY" -m unittest discover -s "${ROOT}/tests/p1_06" -v
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 

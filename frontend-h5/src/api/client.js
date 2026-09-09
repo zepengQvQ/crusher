@@ -84,6 +84,19 @@ export async function createCalculation(payload) {
   return data
 }
 
+export async function createProductComparison(textA, textB, options = {}) {
+  const { data } = await http.post('/api/v1/product-comparisons', {
+    text_a: textA,
+    text_b: textB,
+    product_hint_a: options.productHintA || 'auto',
+    product_hint_b: options.productHintB || 'auto',
+    label_a: options.labelA || '产品 A',
+    label_b: options.labelB || '产品 B',
+    locale: 'zh-CN',
+  })
+  return data
+}
+
 export function pickErrorMessage(error) {
   if (!error?.response) {
     if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'

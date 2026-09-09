@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactSideValue", "FactStatus", "FieldStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -84,6 +84,19 @@ export const DemoErrorKind = Object.freeze({
 })
 
 /**
+ * @typedef {"same"|"different"|"missing_a"|"missing_b"|"both_missing"|"incomparable"} DiffStatusValue
+ */
+
+export const DiffStatus = Object.freeze({
+  same: "same",
+  different: "different",
+  missing_a: "missing_a",
+  missing_b: "missing_b",
+  both_missing: "both_missing",
+  incomparable: "incomparable",
+})
+
+/**
  * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"CALCULATION_INVALID"|"INTERNAL_ERROR"} ErrorCodeValue
  */
 
@@ -124,6 +137,17 @@ export const FactStatus = Object.freeze({
 })
 
 /**
+ * @typedef {"confirmed"|"missing"|"conflicting"|"uncertain"} FieldStatusValue
+ */
+
+export const FieldStatus = Object.freeze({
+  confirmed: "confirmed",
+  missing: "missing",
+  conflicting: "conflicting",
+  uncertain: "uncertain",
+})
+
+/**
  * @typedef {"high"|"mid"|"low"} FindingSeverityValue
  */
 
@@ -159,6 +183,22 @@ export const ParameterKey = Object.freeze({
   repayment_method: "repayment_method",
   penalty_interest: "penalty_interest",
   prepayment_fee: "prepayment_fee",
+})
+
+/**
+ * @typedef {"product_type"|"term"|"amount"|"return_or_rate"|"early_exit"|"fees"|"principal_protection"|"main_risks"|"undisclosed"} ProductFactDimensionValue
+ */
+
+export const ProductFactDimension = Object.freeze({
+  product_type: "product_type",
+  term: "term",
+  amount: "amount",
+  return_or_rate: "return_or_rate",
+  early_exit: "early_exit",
+  fees: "fees",
+  principal_protection: "principal_protection",
+  main_risks: "main_risks",
+  undisclosed: "undisclosed",
 })
 
 /**
@@ -466,6 +506,52 @@ export const TaskStatus = Object.freeze({
  * @property {string} result
  * @property {string} [rounding]
  * @property {string} [disclaimer]
+ */
+
+/**
+ * @typedef {Object} ProductCompareRequest
+ * @property {string} text_a
+ * @property {string} text_b
+ * @property {ProductHintValue} [product_hint_a]
+ * @property {ProductHintValue} [product_hint_b]
+ * @property {string} [label_a]
+ * @property {string} [label_b]
+ * @property {string} [locale]
+ */
+
+/**
+ * @typedef {Object} ProductComparisonReport
+ * @property {ProductFacts} product_a
+ * @property {ProductFacts} product_b
+ * @property {Array<DimensionComparison>} [dimensions]
+ * @property {string} [disclaimer]
+ */
+
+/**
+ * @typedef {Object} DimensionComparison
+ * @property {ProductFactDimensionValue} dimension
+ * @property {string} label
+ * @property {DiffStatusValue} status
+ * @property {FactSideValue} side_a
+ * @property {FactSideValue} side_b
+ * @property {string} [note]
+ */
+
+/**
+ * @typedef {Object} ProductFacts
+ * @property {string} product_id
+ * @property {string} label
+ * @property {ProductTypeIdValue} [product_type]
+ * @property {string} source_text
+ */
+
+/**
+ * @typedef {Object} FactSideValue
+ * @property {string} [display]
+ * @property {string} [normalized]
+ * @property {FieldStatusValue} [status]
+ * @property {Array<EvidenceRef>} [evidence]
+ * @property {string} [nature]
  */
 
 /**
