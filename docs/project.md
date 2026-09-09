@@ -16,7 +16,7 @@
 | 查很长的历史任务单 | [`整改实施清单-P0.md`](整改实施清单-P0.md) |
 | P0 收口修复清单 | [`P0收口修复-Cursor执行清单.md`](P0收口修复-Cursor执行清单.md) |
 
-> P0-RC-05：`CreateAnalysisRequest` / `ProductHint` 已进 OpenAPI；改接口后跑 `make export-openapi`。
+> P0-RC-06：`make lint` 不再吞错；H5 真流程用 `cd frontend-h5 && npm test`。
 
 ## 文件怎么命名的
 

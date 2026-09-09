@@ -8,7 +8,6 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 _DEFAULT_KNOWLEDGE = (
     Path(__file__).resolve().parents[4] / "knowledge"
@@ -18,7 +17,7 @@ _DEFAULT_KNOWLEDGE = (
 class LocalFileKnowledgeRepository:
     """从仓库根目录 knowledge/ 加载产品与风险模式。"""
 
-    def __init__(self, knowledge_dir: Optional[Path] = None) -> None:
+    def __init__(self, knowledge_dir: Path | None = None) -> None:
         self._dir = Path(knowledge_dir) if knowledge_dir else _DEFAULT_KNOWLEDGE
         self._products = self._load_json("products.json")
         self._risk_patterns = self._load_json("risk_patterns.json")

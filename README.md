@@ -43,7 +43,8 @@ legacy/           旧版网页，只对照，别加新功能
 ```bash
 make setup            # 同 scripts/dev.sh
 make demo             # 打印演示步骤
-make test             # 跑全套 Demo 测试 + 打包检查网页
+make test             # 跑全套 Demo 测试（含 H5 Vitest）+ 打包检查网页
+make lint             # ruff + pyright（失败则非 0）
 make export-openapi   # 改完接口后：更新说明书 + 前端类型
 ```
 

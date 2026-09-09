@@ -28,6 +28,7 @@
     "/api/v1/analyses": {
       "post": {
         "summary": "Create Analysis",
+        "description": "提交分析任务；真实模式下拒绝 demo_error。",
         "operationId": "create_analysis_api_v1_analyses_post",
         "requestBody": {
           "content": {
@@ -66,6 +67,7 @@
     "/api/v1/analyses/{task_id}": {
       "get": {
         "summary": "Get Analysis",
+        "description": "按 task_id 查询状态与原文；失败任务不返回报告。",
         "operationId": "get_analysis_api_v1_analyses__task_id__get",
         "parameters": [
           {
@@ -207,7 +209,7 @@
           "text"
         ],
         "title": "CreateAnalysisRequest",
-        "description": "POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。"
+        "description": "POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。\n\nJava 对照：创建分析的 Request DTO；字段与 OpenAPI 同源。\n业务不变量：text 去空白后非空；product_hint 仅允许首版枚举；locale 仅 zh-CN。"
       },
       "CreateAnalysisResponse": {
         "properties": {
@@ -225,7 +227,8 @@
           "task_id",
           "task_status"
         ],
-        "title": "CreateAnalysisResponse"
+        "title": "CreateAnalysisResponse",
+        "description": "创建分析任务的响应。"
       },
       "DemoErrorKind": {
         "type": "string",
@@ -708,7 +711,8 @@
           "updated_at",
           "stages"
         ],
-        "title": "TaskResponse"
+        "title": "TaskResponse",
+        "description": "查询任务状态/报告的响应（含任务绑定原文）。"
       },
       "TaskStatus": {
         "type": "string",

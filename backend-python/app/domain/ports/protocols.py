@@ -2,8 +2,8 @@
 
 Java 对照：interface。Domain/Application 只依赖这些抽象。
 """
-from typing import Optional, Protocol
 import re
+from typing import Protocol
 
 from app.domain.models.llm import LlmExplanation
 from app.domain.models.report import AnalysisTask
@@ -15,7 +15,7 @@ class TaskStore(Protocol):
     def create(self, task: AnalysisTask) -> AnalysisTask:
         ...
 
-    def get(self, task_id: str) -> Optional[AnalysisTask]:
+    def get(self, task_id: str) -> AnalysisTask | None:
         ...
 
     def save(self, task: AnalysisTask) -> AnalysisTask:

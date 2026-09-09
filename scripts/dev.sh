@@ -27,8 +27,14 @@ if [[ ! -d backend-python/.venv ]]; then
   source backend-python/.venv/bin/activate
   pip install -U pip
   pip install -e "backend-python/.[dev]"
-  pip install -r backend-python/requirements.lock || true
+  if ! pip install -r backend-python/requirements.lock; then
+    echo "警告：requirements.lock 安装未完全成功，已用 editable 开发依赖；请检查网络后重试。"
+  fi
 else
+  if [[ ! -x backend-python/.venv/bin/python ]]; then
+    echo "backend-python/.venv 存在但不可用，请删除后执行：make setup"
+    exit 1
+  fi
   # shellcheck disable=SC1091
   source backend-python/.venv/bin/activate
 fi

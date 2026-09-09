@@ -1,7 +1,7 @@
 """否定词与分句边界判定。"""
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 # 多字优先；不用单独的「不」，避免误伤「不保证本金」等风险表述本身
 DEFAULT_NEGATION_CUES: tuple[str, ...] = (

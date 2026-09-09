@@ -1,5 +1,6 @@
 """
-P0-08：H5 冒烟契约（输入→状态→报告，失败→重试）。
+P0-08：H5 源码结构契约（非浏览器端到端）。
+真实组件流程见 frontend-h5 Vitest（P0-RC-06）。
 """
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from pathlib import Path
 H5 = Path(__file__).resolve().parents[2] / "frontend-h5" / "src"
 
 
-class H5SmokeContractTests(unittest.TestCase):
+class H5StructureContractTests(unittest.TestCase):
     def test_happy_path_pages_wired(self):
         router = (H5 / "router" / "index.js").read_text(encoding="utf-8")
         self.assertIn("name: 'input'", router)

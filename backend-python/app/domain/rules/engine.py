@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Sequence
 
 from app.domain.ports.protocols import KnowledgeRepository
 from app.domain.rules.negation import (
@@ -58,7 +58,7 @@ class RuleEngine:
     def match_risks(
         self,
         text: str,
-        product_type: Optional[str] = None,
+        product_type: str | None = None,
     ) -> list[RiskHit]:
         text = text or ""
         matched: list[RiskHit] = []
@@ -72,7 +72,7 @@ class RuleEngine:
                 matched.append(hit)
         return matched
 
-    def _score_product(self, text: str, product: dict) -> Optional[ProductHit]:
+    def _score_product(self, text: str, product: dict) -> ProductHit | None:
         strong = list(product.get("strong_aliases") or [])
         weak = list(product.get("weak_aliases") or [])
         if not strong and not weak:
@@ -117,7 +117,7 @@ class RuleEngine:
             evidence_quotes=evidence,
         )
 
-    def _match_one_pattern(self, text: str, pattern: dict) -> Optional[RiskHit]:
+    def _match_one_pattern(self, text: str, pattern: dict) -> RiskHit | None:
         pattern_id = str(pattern["id"])
         if pattern_id == "principal_not_guaranteed":
             if re.search(r"确保本金|本金安全|保证本金", text):
@@ -158,7 +158,7 @@ class RuleEngine:
         text: str,
         pattern: dict,
         match_mode: str,
-    ) -> Optional[tuple[int, int, str]]:
+    ) -> tuple[int, int, str] | None:
         regex = pattern.get("regex") or ""
         keywords: Sequence[str] = pattern.get("keywords") or []
         max_span = int(pattern.get("max_keyword_span") or MAX_KEYWORD_SPAN)
@@ -188,7 +188,7 @@ class RuleEngine:
         *,
         max_span: int,
         regex: str,
-    ) -> Optional[tuple[int, int, str]]:
+    ) -> tuple[int, int, str] | None:
         if not keywords:
             return self._regex_span(text, regex) if regex else None
 
@@ -224,7 +224,7 @@ class RuleEngine:
                 cursor = sent_end
         return None
 
-    def _regex_span(self, text: str, regex: str) -> Optional[tuple[int, int, str]]:
+    def _regex_span(self, text: str, regex: str) -> tuple[int, int, str] | None:
         if not regex:
             return None
         compiled = self._knowledge.get_compiled_regex(regex)

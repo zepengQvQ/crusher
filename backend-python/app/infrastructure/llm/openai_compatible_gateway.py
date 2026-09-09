@@ -3,18 +3,17 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
 
 import httpx
 
 from app.config.settings import Settings
-from app.domain.models.llm import LlmExplanation
 from app.domain.llm_errors import (
     LlmInvalidJsonError,
     LlmRateLimitedError,
     LlmTimeoutError,
     LlmUpstreamError,
 )
+from app.domain.models.llm import LlmExplanation
 
 _FENCE_RE = re.compile(
     r"^\s*```(?:json)?\s*(.*?)\s*```\s*$",
@@ -46,13 +45,20 @@ def parse_llm_explanation_content(content: str) -> LlmExplanation:
 
 
 class OpenAiCompatibleLlmGateway:
-    """POST {base}/chat/completions，Bearer Key；不引入供应商 SDK。"""
+    """调用一个 OpenAI-compatible 模型接口。
+
+    Java 对照：外部模型 Gateway 的实现类。
+    输入：只接收应用层准备好的 Prompt，不读取 H5 参数。
+    输出：已经校验过的 LlmExplanation DTO。
+    业务不变量：异常必须显式失败；不得返回空结果冒充安全。
+    安全边界：Key/Base URL 仅从后端 Settings 注入，不写日志。
+    """
 
     def __init__(
         self,
         settings: Settings,
         *,
-        client: Optional[httpx.AsyncClient] = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_key = settings.llm_api_key.strip()
         self._model = settings.llm_model.strip()

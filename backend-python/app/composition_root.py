@@ -3,9 +3,9 @@ from functools import lru_cache
 
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.config.settings import Settings, get_settings
+from app.domain.llm_errors import LlmConfigError
 from app.domain.ports.protocols import LlmGateway
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository
-from app.domain.llm_errors import LlmConfigError
 from app.infrastructure.llm.mock_gateway import MockLlmGateway
 from app.infrastructure.llm.openai_compatible_gateway import OpenAiCompatibleLlmGateway
 from app.infrastructure.task_store.memory import InMemoryTaskStore

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Generic, Literal, Optional, TypeVar
+from typing import Generic, Literal, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -70,7 +70,7 @@ class ProductCandidate(StrictModel):
 class ProductRiskGrade(StrictModel):
     """产品级风险评级（与 FindingSeverity 分开）。"""
 
-    value: Optional[str] = None
+    value: str | None = None
     status: FactStatus
     note: str = ""
 
@@ -89,14 +89,14 @@ class PlainLanguage(StrictModel):
 class KeyParameter(StrictModel):
     key: ParameterKey
     label: str = Field(..., min_length=1)
-    value: Optional[str] = None
+    value: str | None = None
     status: FactStatus
     # 金额类参数用 Decimal，避免浮点误差；非金额保持 None
-    amount: Optional[Decimal] = None
+    amount: Decimal | None = None
 
     @field_validator("amount", mode="before")
     @classmethod
-    def _parse_amount(cls, value: object) -> Optional[Decimal]:
+    def _parse_amount(cls, value: object) -> Decimal | None:
         if value is None or value == "":
             return None
         if isinstance(value, Decimal):
@@ -165,18 +165,22 @@ class StageResult(StrictModel, Generic[T]):
     """某一步的结果包装。"""
 
     status: StageStatus
-    data: Optional[T] = None
-    error_code: Optional[ErrorCode] = None
+    data: T | None = None
+    error_code: ErrorCode | None = None
     message: str = ""
 
 
 class CreateAnalysisRequest(StrictModel):
-    """POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。"""
+    """POST /api/v1/analyses 唯一请求体（应用层与 HTTP 共用）。
+
+    Java 对照：创建分析的 Request DTO；字段与 OpenAPI 同源。
+    业务不变量：text 去空白后非空；product_hint 仅允许首版枚举；locale 仅 zh-CN。
+    """
 
     text: str = Field(..., min_length=1, description="待分析原文")
     product_hint: ProductHint = ProductHint.auto
     locale: Literal["zh-CN"] = "zh-CN"
-    demo_error: Optional[DemoErrorKind] = None
+    demo_error: DemoErrorKind | None = None
 
     @field_validator("text")
     @classmethod
@@ -200,9 +204,9 @@ class AnalysisTask(StrictModel):
     # 仅存本进程内存；GET 按 task_id 返回，供报告/失败重试用
     source_text: str = ""
     stages: list[StageInfo] = Field(default_factory=list)
-    error_code: Optional[ErrorCode] = None
-    error_message: Optional[str] = None
-    report: Optional[AnalysisReport] = None
+    error_code: ErrorCode | None = None
+    error_message: str | None = None
+    report: AnalysisReport | None = None
 
     def touch(self) -> None:
         self.updated_at = utc_now()

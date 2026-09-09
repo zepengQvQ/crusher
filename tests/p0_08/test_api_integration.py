@@ -37,7 +37,7 @@ def _wait(client: TestClient, task_id: str) -> dict:
     raise AssertionError(f"timeout task={task_id}")
 
 
-class ApiE2ETests(unittest.TestCase):
+class ApiIntegrationTests(unittest.TestCase):
     def test_success_path(self):
         client = _fresh_client()
         res = client.post(

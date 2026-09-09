@@ -10,6 +10,13 @@ import json
 import re
 
 from app.config.settings import Settings
+from app.domain.llm_errors import (
+    LlmGatewayError,
+    LlmInvalidJsonError,
+    LlmRateLimitedError,
+    LlmTimeoutError,
+    LlmUpstreamError,
+)
 from app.domain.models import (
     AnalysisReport,
     AnalysisTask,
@@ -27,17 +34,10 @@ from app.domain.models import (
 )
 from app.domain.models.enums import EvidenceSource, ParameterKey, ProductHint
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
-from app.domain.rules.engine import ProductHit, RuleEngine, RiskHit
+from app.domain.rules.engine import ProductHit, RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
 from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
-from app.domain.llm_errors import (
-    LlmGatewayError,
-    LlmInvalidJsonError,
-    LlmRateLimitedError,
-    LlmTimeoutError,
-    LlmUpstreamError,
-)
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
 
@@ -75,6 +75,12 @@ _CONTRADICTION_RE = re.compile(
 
 
 class AnalyzeTextUseCase:
+    """分析流水线编排：提交任务并异步跑完各阶段。
+
+    Java 对照：Application Service / UseCase。
+    业务不变量：风险 Finding 由规则决定；模型只产出通俗解释；失败时 report=None。
+    """
+
     def __init__(
         self,
         task_store: TaskStore,
@@ -235,7 +241,8 @@ class AnalyzeTextUseCase:
             task.error_code = None
             task.error_message = None
             self._tasks.save(task)
-            log_task("task_completed", task_id, findings=len(task.report.findings))
+            finding_count = len(task.report.findings) if task.report is not None else 0
+            log_task("task_completed", task_id, findings=finding_count)
 
         except Exception as exc:  # noqa: BLE001
             log_task("task_internal_error", task_id, err_type=type(exc).__name__)
@@ -275,7 +282,11 @@ class AnalyzeTextUseCase:
         self._tasks.save(task)
         log_task("task_failed", task_id, error_code=code.value)
 
-    def _resolve_products(self, text: str, product_hint: ProductHint | str | None) -> list[ProductHit]:
+    def _resolve_products(
+        self,
+        text: str,
+        product_hint: ProductHint | str | None,
+    ) -> list[ProductHit]:
         """自动识别；若手动指定合法产品类型则置为首选。"""
         detected = self._rules.detect_products(text)
         if isinstance(product_hint, ProductHint):
@@ -327,10 +338,23 @@ class AnalyzeTextUseCase:
         request: AnalyzeTextRequest,
     ) -> None:
         """unknown / 非首批产品：不跑全量规则，只提示 Demo 范围。"""
-        await self._mark_stage(task_id, "extract", StageStatus.success, "不在支持范围，跳过参数抽取")
-        await self._mark_stage(task_id, "rule_review", StageStatus.success, "不在支持范围，跳过规则复核")
         await self._mark_stage(
-            task_id, "evidence_validate", StageStatus.success, "不在支持范围，跳过证据校验"
+            task_id,
+            "extract",
+            StageStatus.success,
+            "不在支持范围，跳过参数抽取",
+        )
+        await self._mark_stage(
+            task_id,
+            "rule_review",
+            StageStatus.success,
+            "不在支持范围，跳过规则复核",
+        )
+        await self._mark_stage(
+            task_id,
+            "evidence_validate",
+            StageStatus.success,
+            "不在支持范围，跳过证据校验",
         )
 
         if request.demo_error == DemoErrorKind.model_timeout:

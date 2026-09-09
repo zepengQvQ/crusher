@@ -4,7 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${ROOT}/backend-python/.venv/bin/python"
 if [[ ! -x "$PY" ]]; then
-  PY="python3"
+  echo "找不到项目虚拟环境：$PY"
+  echo "请先执行：make setup"
+  exit 1
 fi
 export PYTHONPATH="${ROOT}/backend-python:${ROOT}:${PYTHONPATH:-}"
 # 回归默认走 Mock，避免本机 .env 的 MOCK_MODE=false 打到真模型
@@ -33,6 +35,9 @@ echo "==> P0-RC-04"
 echo "==> P0-RC-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_05" -v
 
+echo "==> P0-RC-06 gate"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_06" -v
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 
@@ -47,6 +52,9 @@ echo "==> P0-08"
 
 echo "==> P0-09"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_09" -v
+
+echo "==> H5 vitest"
+(cd "${ROOT}/frontend-h5" && npm test)
 
 echo "==> H5 build"
 (cd "${ROOT}/frontend-h5" && npm run build)
