@@ -1,4 +1,7 @@
-"""规则引擎：产品识别 + 风险模式匹配（确定性，不调用模型）。"""
+"""规则引擎：产品识别 + 风险模式匹配（确定性，不调用模型）。
+
+Java 对照：领域规则服务；Finding 只由程序规则产生，不调用大模型。
+"""
 from __future__ import annotations
 
 import re
@@ -8,8 +11,10 @@ from dataclasses import dataclass
 from app.domain.ports.protocols import KnowledgeRepository
 from app.domain.rules.negation import (
     DEFAULT_NEGATION_CUES,
+    expand_evidence_for_conditions,
     expand_to_clause,
-    is_negated_near,
+    is_target_negated,
+    iter_strong_sentences,
     strong_sentence_span,
 )
 
@@ -17,6 +22,15 @@ from app.domain.rules.negation import (
 PRODUCT_CONFIDENCE_THRESHOLD = 0.5
 # 同一强句内关键词首尾最大距离（字符）
 MAX_KEYWORD_SPAN = 48
+
+# 模式专属：命中后再过滤的伪阳性
+_LOW_FLOOR_EXCLUDE_RE = re.compile(r"更高|较高档|高档收益")
+_PREPAY_REQUIRE_CHARGE_RE = re.compile(r"违约金|手续费|需支付|支付|收取|计收")
+_PREPAY_EXCLUDE_RE = re.compile(r"减免|免收|不收|不收取|无需")
+_PENALTY_EXCLUDE_RE = re.compile(r"相同|不额外|不加收|与正常利率相同")
+_PENALTY_REQUIRE_RE = re.compile(
+    r"罚息日利率|罚息利率|罚息.{0,20}([0-9.]+\s*倍|倍)|罚息为正常利率"
+)
 
 
 @dataclass(frozen=True)
@@ -90,22 +104,22 @@ class RuleEngine:
         weak_score = 0.0
 
         for alias in strong:
-            idx = text.find(alias)
-            if idx < 0:
-                continue
-            if is_negated_near(text, idx, cues=cues, window=window):
-                continue
-            strong_score = max(strong_score, 0.85)
-            evidence.append(alias)
+            for idx in self._iter_alias_starts(text, alias):
+                end = idx + len(alias)
+                if is_target_negated(text, idx, end, cues=cues, window=window):
+                    continue
+                strong_score = max(strong_score, 0.85)
+                evidence.append(alias)
+                break
 
         for alias in weak:
-            idx = text.find(alias)
-            if idx < 0:
-                continue
-            if is_negated_near(text, idx, cues=cues, window=window):
-                continue
-            weak_score = max(weak_score, 0.4)
-            evidence.append(alias)
+            for idx in self._iter_alias_starts(text, alias):
+                end = idx + len(alias)
+                if is_target_negated(text, idx, end, cues=cues, window=window):
+                    continue
+                weak_score = max(weak_score, 0.4)
+                evidence.append(alias)
+                break
 
         confidence = max(strong_score, weak_score)
         if confidence <= 0:
@@ -116,6 +130,20 @@ class RuleEngine:
             confidence=confidence,
             evidence_quotes=evidence,
         )
+
+    @staticmethod
+    def _iter_alias_starts(text: str, alias: str) -> list[int]:
+        if not alias:
+            return []
+        starts: list[int] = []
+        start = 0
+        while True:
+            idx = text.find(alias, start)
+            if idx < 0:
+                break
+            starts.append(idx)
+            start = idx + max(1, len(alias))
+        return starts
 
     def _match_one_pattern(self, text: str, pattern: dict) -> RiskHit | None:
         pattern_id = str(pattern["id"])
@@ -128,75 +156,105 @@ class RuleEngine:
         window = int(pattern.get("context_window") or 16)
         match_mode = str(pattern.get("match_mode") or "regex_or_keywords")
 
-        span = self._find_span(text, pattern, match_mode)
-        if span is None:
-            return None
-        start, end, quote = span
-        # 锚定命中片段右端：覆盖「提前还款不收违约金」这类否定夹在中间的句子
-        if is_negated_near(text, end, cues=cues, window=window):
-            return None
-        if is_negated_near(text, start, cues=cues, window=window):
-            return None
+        for start, end, quote in self._iter_spans(text, pattern, match_mode):
+            if is_target_negated(text, start, end, cues=cues, window=window):
+                continue
+            if not self._numeric_ok(text, pattern, start=start, end=end):
+                continue
+            if not self._pattern_semantic_ok(pattern_id, text, start, end):
+                continue
 
-        if not self._numeric_ok(text, pattern, start=start, end=end):
-            return None
+            start, end, quote = self._build_evidence(pattern_id, text, start, end)
+            return RiskHit(
+                pattern_id=pattern_id,
+                name=str(pattern["name"]),
+                risk_level=str(pattern.get("risk_level") or "中"),
+                explanation=str(pattern.get("explanation") or ""),
+                quote=quote,
+                start=start,
+                end=end,
+                confidence=0.9,
+            )
+        return None
 
-        start, end, quote = expand_to_clause(text, start, end)
-        return RiskHit(
-            pattern_id=pattern_id,
-            name=str(pattern["name"]),
-            risk_level=str(pattern.get("risk_level") or "中"),
-            explanation=str(pattern.get("explanation") or ""),
-            quote=quote,
-            start=start,
-            end=end,
-            confidence=0.9,
-        )
+    def _build_evidence(
+        self,
+        pattern_id: str,
+        text: str,
+        start: int,
+        end: int,
+    ) -> tuple[int, int, str]:
+        if pattern_id == "high_penalty_interest":
+            return expand_evidence_for_conditions(
+                text,
+                start,
+                end,
+                required_parts=("逾期", "罚息利率", "罚息日利率", "罚息"),
+            )
+        return expand_to_clause(text, start, end)
 
-    def _find_span(
+    def _pattern_semantic_ok(
+        self,
+        pattern_id: str,
+        text: str,
+        start: int,
+        end: int,
+    ) -> bool:
+        sent_start, sent_end = strong_sentence_span(text, start)
+        sentence = text[sent_start:sent_end]
+        if pattern_id == "low_floor_return":
+            if _LOW_FLOOR_EXCLUDE_RE.search(sentence):
+                return False
+            return True
+        if pattern_id == "prepayment_penalty":
+            if _PREPAY_EXCLUDE_RE.search(sentence):
+                return False
+            return bool(_PREPAY_REQUIRE_CHARGE_RE.search(sentence))
+        if pattern_id == "high_penalty_interest":
+            if _PENALTY_EXCLUDE_RE.search(sentence):
+                return False
+            return bool(_PENALTY_REQUIRE_RE.search(sentence))
+        return True
+
+    def _iter_spans(
         self,
         text: str,
         pattern: dict,
         match_mode: str,
-    ) -> tuple[int, int, str] | None:
+    ) -> list[tuple[int, int, str]]:
         regex = pattern.get("regex") or ""
         keywords: Sequence[str] = pattern.get("keywords") or []
         max_span = int(pattern.get("max_keyword_span") or MAX_KEYWORD_SPAN)
 
         if match_mode == "regex_only":
-            return self._regex_span(text, regex)
+            return self._regex_spans_per_sentence(text, regex)
 
         if match_mode == "all_keywords":
-            return self._all_keywords_span(text, keywords, max_span=max_span, regex=regex)
+            return self._all_keywords_spans(
+                text, keywords, max_span=max_span, regex=regex
+            )
 
-        # 默认：先 regex，再 any keyword（关键词不得单独充当高风险泛化触发时，
-        # 各 pattern 应改用 regex_only / all_keywords）
+        spans: list[tuple[int, int, str]] = []
         if regex:
-            span = self._regex_span(text, regex)
-            if span is not None:
-                return span
+            spans.extend(self._regex_spans_per_sentence(text, regex))
         for kw in sorted(keywords, key=len, reverse=True):
-            idx = text.find(kw)
-            if idx >= 0:
-                return idx, idx + len(kw), kw
-        return None
+            for idx in self._iter_alias_starts(text, kw):
+                spans.append((idx, idx + len(kw), kw))
+        return spans
 
-    def _all_keywords_span(
+    def _all_keywords_spans(
         self,
         text: str,
         keywords: Sequence[str],
         *,
         max_span: int,
         regex: str,
-    ) -> tuple[int, int, str] | None:
+    ) -> list[tuple[int, int, str]]:
+        found: list[tuple[int, int, str]] = []
         if not keywords:
-            return self._regex_span(text, regex) if regex else None
+            return self._regex_spans_per_sentence(text, regex) if regex else []
 
-        # 在每个强句内寻找全部关键词
-        cursor = 0
-        while cursor < len(text):
-            sent_start, sent_end = strong_sentence_span(text, cursor)
-            sentence = text[sent_start:sent_end]
+        for sent_start, _sent_end, sentence in iter_strong_sentences(text):
             positions: list[tuple[int, int, str]] = []
             ok = True
             for kw in keywords:
@@ -210,28 +268,30 @@ class RuleEngine:
                 span_start = min(p[0] for p in positions)
                 span_end = max(p[1] for p in positions)
                 if span_end - span_start <= max_span:
-                    return span_start, span_end, text[span_start:span_end]
+                    found.append((span_start, span_end, text[span_start:span_end]))
             if regex:
                 compiled = self._knowledge.get_compiled_regex(regex)
-                m = compiled.search(sentence)
-                if m:
+                for m in compiled.finditer(sentence):
                     abs_start = sent_start + m.start()
                     abs_end = sent_start + m.end()
-                    return abs_start, abs_end, text[abs_start:abs_end]
-            if sent_end <= cursor:
-                cursor += 1
-            else:
-                cursor = sent_end
-        return None
+                    found.append((abs_start, abs_end, text[abs_start:abs_end]))
+        return found
 
-    def _regex_span(self, text: str, regex: str) -> tuple[int, int, str] | None:
+    def _regex_spans_per_sentence(
+        self,
+        text: str,
+        regex: str,
+    ) -> list[tuple[int, int, str]]:
         if not regex:
-            return None
+            return []
         compiled = self._knowledge.get_compiled_regex(regex)
-        m = compiled.search(text)
-        if not m:
-            return None
-        return m.start(), m.end(), m.group(0)
+        found: list[tuple[int, int, str]] = []
+        for sent_start, _sent_end, sentence in iter_strong_sentences(text):
+            for m in compiled.finditer(sentence):
+                abs_start = sent_start + m.start()
+                abs_end = sent_start + m.end()
+                found.append((abs_start, abs_end, text[abs_start:abs_end]))
+        return found
 
     def _numeric_ok(
         self,
@@ -247,7 +307,6 @@ class RuleEngine:
         field_regex = str(rule.get("extract_regex") or "")
         if not field_regex:
             raise ValueError(f"风险模式 {pattern.get('id')} 的 numeric_rule 缺少 extract_regex")
-        # 优先在命中片段所在强句内取数，避免跨句误用
         if end is None:
             end = len(text)
         sent_start, sent_end = strong_sentence_span(text, start)

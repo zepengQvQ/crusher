@@ -38,6 +38,9 @@ echo "==> P0-RC-05"
 echo "==> P0-RC-06 gate"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_06" -v
 
+echo "==> P0-RC-07"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_07" -v
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 
