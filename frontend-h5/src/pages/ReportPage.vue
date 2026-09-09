@@ -124,6 +124,10 @@
         />
       </div>
 
+      <div class="block">
+        <ScenarioCalculator :key-parameters="report.key_parameters || []" />
+      </div>
+
       <p class="disclaimer">{{ report.disclaimer || DISCLAIMER }}</p>
       <div class="block">
         <van-button block type="primary" round class="touch-btn" @click="$router.push('/')">
@@ -141,6 +145,7 @@ import { showToast } from 'vant'
 import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
 import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
+import ScenarioCalculator from '../components/ScenarioCalculator.vue'
 import { useTaskStore } from '../stores/task'
 
 const props = defineProps({

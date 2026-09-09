@@ -26,3 +26,23 @@ class ClaimSubject(str, Enum):
     early_exit = "early_exit"
     principal_protection = "principal_protection"
     term = "term"
+
+
+class FieldStatus(str, Enum):
+    """抽取字段状态（计算器预填等）。"""
+
+    confirmed = "confirmed"
+    missing = "missing"
+    conflicting = "conflicting"
+    uncertain = "uncertain"
+
+
+class CalculationKind(str, Enum):
+    simple_return = "simple_return"
+    fee = "fee"
+    net_exit = "net_exit"
+
+
+class DayCountBasis(str, Enum):
+    days_360 = "360"
+    days_365 = "365"

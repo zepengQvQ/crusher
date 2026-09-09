@@ -15,11 +15,13 @@ from pydantic import BaseModel, ConfigDict
 from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
+from app.application.calculate_scenario import CalculateScenarioUseCase
 from app.application.extract_document import ExtractDocumentUseCase
 from app.composition_root import (
     get_analyze_dual_sources_use_case,
     get_analyze_text_use_case,
     get_answer_from_evidence_use_case,
+    get_calculate_scenario_use_case,
     get_extract_document_use_case,
     get_task_store,
 )
@@ -32,6 +34,7 @@ from app.domain.models import (
     DualAnalysisRequest,
     StageInfo,
 )
+from app.domain.models.calculation import CalculateScenarioRequest, CalculationResult
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
 from app.domain.models.evidence_answer import EvidenceAnswer, FollowUpRequest
 from app.domain.models.source_document import ExtractedDocument
@@ -64,6 +67,9 @@ ExtractUseCaseDep = Annotated[
 ]
 FollowUpUseCaseDep = Annotated[
     AnswerFromEvidenceUseCase, Depends(get_answer_from_evidence_use_case)
+]
+CalculateUseCaseDep = Annotated[
+    CalculateScenarioUseCase, Depends(get_calculate_scenario_use_case)
 ]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
@@ -362,3 +368,28 @@ def create_follow_up(
 ) -> EvidenceAnswer:
     """基于已提交材料追问；无证据则 insufficient，超范围 out_of_scope。"""
     return use_case.execute(body)
+
+
+@router.post(
+    "/api/v1/calculations",
+    response_model=CalculationResult,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "计算参数不合法或未确认"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
+def create_calculation(
+    body: CalculateScenarioRequest,
+    use_case: CalculateUseCaseDep,
+) -> CalculationResult:
+    """用户确认参数后的 Decimal 确定性计算；模型不参与算数。"""
+    try:
+        return use_case.execute(body)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": ErrorCode.CALCULATION_INVALID.value,
+                "message": str(exc) or user_message_for(ErrorCode.CALCULATION_INVALID),
+            },
+        ) from exc

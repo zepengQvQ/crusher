@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -28,6 +28,16 @@ export const AnswerStatus = Object.freeze({
   answered: "answered",
   insufficient_evidence: "insufficient_evidence",
   out_of_scope: "out_of_scope",
+})
+
+/**
+ * @typedef {"simple_return"|"fee"|"net_exit"} CalculationKindValue
+ */
+
+export const CalculationKind = Object.freeze({
+  simple_return: "simple_return",
+  fee: "fee",
+  net_exit: "net_exit",
 })
 
 /**
@@ -55,6 +65,15 @@ export const ClaimSubject = Object.freeze({
 })
 
 /**
+ * @typedef {"360"|"365"} DayCountBasisValue
+ */
+
+export const DayCountBasis = Object.freeze({
+  _360: "360",
+  _365: "365",
+})
+
+/**
  * @typedef {"model_timeout"|"invalid_json"|"rate_limited"} DemoErrorKindValue
  */
 
@@ -65,7 +84,7 @@ export const DemoErrorKind = Object.freeze({
 })
 
 /**
- * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"INTERNAL_ERROR"} ErrorCodeValue
+ * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"CALCULATION_INVALID"|"INTERNAL_ERROR"} ErrorCodeValue
  */
 
 export const ErrorCode = Object.freeze({
@@ -79,6 +98,7 @@ export const ErrorCode = Object.freeze({
   FORBIDDEN_CLIENT_CONFIG: "FORBIDDEN_CLIENT_CONFIG",
   OCR_UNAVAILABLE: "OCR_UNAVAILABLE",
   DOCUMENT_PARSE_FAILED: "DOCUMENT_PARSE_FAILED",
+  CALCULATION_INVALID: "CALCULATION_INVALID",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 })
 
@@ -421,6 +441,31 @@ export const TaskStatus = Object.freeze({
  * @property {string} answer
  * @property {Array<EvidenceRef>} [evidence]
  * @property {Array<string>} [missing_info]
+ */
+
+/**
+ * @typedef {Object} CalculateScenarioRequest
+ * @property {CalculationKindValue} kind
+ * @property {boolean} [user_confirmed]
+ * @property {string} [principal]
+ * @property {string} [annual_rate_percent]
+ * @property {string} [days]
+ * @property {DayCountBasisValue} [day_count_basis]
+ * @property {string} [fee_base]
+ * @property {string} [fee_rate_percent]
+ * @property {string} [return_amount]
+ * @property {string} [fee_amount]
+ */
+
+/**
+ * @typedef {Object} CalculationResult
+ * @property {CalculationKindValue} kind
+ * @property {string} formula
+ * @property {Object} [inputs]
+ * @property {Array<string>} [assumptions]
+ * @property {string} result
+ * @property {string} [rounding]
+ * @property {string} [disclaimer]
  */
 
 /**

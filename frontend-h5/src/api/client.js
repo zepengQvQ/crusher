@@ -79,6 +79,11 @@ export async function createFollowUp(question, sourceText, pendingQuestions = []
   return data
 }
 
+export async function createCalculation(payload) {
+  const { data } = await http.post('/api/v1/calculations', payload)
+  return data
+}
+
 export function pickErrorMessage(error) {
   if (!error?.response) {
     if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'

@@ -280,6 +280,55 @@
           }
         }
       }
+    },
+    "/api/v1/calculations": {
+      "post": {
+        "summary": "Create Calculation",
+        "description": "用户确认参数后的 Decimal 确定性计算；模型不参与算数。",
+        "operationId": "create_calculation_api_v1_calculations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateScenarioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "计算参数不合法或未确认",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -467,6 +516,162 @@
           "files"
         ],
         "title": "Body_extract_document_api_v1_documents_extract_post"
+      },
+      "CalculateScenarioRequest": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CalculationKind"
+          },
+          "user_confirmed": {
+            "type": "boolean",
+            "title": "User Confirmed",
+            "default": false
+          },
+          "principal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal"
+          },
+          "annual_rate_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Rate Percent"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "day_count_basis": {
+            "$ref": "#/components/schemas/DayCountBasis",
+            "default": "365"
+          },
+          "fee_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Base"
+          },
+          "fee_rate_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Rate Percent"
+          },
+          "return_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Amount"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Amount"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "CalculateScenarioRequest",
+        "description": "用户确认后的计算请求；数值一律字符串，禁止 float。"
+      },
+      "CalculationKind": {
+        "type": "string",
+        "enum": [
+          "simple_return",
+          "fee",
+          "net_exit"
+        ],
+        "title": "CalculationKind"
+      },
+      "CalculationResult": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CalculationKind"
+          },
+          "formula": {
+            "type": "string",
+            "title": "Formula"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Inputs"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          },
+          "result": {
+            "type": "string",
+            "title": "Result"
+          },
+          "rounding": {
+            "type": "string",
+            "title": "Rounding",
+            "default": "ROUND_HALF_UP, scale=2"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "这不是收益承诺，仅按你确认的参数做简单演算。"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "formula",
+          "result"
+        ],
+        "title": "CalculationResult"
       },
       "Claim": {
         "properties": {
@@ -669,6 +874,14 @@
         "title": "CreateAnalysisResponse",
         "description": "创建分析任务的响应。"
       },
+      "DayCountBasis": {
+        "type": "string",
+        "enum": [
+          "360",
+          "365"
+        ],
+        "title": "DayCountBasis"
+      },
       "DemoErrorKind": {
         "type": "string",
         "enum": [
@@ -762,6 +975,7 @@
           "FORBIDDEN_CLIENT_CONFIG",
           "OCR_UNAVAILABLE",
           "DOCUMENT_PARSE_FAILED",
+          "CALCULATION_INVALID",
           "INTERNAL_ERROR"
         ],
         "title": "ErrorCode"

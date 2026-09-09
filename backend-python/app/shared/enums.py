@@ -31,6 +31,7 @@ class ErrorCode(str, Enum):
     FORBIDDEN_CLIENT_CONFIG = "FORBIDDEN_CLIENT_CONFIG"
     OCR_UNAVAILABLE = "OCR_UNAVAILABLE"
     DOCUMENT_PARSE_FAILED = "DOCUMENT_PARSE_FAILED"
+    CALCULATION_INVALID = "CALCULATION_INVALID"
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
@@ -46,6 +47,7 @@ ERROR_USER_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.FORBIDDEN_CLIENT_CONFIG: "网页不能传密钥或模型地址",
     ErrorCode.OCR_UNAVAILABLE: "当前模型不支持图片识别，扫描件 OCR 暂不可用",
     ErrorCode.DOCUMENT_PARSE_FAILED: "文件解析失败，请换文本 PDF 或直接粘贴文字",
+    ErrorCode.CALCULATION_INVALID: "计算参数不合法或缺失，请确认后重试",
     ErrorCode.INTERNAL_ERROR: "服务内部出错，请重试",
 }
 

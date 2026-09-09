@@ -49,6 +49,9 @@ PRIORITY_SCHEMAS = [
     "PageExtractResult",
     "FollowUpRequest",
     "EvidenceAnswer",
+    "CalculateScenarioRequest",
+    "CalculationResult",
+    "ExtractedDecimalField",
 ]
 
 
