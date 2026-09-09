@@ -50,6 +50,9 @@ echo "==> P0-RC-09"
 echo "==> P0-RC-10"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_10" -v
 
+echo "==> P0-RC-11"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_11" -v
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 

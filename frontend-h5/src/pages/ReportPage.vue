@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { copyText, getAnalysis } from '../api/client'
@@ -147,6 +147,7 @@ const report = ref(null)
 const activeFindings = ref([])
 const sourceExpanded = ref(false)
 const sourceText = ref('')
+let active = true
 
 const productGradeText = computed(() => {
   const g = report.value?.product_risk_grade
@@ -218,10 +219,12 @@ async function onCopy(text) {
 }
 
 onMounted(async () => {
+  active = true
   store.restoreFromStorage()
   // 故意不使用 Pinia 草稿冒充本任务原文
   try {
     const data = await getAnalysis(props.taskId)
+    if (!active) return
     if (data.task_status === 'queued' || data.task_status === 'running') {
       router.replace({ name: 'status', params: { taskId: props.taskId } })
       return
@@ -238,6 +241,7 @@ onMounted(async () => {
     report.value = data.report
     sourceText.value = data.source_text || ''
   } catch (e) {
+    if (!active) return
     const code = e?.response?.data?.detail?.error_code || ''
     const msg = e?.response?.data?.detail?.message || e.message || '加载报告失败'
     if (code === 'TASK_NOT_FOUND' || e?.response?.status === 404) {
@@ -246,8 +250,12 @@ onMounted(async () => {
       loadError.value = msg
     }
   } finally {
-    loading.value = false
+    if (active) loading.value = false
   }
+})
+
+onUnmounted(() => {
+  active = false
 })
 </script>
 

@@ -20,21 +20,30 @@ export function makeRouter(initial = '/') {
   })
 }
 
-export async function mountWithApp(component, { props = {}, routeName, params = {} } = {}) {
+export function createSharedPinia() {
   const pinia = createPinia()
   setActivePinia(pinia)
+  return pinia
+}
+
+export async function mountWithApp(
+  component,
+  { props = {}, routeName, params = {}, pinia } = {},
+) {
+  const activePinia = pinia || createSharedPinia()
+  setActivePinia(activePinia)
   const router = makeRouter()
   await router.push({ name: routeName || 'input', params })
   await router.isReady()
   const wrapper = mount(component, {
     props,
     global: {
-      plugins: [pinia, router],
+      plugins: [activePinia, router],
     },
   })
   await flushPromises()
   await nextTick()
-  return { wrapper, router, pinia, store: useTaskStore(pinia) }
+  return { wrapper, router, pinia: activePinia, store: useTaskStore(activePinia) }
 }
 
 export function completedTaskPayload(overrides = {}) {
@@ -46,6 +55,9 @@ export function completedTaskPayload(overrides = {}) {
     stages: [],
     is_failure: false,
     source_text: '任务A原文：区间外收益可能为零',
+    product_hint: 'structured_deposit',
+    resolved_product_type: 'structured_deposit',
+    analysis_scope: 'supported',
     report: {
       product_candidates: [
         {
@@ -61,6 +73,9 @@ export function completedTaskPayload(overrides = {}) {
           evidence_quotes: [],
         },
       ],
+      resolved_product_type: 'structured_deposit',
+      analysis_scope: 'supported',
+      scope_reason: '自动识别',
       product_risk_grade: { value: 'R2', status: 'document_fact', note: null },
       plain_language: { text: '通俗解释', status: 'success' },
       key_parameters: [],
@@ -96,6 +111,9 @@ export function failedTaskPayload(overrides = {}) {
     error_code: 'MODEL_TIMEOUT',
     error_message: '模型调用失败：等待超时',
     source_text: '失败任务原文：模拟超时条款',
+    product_hint: 'loan',
+    resolved_product_type: 'loan',
+    analysis_scope: 'supported',
     report: null,
     ...overrides,
   }

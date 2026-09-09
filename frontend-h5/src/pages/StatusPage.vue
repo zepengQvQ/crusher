@@ -54,7 +54,7 @@
         style="margin-top: 10px"
         @click="retryAnalyze"
       >
-        重新分析（保留输入）
+        {{ retryButtonLabel }}
       </van-button>
     </div>
   </div>
@@ -80,6 +80,8 @@ const elapsed = ref(0)
 const networkFails = ref(0)
 const needManualPoll = ref(false)
 const offlineHint = ref('网络异常，已暂停自动查询')
+const recoveredSourceText = ref('')
+const recoveredProductHint = ref('auto')
 let pollTimer = null
 let tickTimer = null
 let startedAt = Date.now()
@@ -89,6 +91,9 @@ let polling = false
 const failed = computed(() => taskStatus.value === 'failed')
 const slow = computed(() => elapsed.value >= 8 && taskStatus.value === 'running')
 const elapsedLabel = computed(() => `${elapsed.value} 秒`)
+const retryButtonLabel = computed(() =>
+  recoveredSourceText.value.trim() ? '重新分析（保留输入）' : '返回重新输入',
+)
 const statusLabel = computed(() => {
   const map = {
     queued: '排队中',
@@ -131,7 +136,18 @@ function goError() {
 }
 
 function retryAnalyze() {
+  if (recoveredSourceText.value.trim()) {
+    store.setDraft(recoveredSourceText.value, recoveredProductHint.value || 'auto')
+  }
   router.replace({ name: 'input' })
+}
+
+function applyTaskBinding(data) {
+  recoveredSourceText.value = data.source_text || ''
+  recoveredProductHint.value = data.product_hint || 'auto'
+  if (recoveredSourceText.value.trim()) {
+    store.setDraft(recoveredSourceText.value, recoveredProductHint.value)
+  }
 }
 
 function clearPollTimer() {
@@ -160,6 +176,7 @@ async function poll() {
     taskStatus.value = data.task_status
     stages.value = data.stages || []
     store.setTask(props.taskId, data.task_status, data.stages || [])
+    applyTaskBinding(data)
 
     if (data.task_status === 'completed') {
       clearPollTimer()

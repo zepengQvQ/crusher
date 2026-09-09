@@ -105,6 +105,7 @@ class AnalyzeTextUseCase:
             task_status=TaskStatus.queued,
             input_text_preview=preview,
             source_text=request.text,
+            product_hint=request.product_hint,
             stages=[
                 StageInfo(name=name, status=StageStatus.not_applicable, message="等待中")
                 for name in PIPELINE_STAGES
@@ -135,6 +136,7 @@ class AnalyzeTextUseCase:
                 return
 
             resolution = self._resolve_product_decision(request.text, request.product_hint)
+            await self._persist_resolution(task_id, resolution)
             classify_msg = resolution.reason
             await self._mark_stage(task_id, "classify", StageStatus.success, classify_msg)
 
@@ -254,6 +256,16 @@ class AnalyzeTextUseCase:
         except Exception as exc:  # noqa: BLE001
             log_task("task_internal_error", task_id, err_type=type(exc).__name__)
             await self._fail(task_id, "explain", ErrorCode.INTERNAL_ERROR)
+
+    async def _persist_resolution(self, task_id: str, resolution: ProductResolution) -> None:
+        """分类后写回任务级决议字段，失败态 GET 仍可读取。"""
+        task = self._tasks.get(task_id)
+        if task is None:
+            return
+        task.resolved_product_type = resolution.resolved_product_type
+        task.analysis_scope = resolution.analysis_scope
+        task.touch()
+        self._tasks.save(task)
 
     async def _mark_stage(
         self,

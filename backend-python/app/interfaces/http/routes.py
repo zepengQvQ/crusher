@@ -16,6 +16,7 @@ from app.application.analyze_text import AnalyzeTextUseCase
 from app.composition_root import get_analyze_text_use_case, get_task_store
 from app.config.settings import Settings, get_settings
 from app.domain.models import AnalysisReport, CreateAnalysisRequest, StageInfo
+from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
 from app.infrastructure.task_store.memory import InMemoryTaskStore
 from app.shared.enums import ErrorCode, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
@@ -63,6 +64,9 @@ class TaskResponse(BaseModel):
     report: AnalysisReport | None = None
     is_failure: bool = False
     source_text: str = ""
+    product_hint: ProductHint = ProductHint.auto
+    resolved_product_type: ProductTypeId | None = None
+    analysis_scope: AnalysisScope | None = None
 
 
 def _forbidden_fields_from_validation(
@@ -186,4 +190,7 @@ def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
         report=None if failed else task.report,
         is_failure=failed,
         source_text=task.source_text or "",
+        product_hint=task.product_hint,
+        resolved_product_type=task.resolved_product_type,
+        analysis_scope=task.analysis_scope,
     )

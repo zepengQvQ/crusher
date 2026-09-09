@@ -220,6 +220,9 @@ class AnalysisTask(StrictModel):
     input_text_preview: str = ""
     # 仅存本进程内存；GET 按 task_id 返回，供报告/失败重试用
     source_text: str = ""
+    product_hint: ProductHint = ProductHint.auto
+    resolved_product_type: ProductTypeId | None = None
+    analysis_scope: AnalysisScope | None = None
     stages: list[StageInfo] = Field(default_factory=list)
     error_code: ErrorCode | None = None
     error_message: str | None = None

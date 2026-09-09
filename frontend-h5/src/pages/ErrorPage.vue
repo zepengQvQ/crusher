@@ -4,7 +4,7 @@
     <div class="block">
       <van-empty image="error" :description="message" />
       <p v-if="code" class="code">错误码：{{ code }}</p>
-      <p class="hint">这不是「没发现风险」。下方已保留输入，可直接重新分析。</p>
+      <p class="hint">{{ retainHint }}</p>
 
       <div v-if="draftText" class="draft">
         <div class="draft-title">保留输入</div>
@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { createAnalysis, getAnalysis, pickErrorMessage } from '../api/client'
@@ -46,6 +46,7 @@ const store = useTaskStore()
 const draftText = ref('')
 const productHint = ref('auto')
 const retrying = ref(false)
+let active = true
 
 const message = computed(() => {
   const raw = store.lastError || '请求失败，请重试'
@@ -55,19 +56,27 @@ const message = computed(() => {
   return raw
 })
 const code = computed(() => store.lastErrorCode || '')
+const retainHint = computed(() =>
+  draftText.value
+    ? '这不是「没发现风险」。下方已保留本任务输入，可直接重新分析。'
+    : '这不是「没发现风险」。暂无可恢复原文，请返回首页重新粘贴。',
+)
 
 onMounted(async () => {
+  active = true
   store.restoreFromStorage()
-  productHint.value = store.productHint || 'auto'
   if (props.taskId) {
-    // 有 taskId：只能用该任务的 source_text，禁止回退全局草稿
+    // 有 taskId：原文与 product_hint 均只取该任务 GET，禁止回退全局草稿/hint
     try {
       const data = await getAnalysis(props.taskId)
+      if (!active) return
       draftText.value = data.source_text || ''
+      productHint.value = data.product_hint || 'auto'
       if (data.error_message) {
         store.setError(data.error_message, data.error_code || '')
       }
     } catch (e) {
+      if (!active) return
       const detail = e?.response?.data?.detail
       if (detail?.error_code === 'TASK_NOT_FOUND' || e?.response?.status === 404) {
         store.setError('任务可能因服务重启而丢失', 'TASK_NOT_FOUND')
@@ -80,6 +89,11 @@ onMounted(async () => {
   }
   // 无 taskId：仅限 POST 尚未建任务的网络错误，用 Pinia 内存草稿
   draftText.value = store.draftText || ''
+  productHint.value = store.productHint || 'auto'
+})
+
+onUnmounted(() => {
+  active = false
 })
 
 async function retryWithDraft() {
@@ -89,16 +103,19 @@ async function retryWithDraft() {
     return
   }
   retrying.value = true
-  store.setDraft(value, productHint.value)
+  const hint = productHint.value || 'auto'
+  store.setDraft(value, hint)
   try {
-    const res = await createAnalysis(value, { productHint: productHint.value })
+    const res = await createAnalysis(value, { productHint: hint })
+    if (!active) return
     store.setTask(res.task_id, res.task_status)
     router.replace({ name: 'status', params: { taskId: res.task_id } })
   } catch (e) {
+    if (!active) return
     store.setError(pickErrorMessage(e), e?.response?.data?.detail?.error_code || '')
     showToast(store.lastError)
   } finally {
-    retrying.value = false
+    if (active) retrying.value = false
   }
 }
 </script>

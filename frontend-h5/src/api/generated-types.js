@@ -120,6 +120,9 @@ export const TaskStatus = Object.freeze({
  * @property {AnalysisReport} [optional] report
  * @property {boolean} [optional] is_failure
  * @property {string} [optional] source_text
+ * @property {ProductHint} [optional] product_hint
+ * @property {ProductTypeId} [optional] resolved_product_type
+ * @property {AnalysisScope} [optional] analysis_scope
  */
 
 /**

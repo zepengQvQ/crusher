@@ -729,6 +729,30 @@
             "type": "string",
             "title": "Source Text",
             "default": ""
+          },
+          "product_hint": {
+            "$ref": "#/components/schemas/ProductHint",
+            "default": "auto"
+          },
+          "resolved_product_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductTypeId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,

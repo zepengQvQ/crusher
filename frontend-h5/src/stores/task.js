@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia'
 
 const STORAGE_KEY = 'crusher_task'
+const LEGACY_DRAFT_KEY = 'crusher_draft'
+
+function purgeLegacyDraftStorage() {
+  try {
+    sessionStorage.removeItem(LEGACY_DRAFT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * sessionStorage 只存 taskId / 状态 / 产品选择，不存金融原文全文。
@@ -38,6 +47,7 @@ export const useTaskStore = defineStore('task', {
       this.lastErrorCode = errorCode || ''
     },
     restoreFromStorage() {
+      purgeLegacyDraftStorage()
       try {
         const raw = sessionStorage.getItem(STORAGE_KEY)
         if (!raw) return null
@@ -65,6 +75,7 @@ export const useTaskStore = defineStore('task', {
       this.draftText = ''
       this.productHint = 'auto'
       sessionStorage.removeItem(STORAGE_KEY)
+      purgeLegacyDraftStorage()
     },
     _persistMeta() {
       try {
@@ -82,3 +93,6 @@ export const useTaskStore = defineStore('task', {
     },
   },
 })
+
+// 模块加载时清理旧版全文草稿键
+purgeLegacyDraftStorage()
