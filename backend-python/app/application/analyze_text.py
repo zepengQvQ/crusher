@@ -1,12 +1,13 @@
-"""分析文本用例（P0-06：事实分层 + 证据校验流水线）。
+"""分析文本用例（P0-06 + P0-RC-01：真模型通俗解释）。
 
 固定顺序：预检 → 分类 → 抽取 → 规则复核 → 证据校验 → 通俗解释 → Report。
-行业常识只进 general_references；模型不生成 Mermaid，主链路不走 MCP。
+行业常识只进 general_references；模型不得覆盖规则 Finding；主链路不走 MCP。
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import re
 
 from app.config.settings import Settings
 from app.domain.models import (
@@ -30,6 +31,13 @@ from app.domain.rules.engine import ProductHit, RuleEngine, RiskHit
 from app.domain.rules.evidence import validate_and_fix_findings
 from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
+from app.domain.llm_errors import (
+    LlmGatewayError,
+    LlmInvalidJsonError,
+    LlmRateLimitedError,
+    LlmTimeoutError,
+    LlmUpstreamError,
+)
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
 
@@ -55,6 +63,11 @@ _VALID_HINTS = {
     "insurance",
     "fund",
 }
+
+# 已有 Finding 时，模型不得写这些「无风险」结论
+_CONTRADICTION_RE = re.compile(
+    r"(未发现风险|没有风险|无风险|未发现任何风险|不存在风险)",
+)
 
 
 class AnalyzeTextUseCase:
@@ -101,16 +114,6 @@ class AnalyzeTextUseCase:
 
         try:
             await self._mark_stage(task_id, "preprocess", StageStatus.success, "输入检查通过")
-
-            if request.demo_error == DemoErrorKind.model_timeout:
-                await self._fail(task_id, "extract", ErrorCode.MODEL_TIMEOUT)
-                return
-            if request.demo_error == DemoErrorKind.invalid_json:
-                await self._fail(task_id, "extract", ErrorCode.INVALID_MODEL_JSON)
-                return
-            if request.demo_error == DemoErrorKind.rate_limited:
-                await self._fail(task_id, "extract", ErrorCode.RATE_LIMITED)
-                return
 
             if not self._knowledge.ping():
                 await self._fail(task_id, "classify", ErrorCode.KNOWLEDGE_UNAVAILABLE)
@@ -168,10 +171,20 @@ class AnalyzeTextUseCase:
                 f"证据校验完成：保留 {len(findings)}/{len(raw_findings)} 条",
             )
 
-            # 通俗解释：只基于已校验事实；禁止要求模型输出 Mermaid
+            # 演示按钮：模型错误在 explain 阶段触发（与真网关错误阶段一致）
+            if request.demo_error == DemoErrorKind.model_timeout:
+                await self._fail(task_id, "explain", ErrorCode.MODEL_TIMEOUT)
+                return
+            if request.demo_error == DemoErrorKind.invalid_json:
+                await self._fail(task_id, "explain", ErrorCode.INVALID_MODEL_JSON)
+                return
+            if request.demo_error == DemoErrorKind.rate_limited:
+                await self._fail(task_id, "explain", ErrorCode.RATE_LIMITED)
+                return
+
             prompt = (
                 RULE_REVIEW_SYSTEM
-                + "\n禁止输出 Mermaid 或任何可执行图表代码。\n\n"
+                + "\n\n"
                 + FINDINGS_USER_TEMPLATE.format(
                     raw_text=request.text[:2000],
                     rule_findings_json=json.dumps(
@@ -180,8 +193,29 @@ class AnalyzeTextUseCase:
                     ),
                 )
             )
-            await self._llm.complete(prompt)
-            plain = self._plain_language(extracted, findings)
+            try:
+                explanation = await self._llm.complete(prompt)
+            except LlmTimeoutError:
+                await self._fail(task_id, "explain", ErrorCode.MODEL_TIMEOUT)
+                return
+            except LlmRateLimitedError:
+                await self._fail(task_id, "explain", ErrorCode.RATE_LIMITED)
+                return
+            except LlmInvalidJsonError:
+                await self._fail(task_id, "explain", ErrorCode.INVALID_MODEL_JSON)
+                return
+            except LlmUpstreamError:
+                await self._fail(task_id, "explain", ErrorCode.INTERNAL_ERROR)
+                return
+            except LlmGatewayError:
+                await self._fail(task_id, "explain", ErrorCode.INTERNAL_ERROR)
+                return
+
+            plain = explanation.plain_language
+            if findings and _CONTRADICTION_RE.search(plain):
+                await self._fail(task_id, "explain", ErrorCode.INVALID_MODEL_JSON)
+                return
+
             await self._mark_stage(task_id, "explain", StageStatus.success, "解释完成")
 
             task = self._tasks.get(task_id)
@@ -194,11 +228,9 @@ class AnalyzeTextUseCase:
             self._tasks.save(task)
             log_task("task_completed", task_id, findings=len(task.report.findings))
 
-        except TimeoutError:
-            await self._fail(task_id, "extract", ErrorCode.MODEL_TIMEOUT)
         except Exception as exc:  # noqa: BLE001
             log_task("task_internal_error", task_id, err_type=type(exc).__name__)
-            await self._fail(task_id, "extract", ErrorCode.INTERNAL_ERROR)
+            await self._fail(task_id, "explain", ErrorCode.INTERNAL_ERROR)
 
     async def _mark_stage(
         self,
@@ -207,7 +239,7 @@ class AnalyzeTextUseCase:
         status: StageStatus,
         message: str,
     ) -> None:
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.05)
         task = self._tasks.get(task_id)
         if task is None:
             return
@@ -294,20 +326,6 @@ class AnalyzeTextUseCase:
                 )
             )
         return findings
-
-    def _plain_language(self, extracted: ExtractResult, findings: list[Finding]) -> str:
-        disclosed = [
-            f"{p.label}={p.value}"
-            for p in extracted.key_parameters
-            if p.status == FactStatus.document_fact and p.value
-        ]
-        missing = [p.label for p in extracted.key_parameters if p.status == FactStatus.not_disclosed]
-        parts = [
-            f"原文已写明：{'；'.join(disclosed) if disclosed else '（无结构化参数）'}。",
-            f"材料未说明：{'；'.join(missing) if missing else '无'}。",
-            f"规则命中风险 {len(findings)} 条（允许为 0）。",
-        ]
-        return "".join(parts)
 
     def _build_report(
         self,

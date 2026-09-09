@@ -51,7 +51,7 @@ make export-openapi   # 改完接口后：更新说明书 + 前端类型
 
 | 变量 | 白话 |
 |------|------|
-| `MOCK_MODE` | 默认 `true`：用假大模型，断网也能演示 |
+| `MOCK_MODE` | `true`：假大模型（断网可演示）；`false`：真调 DeepSeek（需有效 Key） |
 | `LLM_API_KEY` | 只有真调大模型才要填；**不要写进网页** |
 | `CORS_ORIGINS` | 允许哪个网页地址来调接口（默认本机 5173） |
 

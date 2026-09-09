@@ -5,7 +5,8 @@ Java 对照：interface。Domain/Application 只依赖这些抽象。
 from typing import Optional, Protocol
 import re
 
-from app.domain.models.task import AnalysisTask
+from app.domain.models.llm import LlmExplanation
+from app.domain.models.report import AnalysisTask
 
 
 class TaskStore(Protocol):
@@ -40,5 +41,5 @@ class KnowledgeRepository(Protocol):
 class LlmGateway(Protocol):
     """大模型网关端口。Demo 可用 Mock；确定性规则不经过此端口。"""
 
-    async def complete(self, prompt: str) -> str:
+    async def complete(self, prompt: str) -> LlmExplanation:
         ...

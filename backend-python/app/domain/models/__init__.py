@@ -7,6 +7,7 @@ from app.domain.models.enums import (
     ParameterKey,
     ProductTypeId,
 )
+from app.domain.models.llm import LlmExplanation
 from app.domain.models.report import (
     AnalysisReport,
     AnalysisTask,
@@ -30,6 +31,7 @@ __all__ = [
     "FindingSeverity",
     "ParameterKey",
     "ProductTypeId",
+    "LlmExplanation",
     "AnalysisReport",
     "AnalysisTask",
     "AnalyzeTextRequest",

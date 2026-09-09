@@ -7,6 +7,8 @@ if [[ ! -x "$PY" ]]; then
   PY="python3"
 fi
 export PYTHONPATH="${ROOT}/backend-python:${ROOT}:${PYTHONPATH:-}"
+# 回归默认走 Mock，避免本机 .env 的 MOCK_MODE=false 打到真模型
+export MOCK_MODE="${MOCK_MODE:-true}"
 
 echo "==> API"
 "$PY" -m unittest discover -s "${ROOT}/tests/api" -v
@@ -15,6 +17,9 @@ echo "==> P0-01 golden + negation"
 "$PY" -m unittest \
   tests.p0_01.test_golden_not_disclosed \
   tests.p0_01.test_negation_regression -v
+
+echo "==> P0-RC-01"
+"$PY" -m unittest discover -s "${ROOT}/tests/p0_rc_01" -v
 
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
