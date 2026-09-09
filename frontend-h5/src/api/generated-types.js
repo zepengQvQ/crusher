@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -18,6 +18,16 @@ export const AnalysisScope = Object.freeze({
   supported: "supported",
   out_of_scope: "out_of_scope",
   needs_confirmation: "needs_confirmation",
+})
+
+/**
+ * @typedef {"answered"|"insufficient_evidence"|"out_of_scope"} AnswerStatusValue
+ */
+
+export const AnswerStatus = Object.freeze({
+  answered: "answered",
+  insufficient_evidence: "insufficient_evidence",
+  out_of_scope: "out_of_scope",
 })
 
 /**
@@ -395,6 +405,22 @@ export const TaskStatus = Object.freeze({
  * @property {number} [confidence]
  * @property {string} [error_message]
  * @property {boolean} [used_ocr]
+ */
+
+/**
+ * @typedef {Object} FollowUpRequest
+ * @property {string} question
+ * @property {string} source_text
+ * @property {Array<string>} [pending_questions]
+ */
+
+/**
+ * @typedef {Object} EvidenceAnswer
+ * @property {string} question
+ * @property {AnswerStatusValue} status
+ * @property {string} answer
+ * @property {Array<EvidenceRef>} [evidence]
+ * @property {Array<string>} [missing_info]
  */
 
 /**

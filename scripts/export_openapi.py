@@ -47,6 +47,8 @@ PRIORITY_SCHEMAS = [
     "EvidenceRef",
     "ExtractedDocument",
     "PageExtractResult",
+    "FollowUpRequest",
+    "EvidenceAnswer",
 ]
 
 

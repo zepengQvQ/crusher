@@ -3,6 +3,7 @@ from functools import lru_cache
 
 from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
+from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.extract_document import ExtractDocumentUseCase
 from app.config.settings import Settings, get_settings
 from app.domain.llm_errors import LlmConfigError
@@ -62,3 +63,8 @@ def get_extract_document_use_case() -> ExtractDocumentUseCase:
     settings = get_settings()
     ocr = MockOcrGateway() if settings.mock_mode else UnavailableOcrGateway()
     return ExtractDocumentUseCase(PdfImageDocumentParser(ocr))
+
+
+@lru_cache
+def get_answer_from_evidence_use_case() -> AnswerFromEvidenceUseCase:
+    return AnswerFromEvidenceUseCase()

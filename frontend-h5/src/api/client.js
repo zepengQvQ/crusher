@@ -70,6 +70,15 @@ export async function healthCheck() {
   return data
 }
 
+export async function createFollowUp(question, sourceText, pendingQuestions = []) {
+  const { data } = await http.post('/api/v1/follow-ups', {
+    question,
+    source_text: sourceText,
+    pending_questions: pendingQuestions,
+  })
+  return data
+}
+
 export function pickErrorMessage(error) {
   if (!error?.response) {
     if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'

@@ -14,10 +14,12 @@ from pydantic import BaseModel, ConfigDict
 
 from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
+from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.extract_document import ExtractDocumentUseCase
 from app.composition_root import (
     get_analyze_dual_sources_use_case,
     get_analyze_text_use_case,
+    get_answer_from_evidence_use_case,
     get_extract_document_use_case,
     get_task_store,
 )
@@ -31,6 +33,7 @@ from app.domain.models import (
     StageInfo,
 )
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
+from app.domain.models.evidence_answer import EvidenceAnswer, FollowUpRequest
 from app.domain.models.source_document import ExtractedDocument
 from app.infrastructure.task_store.memory import InMemoryTaskStore
 from app.shared.constants import MAX_INPUT_CHARS
@@ -58,6 +61,9 @@ DualUseCaseDep = Annotated[
 ]
 ExtractUseCaseDep = Annotated[
     ExtractDocumentUseCase, Depends(get_extract_document_use_case)
+]
+FollowUpUseCaseDep = Annotated[
+    AnswerFromEvidenceUseCase, Depends(get_answer_from_evidence_use_case)
 ]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
@@ -340,3 +346,19 @@ async def extract_document(
             },
         )
     return result
+
+
+@router.post(
+    "/api/v1/follow-ups",
+    response_model=EvidenceAnswer,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "问题或材料不合法"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
+def create_follow_up(
+    body: FollowUpRequest,
+    use_case: FollowUpUseCaseDep,
+) -> EvidenceAnswer:
+    """基于已提交材料追问；无证据则 insufficient，超范围 out_of_scope。"""
+    return use_case.execute(body)

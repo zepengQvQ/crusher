@@ -117,6 +117,13 @@
         />
       </div>
 
+      <div class="block">
+        <EvidenceQuestionPanel
+          :source-text="sourceText"
+          :pending="pendingItems"
+        />
+      </div>
+
       <p class="disclaimer">{{ report.disclaimer || DISCLAIMER }}</p>
       <div class="block">
         <van-button block type="primary" round class="touch-btn" @click="$router.push('/')">
@@ -133,6 +140,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
+import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
 import { useTaskStore } from '../stores/task'
 
 const props = defineProps({

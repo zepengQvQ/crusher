@@ -231,6 +231,55 @@
           }
         }
       }
+    },
+    "/api/v1/follow-ups": {
+      "post": {
+        "summary": "Create Follow Up",
+        "description": "基于已提交材料追问；无证据则 insufficient，超范围 out_of_scope。",
+        "operationId": "create_follow_up_api_v1_follow_ups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceAnswer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "问题或材料不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -330,6 +379,15 @@
         ],
         "title": "AnalysisScope",
         "description": "一次分析的范围状态。"
+      },
+      "AnswerStatus": {
+        "type": "string",
+        "enum": [
+          "answered",
+          "insufficient_evidence",
+          "out_of_scope"
+        ],
+        "title": "AnswerStatus"
       },
       "ApiErrorDetail": {
         "properties": {
@@ -742,6 +800,43 @@
         ],
         "title": "Evidence"
       },
+      "EvidenceAnswer": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnswerStatus"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "missing_info": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Info"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "status",
+          "answer"
+        ],
+        "title": "EvidenceAnswer"
+      },
       "EvidenceRef": {
         "properties": {
           "source_id": {
@@ -942,6 +1037,36 @@
         ],
         "title": "FindingSeverity",
         "description": "单条风险发现的严重度（不要和产品评级混用）。"
+      },
+      "FollowUpRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "source_text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Source Text"
+          },
+          "pending_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Questions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "source_text"
+        ],
+        "title": "FollowUpRequest"
       },
       "GeneralReference": {
         "properties": {
