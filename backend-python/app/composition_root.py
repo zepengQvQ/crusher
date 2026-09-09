@@ -3,9 +3,13 @@ from functools import lru_cache
 
 from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
+from app.application.extract_document import ExtractDocumentUseCase
 from app.config.settings import Settings, get_settings
 from app.domain.llm_errors import LlmConfigError
 from app.domain.ports.protocols import LlmGateway
+from app.infrastructure.document.mock_ocr import MockOcrGateway
+from app.infrastructure.document.pdf_image_parser import PdfImageDocumentParser
+from app.infrastructure.document.unavailable_ocr import UnavailableOcrGateway
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository
 from app.infrastructure.llm.mock_gateway import MockLlmGateway
 from app.infrastructure.llm.openai_compatible_gateway import OpenAiCompatibleLlmGateway
@@ -51,3 +55,10 @@ def get_analyze_text_use_case() -> AnalyzeTextUseCase:
 @lru_cache
 def get_analyze_dual_sources_use_case() -> AnalyzeDualSourcesUseCase:
     return AnalyzeDualSourcesUseCase()
+
+
+@lru_cache
+def get_extract_document_use_case() -> ExtractDocumentUseCase:
+    settings = get_settings()
+    ocr = MockOcrGateway() if settings.mock_mode else UnavailableOcrGateway()
+    return ExtractDocumentUseCase(PdfImageDocumentParser(ocr))

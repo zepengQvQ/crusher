@@ -45,6 +45,8 @@ PRIORITY_SCHEMAS = [
     "Claim",
     "SourceDocument",
     "EvidenceRef",
+    "ExtractedDocument",
+    "PageExtractResult",
 ]
 
 

@@ -71,6 +71,16 @@
         block
         round
         plain
+        class="touch-btn"
+        style="margin-top: 10px"
+        @click="$router.push('/upload')"
+      >
+        上传 PDF / 图片
+      </van-button>
+      <van-button
+        block
+        round
+        plain
         type="warning"
         class="touch-btn"
         :loading="loading"

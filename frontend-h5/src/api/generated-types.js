@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "ApiErrorDetail", "ApiErrorResponse", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceRef", "EvidenceSource", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "KeyParameter", "MissingDisclosure", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DemoErrorKind", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactStatus", "Finding", "FindingSeverity", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -55,7 +55,7 @@ export const DemoErrorKind = Object.freeze({
 })
 
 /**
- * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"INTERNAL_ERROR"} ErrorCodeValue
+ * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"INTERNAL_ERROR"} ErrorCodeValue
  */
 
 export const ErrorCode = Object.freeze({
@@ -67,6 +67,8 @@ export const ErrorCode = Object.freeze({
   KNOWLEDGE_UNAVAILABLE: "KNOWLEDGE_UNAVAILABLE",
   TASK_NOT_FOUND: "TASK_NOT_FOUND",
   FORBIDDEN_CLIENT_CONFIG: "FORBIDDEN_CLIENT_CONFIG",
+  OCR_UNAVAILABLE: "OCR_UNAVAILABLE",
+  DOCUMENT_PARSE_FAILED: "DOCUMENT_PARSE_FAILED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 })
 
@@ -99,6 +101,16 @@ export const FindingSeverity = Object.freeze({
   high: "high",
   mid: "mid",
   low: "low",
+})
+
+/**
+ * @typedef {"success"|"failed"|"blank"} PageExtractStatusValue
+ */
+
+export const PageExtractStatus = Object.freeze({
+  success: "success",
+  failed: "failed",
+  blank: "blank",
 })
 
 /**
@@ -361,5 +373,32 @@ export const TaskStatus = Object.freeze({
  * @property {number} [page]
  * @property {number} [confidence]
  * @property {boolean} [user_corrected]
+ */
+
+/**
+ * @typedef {Object} ExtractedDocument
+ * @property {string} [document_id]
+ * @property {string} filename
+ * @property {string} media_type
+ * @property {StageStatusValue} overall_status
+ * @property {Array<PageExtractResult>} [pages]
+ * @property {string} [combined_text]
+ * @property {Array<string>} [sensitive_hints]
+ * @property {string} [message]
+ */
+
+/**
+ * @typedef {Object} PageExtractResult
+ * @property {number} page
+ * @property {PageExtractStatusValue} status
+ * @property {string} [text]
+ * @property {number} [confidence]
+ * @property {string} [error_message]
+ * @property {boolean} [used_ocr]
+ */
+
+/**
+ * @typedef {Object} Body_extract_document_api_v1_documents_extract_post
+ * @property {Array<string>} files
  */
 

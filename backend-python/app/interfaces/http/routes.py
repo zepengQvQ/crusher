@@ -7,16 +7,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
+from app.application.extract_document import ExtractDocumentUseCase
 from app.composition_root import (
     get_analyze_dual_sources_use_case,
     get_analyze_text_use_case,
+    get_extract_document_use_case,
     get_task_store,
 )
 from app.config.settings import Settings, get_settings
@@ -29,6 +31,7 @@ from app.domain.models import (
     StageInfo,
 )
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
+from app.domain.models.source_document import ExtractedDocument
 from app.infrastructure.task_store.memory import InMemoryTaskStore
 from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, TaskStatus, user_message_for
@@ -52,6 +55,9 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 UseCaseDep = Annotated[AnalyzeTextUseCase, Depends(get_analyze_text_use_case)]
 DualUseCaseDep = Annotated[
     AnalyzeDualSourcesUseCase, Depends(get_analyze_dual_sources_use_case)
+]
+ExtractUseCaseDep = Annotated[
+    ExtractDocumentUseCase, Depends(get_extract_document_use_case)
 ]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
@@ -273,3 +279,64 @@ def create_dual_analysis(
             },
         )
     return use_case.execute(body)
+
+
+@router.post(
+    "/api/v1/documents/extract",
+    response_model=ExtractedDocument,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "文件不合法或超限"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+        503: {"model": ApiErrorResponse, "description": "OCR 不可用"},
+    },
+)
+async def extract_document(
+    use_case: ExtractUseCaseDep,
+    files: Annotated[list[UploadFile], File(description="PDF 或图片，可多文件")],
+) -> ExtractedDocument:
+    """上传 PDF/图片并提取可编辑文本；用户确认后再进入金融分析。"""
+    if not files:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": ErrorCode.DOCUMENT_PARSE_FAILED.value,
+                "message": "请至少上传一个文件",
+            },
+        )
+    payloads: list[tuple[str, bytes]] = []
+    for f in files:
+        name = f.filename or "upload.bin"
+        data = await f.read()
+        payloads.append((name, data))
+
+    try:
+        # 单 PDF：优先按 PDF 解析；多文件或图片走图片路径
+        only = payloads[0]
+        lower = only[0].lower()
+        if len(payloads) == 1 and lower.endswith(".pdf"):
+            result = await use_case.extract_pdf(only[1], only[0])
+        else:
+            if any(n.lower().endswith(".pdf") for n, _ in payloads):
+                raise ValueError("请单独上传一个 PDF，或只上传图片")
+            result = await use_case.extract_images(payloads)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": ErrorCode.DOCUMENT_PARSE_FAILED.value,
+                "message": str(exc),
+            },
+        ) from exc
+
+    if result.message == "OCR_UNAVAILABLE" or (
+        result.overall_status.value == "failed"
+        and any("OCR_UNAVAILABLE" in (p.error_message or "") for p in result.pages)
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error_code": ErrorCode.OCR_UNAVAILABLE.value,
+                "message": user_message_for(ErrorCode.OCR_UNAVAILABLE),
+            },
+        )
+    return result

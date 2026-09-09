@@ -172,6 +172,65 @@
           }
         }
       }
+    },
+    "/api/v1/documents/extract": {
+      "post": {
+        "summary": "Extract Document",
+        "description": "上传 PDF/图片并提取可编辑文本；用户确认后再进入金融分析。",
+        "operationId": "extract_document_api_v1_documents_extract_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extract_document_api_v1_documents_extract_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractedDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "文件不合法或超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "OCR 不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -332,6 +391,24 @@
         ],
         "title": "ApiErrorResponse",
         "description": "FastAPI HTTPException / 校验失败统一外层。"
+      },
+      "Body_extract_document_api_v1_documents_extract_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "PDF 或图片，可多文件"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_extract_document_api_v1_documents_extract_post"
       },
       "Claim": {
         "properties": {
@@ -625,6 +702,8 @@
           "KNOWLEDGE_UNAVAILABLE",
           "TASK_NOT_FOUND",
           "FORBIDDEN_CLIENT_CONFIG",
+          "OCR_UNAVAILABLE",
+          "DOCUMENT_PARSE_FAILED",
           "INTERNAL_ERROR"
         ],
         "title": "ErrorCode"
@@ -728,6 +807,61 @@
           "knowledge"
         ],
         "title": "EvidenceSource"
+      },
+      "ExtractedDocument": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Filename"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
+          },
+          "overall_status": {
+            "$ref": "#/components/schemas/StageStatus"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/PageExtractResult"
+            },
+            "type": "array",
+            "title": "Pages"
+          },
+          "combined_text": {
+            "type": "string",
+            "title": "Combined Text",
+            "default": ""
+          },
+          "sensitive_hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sensitive Hints",
+            "description": "低置信或敏感数字提示，供 H5 人工确认"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "filename",
+          "media_type",
+          "overall_status"
+        ],
+        "title": "ExtractedDocument",
+        "description": "用户确认前的提取结果（可编辑文本）。"
       },
       "FactStatus": {
         "type": "string",
@@ -898,6 +1032,56 @@
           "question"
         ],
         "title": "MissingDisclosure"
+      },
+      "PageExtractResult": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PageExtractStatus"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          },
+          "error_message": {
+            "type": "string",
+            "title": "Error Message",
+            "default": ""
+          },
+          "used_ocr": {
+            "type": "boolean",
+            "title": "Used Ocr",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "page",
+          "status"
+        ],
+        "title": "PageExtractResult"
+      },
+      "PageExtractStatus": {
+        "type": "string",
+        "enum": [
+          "success",
+          "failed",
+          "blank"
+        ],
+        "title": "PageExtractStatus"
       },
       "ParameterKey": {
         "type": "string",

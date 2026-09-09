@@ -43,12 +43,14 @@ export async function getAnalysis(taskId) {
   return data
 }
 
-export async function createDualAnalysis(salesText, officialText, productHint = 'auto') {
-  const { data } = await http.post('/api/v1/dual-analyses', {
-    sales_text: salesText,
-    official_text: officialText,
-    product_hint: productHint || 'auto',
-    locale: 'zh-CN',
+export async function extractDocuments(files) {
+  const form = new FormData()
+  for (const f of files) {
+    form.append('files', f)
+  }
+  const { data } = await http.post('/api/v1/documents/extract', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
   })
   return data
 }

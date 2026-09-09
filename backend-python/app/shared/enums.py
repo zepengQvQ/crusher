@@ -29,6 +29,8 @@ class ErrorCode(str, Enum):
     KNOWLEDGE_UNAVAILABLE = "KNOWLEDGE_UNAVAILABLE"
     TASK_NOT_FOUND = "TASK_NOT_FOUND"
     FORBIDDEN_CLIENT_CONFIG = "FORBIDDEN_CLIENT_CONFIG"
+    OCR_UNAVAILABLE = "OCR_UNAVAILABLE"
+    DOCUMENT_PARSE_FAILED = "DOCUMENT_PARSE_FAILED"
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
@@ -42,6 +44,8 @@ ERROR_USER_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.KNOWLEDGE_UNAVAILABLE: "知识库暂时不可用",
     ErrorCode.TASK_NOT_FOUND: "找不到这个任务（可能服务刚重启过，请重新分析）",
     ErrorCode.FORBIDDEN_CLIENT_CONFIG: "网页不能传密钥或模型地址",
+    ErrorCode.OCR_UNAVAILABLE: "当前模型不支持图片识别，扫描件 OCR 暂不可用",
+    ErrorCode.DOCUMENT_PARSE_FAILED: "文件解析失败，请换文本 PDF 或直接粘贴文字",
     ErrorCode.INTERNAL_ERROR: "服务内部出错，请重试",
 }
 

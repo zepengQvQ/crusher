@@ -5,6 +5,8 @@ import ReportPage from '../pages/ReportPage.vue'
 import ErrorPage from '../pages/ErrorPage.vue'
 import DualInputPage from '../pages/DualInputPage.vue'
 import DualReportPage from '../pages/DualReportPage.vue'
+import ExtractConfirmPage from '../pages/ExtractConfirmPage.vue'
+import DocumentUploadPage from '../pages/DocumentUploadPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -12,6 +14,8 @@ const router = createRouter({
     { path: '/', name: 'input', component: InputPage },
     { path: '/dual', name: 'dual-input', component: DualInputPage },
     { path: '/dual/report', name: 'dual-report', component: DualReportPage },
+    { path: '/upload', name: 'upload', component: DocumentUploadPage },
+    { path: '/extract-confirm', name: 'extract-confirm', component: ExtractConfirmPage },
     { path: '/status/:taskId', name: 'status', component: StatusPage, props: true },
     { path: '/report/:taskId', name: 'report', component: ReportPage, props: true },
     {
