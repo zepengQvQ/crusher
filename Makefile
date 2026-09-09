@@ -1,4 +1,4 @@
-.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 lint install export-openapi
+.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 lint install export-openapi
 
 setup:
 	bash scripts/dev.sh
@@ -80,3 +80,6 @@ test-p0-rc-08:
 test-p0-rc-09:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p0_rc_09 -v
 	cd frontend-h5 && npm test -- analysis-scope.spec.js
+
+test-p0-rc-10:
+	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p0_rc_10 -v

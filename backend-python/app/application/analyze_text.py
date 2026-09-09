@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 
 from app.config.settings import Settings
 from app.domain.llm_errors import (
@@ -16,6 +15,10 @@ from app.domain.llm_errors import (
     LlmRateLimitedError,
     LlmTimeoutError,
     LlmUpstreamError,
+)
+from app.domain.llm_explanation_guard import (
+    allowed_numbers_from_program,
+    validate_explanation_against_program,
 )
 from app.domain.models import (
     AnalysisReport,
@@ -35,6 +38,7 @@ from app.domain.models import (
     StageInfo,
 )
 from app.domain.models.enums import EvidenceSource, ParameterKey, ProductHint
+from app.domain.models.llm import LlmExplainRequest
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
 from app.domain.rules.engine import ProductHit, RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
@@ -72,11 +76,6 @@ SCOPE_PENDING_QUESTION = "当前 Demo 仅支持结构性存款和贷款，请重
 CONFIRM_PENDING_QUESTION = "产品类型存在冲突，请确认后重新分析。"
 _LOAN_TEXT_MARKERS = ("贷款", "消费贷", "借款", "等额本息", "年化利率")
 _DEPOSIT_TEXT_MARKERS = ("结构性存款", "结构存款", "观察区间", "挂钩型存款")
-
-# 已有 Finding 时，模型不得写这些「无风险」结论
-_CONTRADICTION_RE = re.compile(
-    r"(未发现风险|没有风险|无风险|未发现任何风险|不存在风险)",
-)
 
 
 class AnalyzeTextUseCase:
@@ -200,19 +199,9 @@ class AnalyzeTextUseCase:
                 await self._fail(task_id, "explain", ErrorCode.RATE_LIMITED)
                 return
 
-            prompt = (
-                RULE_REVIEW_SYSTEM
-                + "\n\n"
-                + FINDINGS_USER_TEMPLATE.format(
-                    raw_text=request.text[:2000],
-                    rule_findings_json=json.dumps(
-                        [{"id": f.id, "title": f.title} for f in findings],
-                        ensure_ascii=False,
-                    ),
-                )
-            )
+            explain_req = self._build_explain_request(extracted, findings)
             try:
-                explanation = await self._llm.complete(prompt)
+                explanation = await self._llm.complete(explain_req)
             except LlmTimeoutError:
                 await self._fail(task_id, "explain", ErrorCode.MODEL_TIMEOUT)
                 return
@@ -230,7 +219,17 @@ class AnalyzeTextUseCase:
                 return
 
             plain = explanation.plain_language
-            if findings and _CONTRADICTION_RE.search(plain):
+            allowed_nums = allowed_numbers_from_program(
+                findings=findings,
+                key_parameters=list(extracted.key_parameters),
+            )
+            try:
+                validate_explanation_against_program(
+                    plain,
+                    findings=findings,
+                    allowed_numbers=allowed_nums,
+                )
+            except LlmInvalidJsonError:
                 await self._fail(task_id, "explain", ErrorCode.INVALID_MODEL_JSON)
                 return
 
@@ -445,6 +444,51 @@ class AnalyzeTextUseCase:
         if product_type_id not in DEMO_SUPPORTED_PRODUCTS:
             return []
         return list(self._rules.match_risks(text, product_type=product_type_id))
+
+    def _build_explain_request(
+        self,
+        extracted: ExtractResult,
+        findings: list[Finding],
+    ) -> LlmExplainRequest:
+        """组装模型解释请求：只传结构化结论与证据摘录，不静默截断全文。"""
+        facts_payload = [
+            {
+                "key": p.key.value,
+                "label": p.label,
+                "status": p.status.value,
+                "value": p.value,
+                "amount": str(p.amount) if p.amount is not None else None,
+            }
+            for p in extracted.key_parameters
+        ]
+        findings_payload = [
+            {
+                "id": f.id,
+                "title": f.title,
+                "severity": f.finding_severity.value,
+                "explanation": f.explanation,
+            }
+            for f in findings
+        ]
+        evidence_payload = [
+            {
+                "finding_id": f.id,
+                "quote": ev.quote,
+                "start": ev.start,
+                "end": ev.end,
+            }
+            for f in findings
+            for ev in f.evidence
+        ]
+        user_prompt = FINDINGS_USER_TEMPLATE.format(
+            facts_json=json.dumps(facts_payload, ensure_ascii=False),
+            findings_json=json.dumps(findings_payload, ensure_ascii=False),
+            evidence_json=json.dumps(evidence_payload, ensure_ascii=False),
+        )
+        return LlmExplainRequest(
+            system_prompt=RULE_REVIEW_SYSTEM,
+            user_prompt=user_prompt,
+        )
 
     async def _finish_scope_gate(
         self,

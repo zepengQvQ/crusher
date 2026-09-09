@@ -13,7 +13,8 @@ sys.path.insert(0, str(ROOT / "backend-python"))
 
 from app.application.analyze_text import AnalyzeTextUseCase  # noqa: E402
 from app.config.settings import Settings  # noqa: E402
-from app.domain.models import AnalyzeTextRequest, LlmExplanation  # noqa: E402
+from app.domain.models import AnalyzeTextRequest  # noqa: E402
+from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
 from app.domain.models.enums import ProductTypeId  # noqa: E402
 from app.domain.rules.engine import RuleEngine  # noqa: E402
 from app.domain.rules.negation import is_negated_near  # noqa: E402
@@ -31,7 +32,8 @@ def _engine() -> RuleEngine:
 
 
 class FixedGw:
-    async def complete(self, prompt: str) -> LlmExplanation:
+    async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+        _ = request
         return LlmExplanation(plain_language="（测试）通俗说明，不改写规则结论。")
 
 

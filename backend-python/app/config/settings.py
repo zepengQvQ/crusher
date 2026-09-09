@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     # 只允许服务端配置；H5 禁止覆盖
     llm_api_key: str = ""
     llm_provider: str = "deepseek"
-    llm_model: str = "deepseek-chat"
+    # 真实模式必须显式配置 LLM_MODEL；默认空串，避免 Settings 默认值掩盖未配置
+    llm_model: str = ""
+
     llm_base_url: str = ""
     llm_temperature: float = 0.3
     llm_max_tokens: int = 2048

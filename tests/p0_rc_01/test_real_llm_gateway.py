@@ -19,7 +19,7 @@ from app.composition_root import build_llm_gateway, require_real_llm_settings  #
 from app.config.settings import Settings  # noqa: E402
 from app.domain.llm_errors import LlmConfigError, LlmInvalidJsonError  # noqa: E402
 from app.domain.models import AnalyzeTextRequest  # noqa: E402
-from app.domain.models.llm import LlmExplanation  # noqa: E402
+from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
 from app.infrastructure.llm.mock_gateway import MockLlmGateway  # noqa: E402
 from app.infrastructure.llm.openai_compatible_gateway import (  # noqa: E402
@@ -52,6 +52,9 @@ def _ok_handler(plain: str):
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.endswith("/chat/completions")
         assert request.headers.get("Authorization", "").startswith("Bearer ")
+        body_in = json.loads(request.content.decode("utf-8"))
+        roles = [m["role"] for m in body_in["messages"]]
+        assert roles == ["system", "user"], roles
         body = {
             "choices": [
                 {"message": {"content": _json_content(plain)}},
@@ -89,10 +92,11 @@ class GatewaySelectionTests(unittest.TestCase):
 class MockGatewayTests(unittest.TestCase):
     def test_mock_stable_no_network(self):
         gw = MockLlmGateway()
+        req = LlmExplainRequest(system_prompt="s", user_prompt="u")
 
         async def run() -> None:
-            a = await gw.complete("prompt-a")
-            b = await gw.complete("prompt-b")
+            a = await gw.complete(req)
+            b = await gw.complete(req)
             self.assertEqual(a.plain_language, b.plain_language)
             self.assertIsInstance(a, LlmExplanation)
 
@@ -217,18 +221,18 @@ class ForcedFindingContradictionTests(unittest.TestCase):
 
     def test_contradiction_fails_when_findings_present(self):
         class FixedGw:
-            async def complete(self, prompt: str) -> LlmExplanation:
+            async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+                _ = request
                 return LlmExplanation(plain_language="综合来看没有风险。")
 
         class SeededUc(AnalyzeTextUseCase):
-            def _collect_risks(self, text, products):
-                hits = super()._collect_risks(text, products)
+            def _collect_risks(self, text, product_type_id):
+                hits = super()._collect_risks(text, product_type_id)
                 if hits:
                     return hits
-                # 强制造一条 Finding 路径：走规则正例
                 return super()._collect_risks(
                     "提前还款需支付剩余本金3%的违约金。",
-                    products,
+                    product_type_id,
                 )
 
         store = InMemoryTaskStore()

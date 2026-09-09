@@ -13,7 +13,7 @@ from app.domain.llm_errors import (
     LlmTimeoutError,
     LlmUpstreamError,
 )
-from app.domain.models.llm import LlmExplanation
+from app.domain.models.llm import LlmExplainRequest, LlmExplanation
 
 _FENCE_RE = re.compile(
     r"^\s*```(?:json)?\s*(.*?)\s*```\s*$",
@@ -48,8 +48,8 @@ class OpenAiCompatibleLlmGateway:
     """调用一个 OpenAI-compatible 模型接口。
 
     Java 对照：外部模型 Gateway 的实现类。
-    输入：只接收应用层准备好的 Prompt，不读取 H5 参数。
-    输出：已经校验过的 LlmExplanation DTO。
+    输入：只接收 Application 组装的 LlmExplainRequest，不读取 H5 参数。
+    输出：已解析的 LlmExplanation DTO（与 Finding 一致性由 Application 再校验）。
     业务不变量：异常必须显式失败；不得返回空结果冒充安全。
     安全边界：Key/Base URL 仅从后端 Settings 注入，不写日志。
     """
@@ -67,7 +67,7 @@ class OpenAiCompatibleLlmGateway:
         self._max_tokens = settings.llm_max_tokens
         self._client = client
 
-    async def complete(self, prompt: str) -> LlmExplanation:
+    async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
         url = f"{self._base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -75,7 +75,10 @@ class OpenAiCompatibleLlmGateway:
         }
         payload = {
             "model": self._model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": request.system_prompt},
+                {"role": "user", "content": request.user_prompt},
+            ],
             "temperature": self._temperature,
             "max_tokens": self._max_tokens,
         }

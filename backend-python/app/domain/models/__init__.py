@@ -9,7 +9,7 @@ from app.domain.models.enums import (
     ProductHint,
     ProductTypeId,
 )
-from app.domain.models.llm import LlmExplanation
+from app.domain.models.llm import LlmExplainRequest, LlmExplanation
 from app.domain.models.report import (
     AnalysisReport,
     AnalysisTask,
@@ -37,6 +37,7 @@ __all__ = [
     "ParameterKey",
     "ProductHint",
     "ProductTypeId",
+    "LlmExplainRequest",
     "LlmExplanation",
     "AnalysisReport",
     "AnalysisTask",
