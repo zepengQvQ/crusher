@@ -8,9 +8,13 @@
     "product_type_id": "loan",
     "must_match_risk_ids": [],
     "key_parameters": {
-      "expected_return": { "status": "not_disclosed", "value": null },
-      "term": { "status": "not_disclosed", "value": null },
-      "principal_protection": { "status": "not_disclosed", "value": null }
-    }
+      "annual_interest_rate": { "status": "not_disclosed", "value": null },
+      "repayment_method": { "status": "not_disclosed", "value": null },
+      "penalty_interest": { "status": "not_disclosed", "value": null },
+      "prepayment_fee": { "status": "not_disclosed", "value": null },
+      "term": { "status": "not_disclosed", "value": null }
+    },
+    "forbidden_keys": ["expected_return", "principal_protection", "early_redemption"],
+    "forbidden_labels": ["投资期限", "预期收益", "提前赎回", "本金保障"]
   }
 }

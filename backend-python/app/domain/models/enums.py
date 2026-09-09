@@ -51,6 +51,11 @@ class ParameterKey(str, Enum):
     principal_protection = "principal_protection"
     product_risk_grade = "product_risk_grade"
     amount = "amount"
+    # 消费贷专用
+    annual_interest_rate = "annual_interest_rate"
+    repayment_method = "repayment_method"
+    penalty_interest = "penalty_interest"
+    prepayment_fee = "prepayment_fee"
 
 
 class DemoErrorKind(str, Enum):

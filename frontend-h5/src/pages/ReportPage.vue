@@ -85,13 +85,8 @@
           :key="'m' + idx"
           :title="m.question || m.key"
         />
-        <van-cell
-          v-for="(q, idx) in report.pending_questions || []"
-          :key="'q' + idx"
-          :title="q"
-        />
         <van-empty
-          v-if="!(report.missing_disclosures || []).length && !(report.pending_questions || []).length"
+          v-if="!(report.missing_disclosures || []).length"
           description="暂无待确认项"
         />
       </div>

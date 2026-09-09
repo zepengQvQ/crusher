@@ -47,6 +47,10 @@ export const ParameterKey = Object.freeze({
   principal_protection: "principal_protection",
   product_risk_grade: "product_risk_grade",
   amount: "amount",
+  annual_interest_rate: "annual_interest_rate",
+  repayment_method: "repayment_method",
+  penalty_interest: "penalty_interest",
+  prepayment_fee: "prepayment_fee",
 })
 
 export const ProductTypeId = Object.freeze({

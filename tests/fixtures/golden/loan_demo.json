@@ -8,20 +8,33 @@
   "expected_report": {
     "product_type_id": "loan",
     "key_parameters": {
-      "expected_return": {
+      "annual_interest_rate": {
         "status": "document_fact",
         "value_contains": ["7.20"]
       },
-      "principal_protection": {
+      "repayment_method": {
+        "status": "document_fact",
+        "value_contains": ["等额本息"]
+      },
+      "penalty_interest": {
+        "status": "document_fact",
+        "value_contains": ["罚息"]
+      },
+      "prepayment_fee": {
+        "status": "document_fact",
+        "value_contains": ["提前还款", "违约金"]
+      },
+      "term": {
         "status": "not_disclosed",
         "value": null
       }
     },
+    "forbidden_labels": ["投资期限", "预期收益", "提前赎回", "本金保障"],
     "must_match_risk_ids": [
       "high_penalty_interest",
       "acceleration_clause",
       "prepayment_penalty"
     ],
-    "notes": "正向样例应能稳定命中罚息、加速到期、提前还款违约金；本金保障对贷款不适用/未作为保本承诺披露 → not_disclosed。"
+    "notes": "贷款字段用专用 key；不得出现投资产品 label。"
   }
 }

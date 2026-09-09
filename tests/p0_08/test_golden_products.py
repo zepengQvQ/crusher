@@ -79,6 +79,13 @@ def _assert_golden(body: dict, expected: dict) -> None:
         )
         assert banned not in joined, banned
 
+    for label in expected.get("forbidden_labels") or []:
+        labels = [p.get("label") or "" for p in report["key_parameters"]]
+        assert label not in labels, f"forbidden label {label} in {labels}"
+
+    for key in expected.get("forbidden_keys") or []:
+        assert key not in params, f"forbidden key {key}"
+
 
 class GoldenProductTests(unittest.TestCase):
     def test_structured_deposit_normal_and_missing(self):

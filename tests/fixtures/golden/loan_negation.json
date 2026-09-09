@@ -8,8 +8,10 @@
     "product_type_id": "loan",
     "must_not_match_risk_ids": ["prepayment_penalty"],
     "key_parameters": {
-      "expected_return": { "status": "document_fact", "value_contains": ["6.00"] },
-      "principal_protection": { "status": "not_disclosed", "value": null }
-    }
+      "annual_interest_rate": { "status": "document_fact", "value_contains": ["6.00"] },
+      "prepayment_fee": { "status": "document_fact", "value_contains": ["不收"] }
+    },
+    "forbidden_labels": ["投资期限", "预期收益", "提前赎回", "本金保障"],
+    "forbidden_keys": ["expected_return", "principal_protection"]
   }
 }

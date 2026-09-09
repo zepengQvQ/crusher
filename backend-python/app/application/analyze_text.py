@@ -25,7 +25,7 @@ from app.domain.models import (
     ProductTypeId,
     StageInfo,
 )
-from app.domain.models.enums import EvidenceSource
+from app.domain.models.enums import EvidenceSource, ParameterKey
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
 from app.domain.rules.engine import ProductHit, RuleEngine, RiskHit
 from app.domain.rules.evidence import validate_and_fix_findings
@@ -453,13 +453,30 @@ class AnalyzeTextUseCase:
                 )
             ]
 
-        return AnalysisReport(
-            product_candidates=candidates,
-            product_risk_grade=ProductRiskGrade(
+        grade_param = next(
+            (
+                p
+                for p in extracted.key_parameters
+                if p.key == ParameterKey.product_risk_grade
+            ),
+            None,
+        )
+        if grade_param and grade_param.status == FactStatus.document_fact and grade_param.value:
+            risk_grade = ProductRiskGrade(
+                value=grade_param.value,
+                status=FactStatus.document_fact,
+                note="",
+            )
+        else:
+            risk_grade = ProductRiskGrade(
                 value=None,
                 status=FactStatus.not_disclosed,
                 note="原文未明确风险等级",
-            ),
+            )
+
+        return AnalysisReport(
+            product_candidates=candidates,
+            product_risk_grade=risk_grade,
             plain_language=PlainLanguage(text=plain, status=StageStatus.success),
             key_parameters=list(extracted.key_parameters),
             findings=findings,
