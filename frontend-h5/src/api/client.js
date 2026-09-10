@@ -97,6 +97,11 @@ export async function createProductComparison(textA, textB, options = {}) {
   return data
 }
 
+export async function resolveIntent(payload) {
+  const { data } = await http.post('/api/v1/intents/resolve', payload)
+  return data
+}
+
 export function pickErrorMessage(error) {
   if (!error?.response) {
     if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'

@@ -7,6 +7,7 @@ from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.calculate_scenario import CalculateScenarioUseCase
 from app.application.compare_products import CompareProductsUseCase
 from app.application.extract_document import ExtractDocumentUseCase
+from app.application.resolve_intent import ResolveIntentUseCase
 from app.config.settings import Settings, get_settings
 from app.domain.llm_errors import LlmConfigError
 from app.domain.ports.protocols import LlmGateway
@@ -80,3 +81,8 @@ def get_calculate_scenario_use_case() -> CalculateScenarioUseCase:
 @lru_cache
 def get_compare_products_use_case() -> CompareProductsUseCase:
     return CompareProductsUseCase(LocalFileKnowledgeRepository())
+
+
+@lru_cache
+def get_resolve_intent_use_case() -> ResolveIntentUseCase:
+    return ResolveIntentUseCase()

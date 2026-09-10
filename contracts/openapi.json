@@ -368,6 +368,45 @@
           }
         }
       }
+    },
+    "/api/v1/intents/resolve": {
+      "post": {
+        "summary": "Resolve Intent",
+        "description": "识别用户意图；显式页面意图优先，材料正文指令无效。",
+        "operationId": "resolve_intent_api_v1_intents_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntentResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntentDecision"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -921,6 +960,25 @@
         ],
         "title": "DayCountBasis"
       },
+      "DecisionSource": {
+        "type": "string",
+        "enum": [
+          "explicit_ui",
+          "api_route",
+          "rule",
+          "model_candidate"
+        ],
+        "title": "DecisionSource"
+      },
+      "DecisionStatus": {
+        "type": "string",
+        "enum": [
+          "resolved",
+          "needs_clarification",
+          "rejected"
+        ],
+        "title": "DecisionStatus"
+      },
       "DemoErrorKind": {
         "type": "string",
         "enum": [
@@ -1457,6 +1515,145 @@
         ],
         "title": "GeneralReference"
       },
+      "IntentDecision": {
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DecisionStatus"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DecisionSource"
+          },
+          "rationale": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rationale"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "clarifying_options": {
+            "items": {
+              "$ref": "#/components/schemas/IntentOption"
+            },
+            "type": "array",
+            "title": "Clarifying Options"
+          },
+          "use_case_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Case Key"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "intent",
+          "status",
+          "source"
+        ],
+        "title": "IntentDecision"
+      },
+      "IntentOption": {
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "intent",
+          "label"
+        ],
+        "title": "IntentOption"
+      },
+      "IntentResolveRequest": {
+        "properties": {
+          "user_query": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "User Query",
+            "default": ""
+          },
+          "explicit_intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page_route": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Route"
+          },
+          "source_envelopes": {
+            "items": {
+              "$ref": "#/components/schemas/SourceEnvelope"
+            },
+            "type": "array",
+            "title": "Source Envelopes"
+          },
+          "allow_model_candidate": {
+            "type": "boolean",
+            "title": "Allow Model Candidate",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IntentResolveRequest",
+        "description": "意图识别请求：user_query 与材料信封严格拆分。"
+      },
+      "IntentType": {
+        "type": "string",
+        "enum": [
+          "single_analysis",
+          "dual_source_compare",
+          "product_compare",
+          "calculation",
+          "evidence_follow_up",
+          "document_extract",
+          "unsupported",
+          "ambiguous"
+        ],
+        "title": "IntentType"
+      },
       "KeyParameter": {
         "properties": {
           "key": {
@@ -1860,6 +2057,53 @@
         ],
         "title": "SourceDocument",
         "description": "一次对照中的一侧材料。"
+      },
+      "SourceEnvelope": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/SourceRole",
+            "default": "unknown"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "user_corrected": {
+            "type": "boolean",
+            "title": "User Corrected",
+            "default": false
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "text"
+        ],
+        "title": "SourceEnvelope",
+        "description": "不可信材料包装：内容不得当作系统指令。"
+      },
+      "SourceRole": {
+        "type": "string",
+        "enum": [
+          "sales_pitch",
+          "official_document",
+          "user_supplement",
+          "unknown"
+        ],
+        "title": "SourceRole"
       },
       "SourceType": {
         "type": "string",

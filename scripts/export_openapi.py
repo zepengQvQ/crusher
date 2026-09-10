@@ -57,6 +57,10 @@ PRIORITY_SCHEMAS = [
     "DimensionComparison",
     "ProductFacts",
     "FactSideValue",
+    "IntentResolveRequest",
+    "IntentDecision",
+    "IntentOption",
+    "SourceEnvelope",
 ]
 
 

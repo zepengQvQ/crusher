@@ -33,6 +33,16 @@
         placeholder="粘贴结构性存款或借贷相关条款…"
         class="touch-field"
       />
+      <van-field
+        v-model="userGoal"
+        rows="2"
+        autosize
+        type="textarea"
+        maxlength="200"
+        show-word-limit
+        label="我想…"
+        placeholder="可选：例如「帮我算收益」「两款产品对比」；材料里的命令不会当指令"
+      />
       <div class="actions">
         <van-button
           v-for="ex in EXAMPLES"
@@ -63,9 +73,30 @@
         plain
         class="touch-btn"
         style="margin-top: 10px"
+        :loading="intentLoading"
+        @click="onSmartIntent"
+      >
+        按目标识别意图
+      </van-button>
+      <van-button
+        block
+        round
+        plain
+        class="touch-btn"
+        style="margin-top: 10px"
         @click="$router.push('/dual')"
       >
         销售与材料对照
+      </van-button>
+      <van-button
+        block
+        round
+        plain
+        class="touch-btn"
+        style="margin-top: 10px"
+        @click="$router.push('/compare')"
+      >
+        两款产品对照
       </van-button>
       <van-button
         block
@@ -109,6 +140,7 @@
         恢复上次任务 {{ lastTaskId }}
       </van-button>
     </div>
+    <IntentConfirmSheet v-model="showIntentSheet" :decision="intentDecision" @select="onIntentPick" />
   </div>
 </template>
 
@@ -116,18 +148,23 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { createAnalysis, pickErrorMessage } from '../api/client'
+import { createAnalysis, pickErrorMessage, resolveIntent } from '../api/client'
 import { MAX_INPUT_CHARS } from '../api/generated-types'
+import IntentConfirmSheet from '../components/IntentConfirmSheet.vue'
 import { EXAMPLES, PRODUCT_OPTIONS } from '../data/examples'
 import { useTaskStore } from '../stores/task'
 
 const router = useRouter()
 const store = useTaskStore()
 const text = ref('')
+const userGoal = ref('')
 const productHint = ref('auto')
 const loading = ref(false)
+const intentLoading = ref(false)
 const lastTaskId = ref('')
 const showProductPicker = ref(false)
+const showIntentSheet = ref(false)
+const intentDecision = ref(null)
 
 const productLabel = computed(() => {
   const hit = PRODUCT_OPTIONS.find((o) => o.value === productHint.value)
@@ -159,6 +196,7 @@ function fillExample(ex) {
 
 function onClear() {
   text.value = ''
+  userGoal.value = ''
   store.clearDraft()
   store.setDraft('', productHint.value)
 }
@@ -166,6 +204,67 @@ function onClear() {
 function resumeLast() {
   if (!lastTaskId.value) return
   router.push({ name: 'status', params: { taskId: lastTaskId.value } })
+}
+
+function routeForIntent(intent) {
+  if (intent === 'dual_source_compare') return '/dual'
+  if (intent === 'product_compare') return '/compare'
+  if (intent === 'document_extract') return '/upload'
+  if (intent === 'calculation') return null
+  return null
+}
+
+async function onSmartIntent() {
+  intentLoading.value = true
+  try {
+    const envelopes = text.value.trim()
+      ? [{ source_id: 'home_paste', text: text.value.trim() }]
+      : []
+    const decision = await resolveIntent({
+      user_query: userGoal.value.trim(),
+      page_route: null,
+      source_envelopes: envelopes,
+      allow_model_candidate: false,
+    })
+    intentDecision.value = decision
+    if (decision.status === 'resolved') {
+      const path = routeForIntent(decision.intent)
+      if (path) {
+        router.push(path)
+        return
+      }
+      if (decision.intent === 'single_analysis') {
+        await onSubmit()
+        return
+      }
+      if (decision.intent === 'calculation') {
+        showToast('请先完成一次分析，再在报告页打开计算器')
+        return
+      }
+      if (decision.intent === 'evidence_follow_up') {
+        showToast('请先完成分析，再在报告页追问')
+        return
+      }
+    }
+    showIntentSheet.value = true
+  } catch (e) {
+    showToast(pickErrorMessage(e))
+  } finally {
+    intentLoading.value = false
+  }
+}
+
+function onIntentPick(opt) {
+  const path = routeForIntent(opt.intent)
+  if (path) {
+    router.push(path)
+    return
+  }
+  if (opt.intent === 'single_analysis') {
+    onSubmit()
+    return
+  }
+  showToast('请从对应入口继续')
 }
 
 async function onSubmit(demoError) {

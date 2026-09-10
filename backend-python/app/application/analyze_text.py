@@ -134,6 +134,11 @@ class AnalyzeTextUseCase:
             await self._fail(task_id, failed, code)
             return
 
+        if result.outcome == OutcomeStatus.clarify and result.report is None:
+            # 意图未决：不发布空风险报告
+            await self._fail(task_id, "preprocess", ErrorCode.INTERNAL_ERROR)
+            return
+
         task = self._tasks.get(task_id)
         if task is None:
             return

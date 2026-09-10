@@ -47,12 +47,19 @@ from app.domain.models.analysis_context import (
     OutcomeStatus,
 )
 from app.domain.models.enums import EvidenceSource, ParameterKey
+from app.domain.models.intent import (
+    DecisionStatus,
+    IntentResolveRequest,
+    IntentType,
+    SourceEnvelope,
+)
 from app.domain.models.llm import LlmExplainRequest
 from app.domain.models.verification import VerificationResult
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
 from app.domain.rules.engine import RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
 from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
+from app.domain.rules.intent_resolver import IntentResolver
 from app.domain.rules.product_resolver import (
     CONFIRM_PENDING_QUESTION,
     DEMO_SUPPORTED_PRODUCTS,
@@ -82,12 +89,14 @@ class AnalysisHarness:
         product_resolver: ProductResolver,
         fact_extractor: FactExtractor,
         rule_engine: RuleEngine,
+        intent_resolver: IntentResolver | None = None,
     ) -> None:
         self._knowledge = knowledge_repository
         self._llm = llm_gateway
         self._product_resolver = product_resolver
         self._extractor = fact_extractor
         self._rules = rule_engine
+        self._intent_resolver = intent_resolver or IntentResolver()
 
     async def run(
         self,
@@ -107,7 +116,9 @@ class AnalysisHarness:
             # normalize：请求层已 strip/校验；此处仅占位保持阶段链完整
 
             await self._stage(ctx, HarnessStage.resolve_intent, on_http_stage)
-            self._resolve_intent_adapter(ctx)
+            intent_stop = self._resolve_intent(ctx)
+            if intent_stop is not None:
+                return intent_stop
 
             await self._stage(ctx, HarnessStage.check_completeness, on_http_stage)
             self._check_completeness_adapter(ctx)
@@ -309,9 +320,60 @@ class AnalysisHarness:
                 failed_http_stage=http_stage,
             )
 
-    def _resolve_intent_adapter(self, ctx: AnalysisContext) -> None:
-        """P2-01 兼容适配器：本路径固定为单材料分析，真正意图识别见 P2-02。"""
-        _ = ctx
+    def _resolve_intent(self, ctx: AnalysisContext) -> HarnessResult | None:
+        """P2-02：解析意图；单材料 Harness 仅接受 single_analysis。
+
+        显式意图 / 已注入决议优先；材料正文中的命令不参与解析。
+        """
+        if ctx.intent_decision is not None:
+            decision = ctx.intent_decision
+        else:
+            decision = self._intent_resolver.resolve(
+                IntentResolveRequest(
+                    user_query="",
+                    explicit_intent=ctx.explicit_intent,
+                    source_envelopes=[
+                        SourceEnvelope(source_id="src_main", text=ctx.source_text)
+                    ],
+                )
+            )
+            ctx.intent_decision = decision
+
+        if (
+            decision.status == DecisionStatus.resolved
+            and decision.intent == IntentType.single_analysis
+        ):
+            return None
+
+        if decision.status == DecisionStatus.needs_clarification:
+            ctx.outcome = OutcomeStatus.clarify
+            ctx.stop_reason = "; ".join(decision.rationale) or "意图需澄清"
+            return HarnessResult(
+                context=ctx,
+                outcome=OutcomeStatus.clarify,
+                report=None,
+                error_code=None,
+                stop_harness_stage=HarnessStage.resolve_intent,
+                stop_reason=ctx.stop_reason,
+                failed_http_stage=None,
+            )
+
+        # 其他意图或 rejected：本 Harness 只跑单材料分析，显式拒绝不继续抽取
+        ctx.outcome = OutcomeStatus.refuse
+        ctx.error_code = ErrorCode.INTERNAL_ERROR
+        ctx.stop_reason = (
+            f"AnalyzeText Harness 不执行意图 {decision.intent.value}，请走对应入口"
+        )
+        ctx.report = None
+        return HarnessResult(
+            context=ctx,
+            outcome=OutcomeStatus.refuse,
+            report=None,
+            error_code=ErrorCode.INTERNAL_ERROR,
+            stop_harness_stage=HarnessStage.resolve_intent,
+            stop_reason=ctx.stop_reason,
+            failed_http_stage="preprocess",
+        )
 
     def _check_completeness_adapter(self, ctx: AnalysisContext) -> None:
         """P2-01 兼容适配器：CreateAnalysisRequest 已保证非空文本；完整矩阵见 P2-03。"""

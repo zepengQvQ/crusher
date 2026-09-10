@@ -18,6 +18,7 @@ from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.calculate_scenario import CalculateScenarioUseCase
 from app.application.compare_products import CompareProductsUseCase
 from app.application.extract_document import ExtractDocumentUseCase
+from app.application.resolve_intent import ResolveIntentUseCase
 from app.composition_root import (
     get_analyze_dual_sources_use_case,
     get_analyze_text_use_case,
@@ -25,6 +26,7 @@ from app.composition_root import (
     get_calculate_scenario_use_case,
     get_compare_products_use_case,
     get_extract_document_use_case,
+    get_resolve_intent_use_case,
     get_task_store,
 )
 from app.config.settings import Settings, get_settings
@@ -39,6 +41,7 @@ from app.domain.models import (
 from app.domain.models.calculation import CalculateScenarioRequest, CalculationResult
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
 from app.domain.models.evidence_answer import EvidenceAnswer, FollowUpRequest
+from app.domain.models.intent import IntentDecision, IntentResolveRequest
 from app.domain.models.product_facts import ProductCompareRequest, ProductComparisonReport
 from app.domain.models.source_document import ExtractedDocument
 from app.infrastructure.task_store.memory import InMemoryTaskStore
@@ -77,6 +80,7 @@ CalculateUseCaseDep = Annotated[
 CompareUseCaseDep = Annotated[
     CompareProductsUseCase, Depends(get_compare_products_use_case)
 ]
+IntentUseCaseDep = Annotated[ResolveIntentUseCase, Depends(get_resolve_intent_use_case)]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
 
@@ -413,4 +417,19 @@ def create_product_comparison(
     use_case: CompareUseCaseDep,
 ) -> ProductComparisonReport:
     """两款产品固定维度事实对照；不输出推荐或综合评分。"""
+    return use_case.execute(body)
+
+
+@router.post(
+    "/api/v1/intents/resolve",
+    response_model=IntentDecision,
+    responses={
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
+def resolve_intent(
+    body: IntentResolveRequest,
+    use_case: IntentUseCaseDep,
+) -> IntentDecision:
+    """识别用户意图；显式页面意图优先，材料正文指令无效。"""
     return use_case.execute(body)

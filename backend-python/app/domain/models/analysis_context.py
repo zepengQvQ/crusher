@@ -13,6 +13,7 @@ from enum import Enum
 from pydantic import Field
 
 from app.domain.models.enums import DemoErrorKind, ProductHint
+from app.domain.models.intent import IntentDecision, IntentType
 from app.domain.models.report import (
     AnalysisReport,
     ProductResolution,
@@ -63,6 +64,9 @@ class AnalysisContext(StrictModel):
     source_text: str = Field(..., min_length=1)
     product_hint: ProductHint = ProductHint.auto
     demo_error: DemoErrorKind | None = None
+    # P2-02：单材料 Harness 默认显式意图；可由上层注入已决议结果
+    explicit_intent: IntentType = IntentType.single_analysis
+    intent_decision: IntentDecision | None = None
     current_stage: HarnessStage = HarnessStage.receive
     product_resolution: ProductResolution | None = None
     report: AnalysisReport | None = None

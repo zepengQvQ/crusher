@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactSideValue", "FactStatus", "FieldStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactSideValue", "FactStatus", "FieldStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -71,6 +71,27 @@ export const ClaimSubject = Object.freeze({
 export const DayCountBasis = Object.freeze({
   _360: "360",
   _365: "365",
+})
+
+/**
+ * @typedef {"explicit_ui"|"api_route"|"rule"|"model_candidate"} DecisionSourceValue
+ */
+
+export const DecisionSource = Object.freeze({
+  explicit_ui: "explicit_ui",
+  api_route: "api_route",
+  rule: "rule",
+  model_candidate: "model_candidate",
+})
+
+/**
+ * @typedef {"resolved"|"needs_clarification"|"rejected"} DecisionStatusValue
+ */
+
+export const DecisionStatus = Object.freeze({
+  resolved: "resolved",
+  needs_clarification: "needs_clarification",
+  rejected: "rejected",
 })
 
 /**
@@ -158,6 +179,21 @@ export const FindingSeverity = Object.freeze({
 })
 
 /**
+ * @typedef {"single_analysis"|"dual_source_compare"|"product_compare"|"calculation"|"evidence_follow_up"|"document_extract"|"unsupported"|"ambiguous"} IntentTypeValue
+ */
+
+export const IntentType = Object.freeze({
+  single_analysis: "single_analysis",
+  dual_source_compare: "dual_source_compare",
+  product_compare: "product_compare",
+  calculation: "calculation",
+  evidence_follow_up: "evidence_follow_up",
+  document_extract: "document_extract",
+  unsupported: "unsupported",
+  ambiguous: "ambiguous",
+})
+
+/**
  * @typedef {"success"|"failed"|"blank"} PageExtractStatusValue
  */
 
@@ -221,6 +257,17 @@ export const ProductTypeId = Object.freeze({
   snowball: "snowball",
   insurance: "insurance",
   fund: "fund",
+  unknown: "unknown",
+})
+
+/**
+ * @typedef {"sales_pitch"|"official_document"|"user_supplement"|"unknown"} SourceRoleValue
+ */
+
+export const SourceRole = Object.freeze({
+  sales_pitch: "sales_pitch",
+  official_document: "official_document",
+  user_supplement: "user_supplement",
   unknown: "unknown",
 })
 
@@ -552,6 +599,42 @@ export const TaskStatus = Object.freeze({
  * @property {FieldStatusValue} [status]
  * @property {Array<EvidenceRef>} [evidence]
  * @property {string} [nature]
+ */
+
+/**
+ * @typedef {Object} IntentResolveRequest
+ * @property {string} [user_query]
+ * @property {IntentTypeValue} [explicit_intent]
+ * @property {string} [page_route]
+ * @property {Array<SourceEnvelope>} [source_envelopes]
+ * @property {boolean} [allow_model_candidate]
+ */
+
+/**
+ * @typedef {Object} IntentDecision
+ * @property {IntentTypeValue} intent
+ * @property {DecisionStatusValue} status
+ * @property {DecisionSourceValue} source
+ * @property {Array<string>} [rationale]
+ * @property {Array<string>} [missing]
+ * @property {Array<IntentOption>} [clarifying_options]
+ * @property {string} [use_case_key]
+ */
+
+/**
+ * @typedef {Object} IntentOption
+ * @property {IntentTypeValue} intent
+ * @property {string} label
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {Object} SourceEnvelope
+ * @property {string} source_id
+ * @property {SourceRoleValue} [role]
+ * @property {string} text
+ * @property {boolean} [user_corrected]
+ * @property {string} [content_hash]
  */
 
 /**
