@@ -6,6 +6,20 @@
       text="仅并列事实与缺失项，不做推荐、评分或购买建议。只支持两款产品。"
     />
     <div class="block">
+      <div class="block-title"><van-icon name="balance-list-o" /> 输入两款产品</div>
+      <div class="quick-row">
+        <van-button
+          v-for="ex in EXAMPLES"
+          :key="ex.id"
+          size="small"
+          plain
+          type="primary"
+          hairline
+          @click="fillExample(ex)"
+        >
+          <van-icon name="records-o" size="14" style="margin-right:4px" />{{ ex.name }}
+        </van-button>
+      </div>
       <van-field
         v-model="textA"
         rows="5"
@@ -34,11 +48,13 @@
         :loading="loading"
         @click="onSubmit"
       >
+        <template #icon><van-icon name="fire-o" /></template>
         开始对照
       </van-button>
     </div>
 
     <div v-if="report" class="block">
+      <div class="block-title"><van-icon name="orders-o" /> 对照结果</div>
       <p class="disclaimer">{{ report.disclaimer }}</p>
       <ProductComparisonCard
         v-for="(d, i) in report.dimensions"
@@ -54,6 +70,7 @@ import { onMounted, ref } from 'vue'
 import { showToast } from 'vant'
 import { createProductComparison, pickErrorMessage } from '../api/client'
 import { MAX_INPUT_CHARS } from '../api/generated-types'
+import { EXAMPLES } from '../data/examples'
 import ProductComparisonCard from '../components/ProductComparisonCard.vue'
 
 const COMPARE_A_KEY = 'crusher_compare_a'
@@ -74,6 +91,16 @@ onMounted(() => {
     /* ignore */
   }
 })
+
+function fillExample(ex) {
+  if (!textA.value.trim()) {
+    textA.value = ex.text
+  } else if (!textB.value.trim()) {
+    textB.value = ex.text
+  } else {
+    showToast('两款材料已填满，请先清空一侧')
+  }
+}
 
 async function onSubmit() {
   if (!textA.value.trim() || !textB.value.trim()) {
@@ -99,8 +126,14 @@ async function onSubmit() {
 }
 .disclaimer {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--crusher-ink-3);
   line-height: 1.45;
   margin: 0 0 12px;
+}
+.quick-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 </style>

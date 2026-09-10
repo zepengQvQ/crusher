@@ -65,18 +65,18 @@ const tagType = computed(() => {
 .card {
   margin: 0 0 12px;
   padding: 12px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border-left: 4px solid #94a3b8;
+  border-radius: 12px;
+  background: var(--crusher-surface);
+  border-left: 4px solid var(--crusher-ink-3);
 }
 .st-same {
-  border-left-color: #16a34a;
+  border-left-color: var(--crusher-success);
 }
 .st-different {
-  border-left-color: #dc2626;
+  border-left-color: var(--crusher-danger);
 }
 .st-incomparable {
-  border-left-color: #d97706;
+  border-left-color: var(--crusher-warning);
 }
 .head {
   display: flex;
@@ -87,11 +87,12 @@ const tagType = computed(() => {
 .title {
   font-weight: 600;
   font-size: 15px;
+  color: var(--crusher-ink);
 }
 .note {
   margin: 6px 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--crusher-ink-2);
 }
 .sides {
   display: grid;
@@ -100,15 +101,17 @@ const tagType = computed(() => {
   margin-bottom: 8px;
 }
 .side {
-  background: #fff;
+  background: var(--crusher-card-bg);
+  border: 1px solid var(--crusher-border);
   border-radius: 8px;
   padding: 8px;
   font-size: 13px;
   word-break: break-word;
+  color: var(--crusher-ink);
 }
 .side-label {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--crusher-ink-3);
   margin-bottom: 4px;
 }
 .evidence {
@@ -117,11 +120,12 @@ const tagType = computed(() => {
 .ev {
   margin-bottom: 8px;
   font-size: 12px;
-  color: #334155;
+  color: var(--crusher-ink-2);
 }
 .ev-label {
   font-weight: 600;
   margin-bottom: 2px;
+  color: var(--crusher-ink);
 }
 .touch-btn {
   min-height: 44px;

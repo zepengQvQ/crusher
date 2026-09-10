@@ -1,16 +1,22 @@
 <template>
-  <div class="page">
-    <van-nav-bar title="分析报告" left-arrow @click-left="$router.push('/')" />
-    <van-notice-bar left-icon="info-o" :text="DISCLAIMER" />
+  <div class="page report-page">
+    <van-nav-bar title="分析报告" left-arrow @click-left="$router.push('/')">
+      <template #right>
+        <van-icon name="chat-o" size="22" style="color:#1989fa" @click="goChat" />
+      </template>
+    </van-nav-bar>
+
     <div v-if="loading" class="block">
-      <van-skeleton title :row="6" />
+      <van-skeleton title :row="8" :avatar="true" />
     </div>
+
     <div v-else-if="loadError" class="block">
       <van-empty :description="loadError" />
       <van-button block type="primary" class="touch-btn" @click="$router.push('/')">
         返回重试
       </van-button>
     </div>
+
     <template v-else-if="report">
       <div v-if="revisionBanner" class="block">
         <van-notice-bar left-icon="replay" :text="revisionBanner" />
@@ -28,14 +34,66 @@
         </ul>
       </div>
 
-      <div class="block">
-        <h3>一句结论</h3>
-        <p class="conclusion">{{ conclusion }}</p>
-        <p class="meta">
-          产品风险评级：{{ productGradeText }}
-          <span class="sep">｜</span>
-          字段来源：{{ report.product_risk_grade?.status || '-' }}
-        </p>
+      <div class="block dashboard-block">
+        <div class="dashboard-grid">
+          <div class="dash-left">
+            <van-circle
+              v-model="dashScore"
+              :rate="dashRate"
+              :size="104"
+              :stroke-width="8"
+              :color="dashColor"
+              layer-color="var(--crusher-bg-gray)"
+              text=""
+            >
+              <div class="dash-inner">
+                <div class="dash-score dashboard-number" :style="{ color: dashColor }">
+                  {{ dashScore }}
+                </div>
+                <div class="dash-label">风险评分</div>
+              </div>
+            </van-circle>
+          </div>
+          <div class="dash-right">
+            <div class="dash-title">
+              <van-tag type="primary" round style="font-size:12px">{{ productName }}</van-tag>
+              <span style="margin-left:6px;font-size:12px;color:var(--crusher-ink-3)">
+                评级：{{ productGradeText }}
+              </span>
+            </div>
+            <div class="dash-conclusion">{{ conclusion }}</div>
+            <div class="dash-counts">
+              <div class="count-item high" v-if="highCount > 0">
+                <span class="count-dot"></span>
+                <span class="count-label">高风险</span>
+                <span class="count-num">{{ highCount }}</span>
+              </div>
+              <div class="count-item mid" v-if="midCount > 0">
+                <span class="count-dot"></span>
+                <span class="count-label">中风险</span>
+                <span class="count-num">{{ midCount }}</span>
+              </div>
+              <div class="count-item low" v-if="lowCount > 0">
+                <span class="count-dot"></span>
+                <span class="count-label">低风险</span>
+                <span class="count-num">{{ lowCount }}</span>
+              </div>
+              <div class="count-item safe" v-if="!findings.length">
+                <span class="count-dot"></span>
+                <span class="count-label">无命中</span>
+                <span class="count-num">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <van-progress
+          style="margin-top:14px"
+          :percentage="dashScore"
+          :color="dashColor"
+          :pivot-text="dashLevelText"
+          :show-pivot="true"
+          :stroke-width="10"
+        />
       </div>
 
       <div v-if="publication?.coverage" class="block">
@@ -43,77 +101,113 @@
       </div>
 
       <div class="block">
-        <div class="row-between">
-          <h3>产品候选</h3>
+        <div class="section-header">
+          <h3><van-icon name="label-o" style="color:#1989fa;margin-right:4px" /> 产品候选</h3>
           <van-button size="small" plain class="touch-btn" @click="openCorrection('product_type')">
             产品认错了
           </van-button>
         </div>
-        <van-cell
-          v-for="(c, idx) in report.product_candidates || []"
-          :key="c.product_type_id + idx"
-          :title="c.product_type_name || c.product_type_id"
-          :label="candidateLabel(c)"
-          :value="`置信度 ${(Number(c.confidence) || 0).toFixed(2)}`"
-        />
+        <van-cell-group :border="false">
+          <van-cell
+            v-for="(c, idx) in report.product_candidates || []"
+            :key="c.product_type_id + idx"
+            :title="c.product_type_name || c.product_type_id"
+            :label="candidateLabel(c)"
+            :value="`置信度 ${(Number(c.confidence) || 0).toFixed(2)}`"
+            size="large"
+          >
+            <template #icon>
+              <van-icon name="shop-o" size="18" style="color:#1989fa;margin-right:8px" />
+            </template>
+          </van-cell>
+        </van-cell-group>
       </div>
 
       <div class="block">
-        <h3>关键参数</h3>
-        <van-cell
-          v-for="p in report.key_parameters || []"
-          :key="p.key"
-          :title="p.label || p.key"
-          :label="statusLabel(p.status)"
-          :value="formatParam(p)"
-          is-link
-          @click="openFactCorrection(p)"
-        />
+        <div class="block-title"><van-icon name="orders-o" /> 关键参数</div>
+        <van-cell-group :border="false">
+          <van-cell
+            v-for="p in report.key_parameters || []"
+            :key="p.key"
+            :title="p.label || p.key"
+            :label="statusLabel(p.status)"
+            size="large"
+            is-link
+            @click="openFactCorrection(p)"
+          >
+            <template #icon>
+              <van-icon name="orders-o" size="18" style="color:#1989fa;margin-right:8px" />
+            </template>
+            <template #value>
+              <div class="param-val" :class="{ 'not-disclosed': p.status === 'not_disclosed' }">
+                <template v-if="p.status === 'not_disclosed'">
+                  <van-icon name="warning-o" size="12" style="color:#ff976a;margin-right:3px" />
+                  材料未说明
+                </template>
+                <template v-else>{{ formatParam(p) }}</template>
+              </div>
+            </template>
+          </van-cell>
+        </van-cell-group>
       </div>
 
       <div class="block">
-        <h3>风险发现</h3>
+        <div class="section-header">
+          <h3><van-icon name="warning-o" style="color:#ee0a24;margin-right:4px" /> 风险发现</h3>
+          <span class="more">{{ findings.length }} 条</span>
+        </div>
         <van-empty
-          v-if="!(report.findings || []).length"
+          v-if="!findings.length"
           description="本次无风险发现（任务成功，不是失败）"
+          image="success"
         />
-        <van-collapse v-model="activeFindings">
+        <van-collapse v-else v-model="activeFindings">
           <van-collapse-item
-            v-for="(f, idx) in report.findings || []"
+            v-for="(f, idx) in findings"
             :key="f.id || idx"
             :name="String(f.id || idx)"
-            :title="findingTitle(f)"
           >
+            <template #title>
+              <div class="finding-title-row">
+                <span class="sev-badge" :class="'sev-' + sevClass(f.finding_severity)">
+                  {{ sevLabel(f.finding_severity) }}
+                </span>
+                <span class="finding-name">{{ f.title || '发现' }}</span>
+              </div>
+            </template>
             <p class="finding-explain">{{ f.explanation }}</p>
             <div
               v-for="(ev, eidx) in f.evidence || []"
               :key="eidx"
-              class="evidence"
+              class="evidence-block"
             >
-              <div class="evidence-label">原文证据</div>
+              <div class="evidence-label">
+                <van-icon name="description" size="12" /> 原文证据
+              </div>
               <blockquote>{{ ev.quote }}</blockquote>
-              <p class="evidence-meta">位置 {{ ev.start }}–{{ ev.end }}</p>
-              <van-button
-                size="small"
-                plain
-                class="touch-btn"
-                @click="onCopy(ev.quote)"
-              >
-                复制证据
-              </van-button>
+              <div class="evidence-actions">
+                <span class="evidence-meta">位置 {{ ev.start }}–{{ ev.end }}</span>
+                <van-button size="small" plain type="primary" hairline @click="onCopy(ev.quote)">
+                  <template #icon><van-icon name="records-o" size="12" /></template>
+                  复制
+                </van-button>
+              </div>
             </div>
           </van-collapse-item>
         </van-collapse>
       </div>
 
       <div class="block">
-        <h3>通俗解释</h3>
-        <p>{{ report.plain_language?.text || '暂无通俗解释' }}</p>
+        <div class="block-title"><van-icon name="comment-o" /> 通俗解释</div>
+        <div class="plain-box">
+          <van-icon name="smile-o" size="20" style="color:#1989fa;flex-shrink:0" />
+          <p>{{ report.plain_language?.text || '暂无通俗解释' }}</p>
+        </div>
       </div>
 
       <div class="block">
-        <div class="row-between">
-          <h3>原文折叠</h3>
+        <div class="section-header">
+          <h3><van-icon name="description" style="color:#1989fa;margin-right:4px" /> 原文标记</h3>
           <div class="row-actions">
             <van-button size="small" plain class="touch-btn" @click="openCorrection('source_text')">
               原文错了
@@ -123,38 +217,56 @@
             </van-button>
           </div>
         </div>
-        <p class="source" :class="{ clamped: !sourceExpanded }">{{ sourceText }}</p>
-        <van-button block plain class="touch-btn" @click="onCopy(sourceText)">复制原文</van-button>
+        <div class="source-wrap" :class="{ clamped: !sourceExpanded }">
+          <div class="source-text" v-html="highlightedSource"></div>
+        </div>
+        <div class="legend-row">
+          <span class="legend-item"><span class="dot high"></span>高风险</span>
+          <span class="legend-item"><span class="dot mid"></span>中风险</span>
+          <span class="legend-item"><span class="dot low"></span>低风险</span>
+        </div>
+        <van-button block plain style="margin-top:10px" @click="onCopy(sourceText)">
+          <template #icon><van-icon name="records-o" /></template>
+          复制原文
+        </van-button>
       </div>
 
       <div class="block">
-        <h3>待确认问题</h3>
-        <van-cell
-          v-for="(q, idx) in pendingItems"
-          :key="'q' + idx"
-          :title="q"
-        />
-        <van-empty
-          v-if="!pendingItems.length"
-          description="暂无待确认项"
-        />
+        <div class="block-title"><van-icon name="question-o" /> 待确认问题</div>
+        <van-cell-group :border="false">
+          <van-cell
+            v-for="(q, idx) in pendingItems"
+            :key="'q' + idx"
+            :title="q"
+            size="large"
+          >
+            <template #icon>
+              <van-icon name="question-o" size="18" style="color:#1989fa;margin-right:8px" />
+            </template>
+          </van-cell>
+        </van-cell-group>
+        <van-empty v-if="!pendingItems.length" description="暂无待确认项" image="default" />
       </div>
 
       <div v-if="(report.general_references || []).length" class="block">
-        <h3>行业参考（非本材料事实）</h3>
-        <van-cell
-          v-for="(r, idx) in report.general_references"
-          :key="'r' + idx"
-          :title="r.text"
-          :label="r.source"
-        />
+        <div class="block-title"><van-icon name="bookmark-o" /> 行业参考</div>
+        <van-cell-group :border="false">
+          <van-cell
+            v-for="(r, idx) in report.general_references"
+            :key="'r' + idx"
+            :title="r.text"
+            :label="r.source"
+            size="large"
+          >
+            <template #icon>
+              <van-icon name="info-o" size="18" style="color:#07c160;margin-right:8px" />
+            </template>
+          </van-cell>
+        </van-cell-group>
       </div>
 
       <div class="block">
-        <EvidenceQuestionPanel
-          :source-text="sourceText"
-          :pending="pendingItems"
-        />
+        <EvidenceQuestionPanel :source-text="sourceText" :pending="pendingItems" />
       </div>
 
       <div class="block">
@@ -173,13 +285,29 @@
 
       <div class="block">
         <van-button block plain type="primary" class="touch-btn" @click="goCompareSecond">
+          <template #icon><van-icon name="balance-list-o" /></template>
           加入第二款产品对照
         </van-button>
       </div>
 
-      <p class="disclaimer">{{ report.disclaimer || DISCLAIMER }}</p>
-      <div class="block">
-        <van-button block type="primary" round class="touch-btn" @click="$router.push('/')">
+      <p class="disclaimer">
+        <van-icon name="shield-o" size="12" style="margin-right:3px" />
+        {{ report.disclaimer || DISCLAIMER }}
+      </p>
+
+      <div class="bottom-bar">
+        <van-button block plain style="flex:1" @click="goChat">
+          <template #icon><van-icon name="chat-o" /></template>
+          AI 追问
+        </van-button>
+        <van-button
+          block
+          type="primary"
+          round
+          style="flex:1.4;margin-left:10px"
+          @click="$router.push('/analyze')"
+        >
+          <template #icon><van-icon name="add-o" /></template>
           再分析一段
         </van-button>
       </div>
@@ -210,6 +338,7 @@ import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
 import ReportActions from '../components/ReportActions.vue'
 import ScenarioCalculator from '../components/ScenarioCalculator.vue'
 import { useTaskStore } from '../stores/task'
+import { useChatStore } from '../stores/chat'
 
 const props = defineProps({
   taskId: { type: String, required: true },
@@ -217,6 +346,7 @@ const props = defineProps({
 
 const router = useRouter()
 const store = useTaskStore()
+const chatStore = useChatStore()
 const loading = ref(true)
 const loadError = ref('')
 const report = ref(null)
@@ -227,11 +357,38 @@ const productHint = ref('auto')
 const activeFindings = ref([])
 const sourceExpanded = ref(false)
 const sourceText = ref('')
+const dashScore = ref(0)
 const sheetOpen = ref(false)
 const sheetMode = ref('fact_value')
 const sheetParamKey = ref('')
 const sheetPrevValue = ref('')
 let active = true
+
+function sevClass(sev) {
+  if (sev === FindingSeverity.high) return 'high'
+  if (sev === FindingSeverity.low) return 'low'
+  return 'mid'
+}
+function sevLabel(sev) {
+  if (sev === FindingSeverity.high) return '高'
+  if (sev === FindingSeverity.low) return '低'
+  return '中'
+}
+
+const findings = computed(() => report.value?.findings || [])
+const highCount = computed(
+  () => findings.value.filter((f) => f.finding_severity === FindingSeverity.high).length,
+)
+const midCount = computed(
+  () => findings.value.filter((f) => f.finding_severity === FindingSeverity.mid).length,
+)
+const lowCount = computed(
+  () => findings.value.filter((f) => f.finding_severity === FindingSeverity.low).length,
+)
+
+const productName = computed(
+  () => report.value?.product_candidates?.[0]?.product_type_name || '未知产品',
+)
 
 const productGradeText = computed(() => {
   const g = report.value?.product_risk_grade
@@ -289,12 +446,71 @@ const conclusion = computed(() => {
   if (scope === 'needs_confirmation') {
     return '产品类型存在冲突，请确认后重新分析'
   }
-  const findings = report.value?.findings || []
-  if (!findings.length) {
-    return '未命中当前已配置规则，不等于产品没有风险'
-  }
-  return `共发现 ${findings.length} 条风险，请展开查看原文证据。`
+  const n = findings.value.length
+  if (!n) return '未命中当前已配置规则，不等于产品没有风险'
+  if (highCount.value > 0) return `存在 ${highCount.value} 条高风险，请重点关注原文证据。`
+  return `共发现 ${n} 条风险，请展开查看原文证据。`
 })
+
+const dashRate = computed(() => Math.max(0, 100 - dashScore.value))
+const dashColor = computed(() => {
+  if (dashScore.value >= 70) return '#ee0a24'
+  if (dashScore.value >= 40) return '#ff976a'
+  if (dashScore.value >= 20) return '#07c160'
+  return '#1989fa'
+})
+const dashLevelText = computed(() => {
+  if (dashScore.value >= 70) return '风险较高'
+  if (dashScore.value >= 40) return '有一定风险'
+  if (dashScore.value >= 20) return '风险较低'
+  return '风险很低'
+})
+
+const highlightedSource = computed(() => {
+  const text = sourceText.value || ''
+  if (!text || !findings.value.length) return escapeHtml(text)
+  const spans = []
+  findings.value.forEach((f) => {
+    const cls = sevClass(f.finding_severity)
+    ;(f.evidence || []).forEach((ev) => {
+      if (typeof ev.start === 'number' && typeof ev.end === 'number') {
+        spans.push({ start: ev.start, end: ev.end, cls })
+      }
+    })
+  })
+  if (!spans.length) return escapeHtml(text)
+  spans.sort((a, b) => a.start - b.start)
+  const merged = []
+  spans.forEach((s) => {
+    const last = merged[merged.length - 1]
+    if (last && s.start <= last.end) {
+      last.end = Math.max(last.end, s.end)
+      if (!last.cls.includes(s.cls)) last.cls = pickHigher(last.cls, s.cls)
+    } else {
+      merged.push({ ...s })
+    }
+  })
+  let result = ''
+  let cursor = 0
+  merged.forEach((s) => {
+    result += escapeHtml(text.slice(cursor, s.start))
+    result += `<span class="highlight-${s.cls}">${escapeHtml(text.slice(s.start, s.end))}</span>`
+    cursor = s.end
+  })
+  result += escapeHtml(text.slice(cursor))
+  return result
+})
+
+function pickHigher(a, b) {
+  const rank = { high: 3, mid: 2, low: 1 }
+  return rank[a] >= rank[b] ? a : b
+}
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
 
 const pendingItems = computed(() => {
   const seen = new Set()
@@ -358,22 +574,18 @@ function onCorrectionSubmitted(res) {
   router.replace({ name: 'status', params: { taskId: res.task_id } })
 }
 
-function findingTitle(f) {
-  const sev = f.finding_severity
-  const label =
-    sev === FindingSeverity.high
-      ? '高'
-      : sev === FindingSeverity.mid
-        ? '中'
-        : sev === FindingSeverity.low
-          ? '低'
-          : sev
-  return `${f.title || '发现'}（严重度:${label}）`
-}
-
 async function onCopy(text) {
   const ok = await copyText(text)
-  showToast(ok ? '已复制' : '复制失败')
+  showToast(ok ? '已复制到剪贴板' : '复制失败')
+}
+
+function goChat() {
+  chatStore.setContext(
+    sourceText.value,
+    (report.value?.findings || []).map((f) => ({ title: f.title, explanation: f.explanation })),
+    pendingItems.value,
+  )
+  router.push({ name: 'chat' })
 }
 
 function goCompareSecond() {
@@ -388,7 +600,7 @@ function goCompareSecond() {
 onMounted(async () => {
   active = true
   store.restoreFromStorage()
-  // 故意不使用 Pinia 草稿冒充本任务原文
+  chatStore.restore()
   try {
     const data = await getAnalysis(props.taskId)
     if (!active) return
@@ -411,15 +623,17 @@ onMounted(async () => {
     parentTaskId.value = data.parent_task_id || ''
     productHint.value = data.product_hint || 'auto'
     sourceText.value = data.source_text || ''
+    const raw = highCount.value * 25 + midCount.value * 10 + lowCount.value * 4
+    dashScore.value = Math.min(100, raw + (report.value?.missing_disclosures?.length || 0) * 3)
+    activeFindings.value = []
+    if (findings.value.length) activeFindings.value.push(String(findings.value[0].id ?? 0))
   } catch (e) {
     if (!active) return
     const code = e?.response?.data?.detail?.error_code || ''
     const msg = e?.response?.data?.detail?.message || e.message || '加载报告失败'
-    if (code === 'TASK_NOT_FOUND' || e?.response?.status === 404) {
-      loadError.value = '任务可能因服务重启而丢失'
-    } else {
-      loadError.value = msg
-    }
+    loadError.value = code === 'TASK_NOT_FOUND' || e?.response?.status === 404
+      ? '任务可能因服务重启而丢失'
+      : msg
   } finally {
     if (active) loading.value = false
   }
@@ -431,16 +645,117 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
+.report-page { padding-bottom: 120px; }
+
+.dashboard-block {
+  background: var(--crusher-card-bg);
 }
-.conclusion {
-  margin: 0 0 10px;
-  font-size: 16px;
-  line-height: 1.6;
-  font-weight: 600;
+.dashboard-grid {
+  display: flex;
+  align-items: center;
+  gap: 18px;
 }
+.dash-left { flex-shrink: 0; }
+.dash-right { flex: 1; min-width: 0; }
+.dash-inner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.dash-score { font-size: 30px; line-height: 1; }
+.dash-label { font-size: 11px; color: var(--crusher-ink-3); margin-top: 4px; }
+.dash-title { margin-bottom: 8px; display: flex; align-items: center; }
+.dash-conclusion {
+  font-size: 14px; color: var(--crusher-ink-2); line-height: 1.5;
+  margin-bottom: 10px; font-weight: 500;
+}
+.dash-counts { display: flex; flex-wrap: wrap; gap: 8px; }
+.count-item {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  background: var(--crusher-bg-gray);
+}
+.count-dot { width: 8px; height: 8px; border-radius: 50%; }
+.count-item.high { background: var(--crusher-danger-light); color: var(--crusher-danger); }
+.count-item.high .count-dot { background: var(--crusher-danger); }
+.count-item.mid { background: var(--crusher-warning-light); color: var(--crusher-warning); }
+.count-item.mid .count-dot { background: var(--crusher-warning); }
+.count-item.low { background: var(--crusher-primary-light); color: var(--crusher-primary); }
+.count-item.low .count-dot { background: var(--crusher-primary); }
+.count-item.safe { background: var(--crusher-success-light); color: var(--crusher-success); }
+.count-item.safe .count-dot { background: var(--crusher-success); }
+.count-label { opacity: 0.85; }
+.count-num { font-weight: 700; }
+
+.param-val { font-size: 14px; font-weight: 500; text-align: right; }
+.param-val.not-disclosed { color: var(--crusher-warning); font-weight: 500; font-size: 13px; }
+
+.finding-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sev-badge {
+  padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.sev-badge.sev-high { background: linear-gradient(135deg, #ee0a24, #ff6a6a); }
+.sev-badge.sev-mid { background: linear-gradient(135deg, #ff976a, #f56723); }
+.sev-badge.sev-low { background: linear-gradient(135deg, #1989fa, #4facfe); }
+.finding-name { font-size: 14px; font-weight: 600; color: var(--crusher-ink); }
+
+.finding-explain {
+  margin: 12px 0 6px; font-size: 14px; line-height: 1.6; color: var(--crusher-ink-2);
+  white-space: pre-wrap;
+}
+.evidence-block {
+  margin-top: 10px; padding: 12px; background: var(--crusher-bg-gray);
+  border-radius: var(--crusher-radius-md); border-left: 3px solid var(--crusher-primary);
+}
+.evidence-label {
+  font-size: 12px; color: var(--crusher-ink-3); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+.evidence-block blockquote {
+  margin: 0 0 6px; font-size: 14px; line-height: 1.6; color: var(--crusher-ink);
+  white-space: pre-wrap;
+}
+.evidence-actions {
+  display: flex; align-items: center; justify-content: space-between; margin-top: 8px;
+}
+.evidence-meta { font-size: 12px; color: var(--crusher-ink-3); }
+
+.plain-box {
+  display: flex; gap: 10px; padding: 14px;
+  background: var(--crusher-primary-light);
+  border-radius: var(--crusher-radius-md); border-left: 3px solid var(--crusher-primary);
+}
+.plain-box p {
+  margin: 0; font-size: 14px; line-height: 1.7; color: var(--crusher-ink);
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.source-wrap {
+  font-size: 14px; line-height: 1.7; color: var(--crusher-ink);
+  background: var(--crusher-surface); padding: 12px; border-radius: 10px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.source-wrap.clamped {
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+  overflow: hidden; position: relative;
+}
+.source-wrap.clamped::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40px;
+  background: linear-gradient(180deg, transparent, var(--crusher-surface));
+}
+.legend-row { display: flex; gap: 14px; margin-top: 10px; justify-content: flex-end; }
+.legend-item {
+  font-size: 12px; color: var(--crusher-ink-3);
+  display: flex; align-items: center; gap: 4px;
+}
+.legend-item .dot { width: 10px; height: 10px; border-radius: 3px; }
+.legend-item .dot.high { background: #fee2e2; border: 1px solid #fecaca; }
+.legend-item .dot.mid { background: #fef3c7; border: 1px solid #fde68a; }
+.legend-item .dot.low { background: #dbeafe; border: 1px solid #bfdbfe; }
+
 .next-steps {
   margin: 10px 0 0;
   padding-left: 1.2em;
@@ -448,75 +763,17 @@ h3 {
   color: #9a3412;
   line-height: 1.5;
 }
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.row-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.meta {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-}
-.sep {
-  margin: 0 4px;
-}
+
 .disclaimer {
-  margin: 12px;
-  color: #9ca3af;
-  font-size: 12px;
-  line-height: 1.5;
+  margin: 12px 16px; color: var(--crusher-ink-3); font-size: 12px;
+  line-height: 1.5; text-align: center;
 }
-.finding-explain {
-  margin: 0 0 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #374151;
-  white-space: pre-wrap;
-}
-.evidence {
-  margin-top: 8px;
-  padding: 10px;
-  background: #f3f4f6;
-  border-radius: 8px;
-}
-.evidence-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-.evidence blockquote {
-  margin: 0 0 8px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #111827;
-  white-space: pre-wrap;
-}
-.evidence-meta {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-.source {
-  margin: 0 0 10px;
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.source.clamped {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.touch-btn {
-  min-height: 44px;
+
+.bottom-bar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: var(--crusher-card-bg); display: flex; z-index: 99;
+  border-top: 1px solid var(--crusher-border);
 }
 </style>
