@@ -36,6 +36,7 @@ class ErrorCode(str, Enum):
     CALCULATION_INVALID = "CALCULATION_INVALID"
     INTENT_AMBIGUOUS = "INTENT_AMBIGUOUS"
     INPUT_INCOMPLETE = "INPUT_INCOMPLETE"
+    CLARIFICATION_INVALID = "CLARIFICATION_INVALID"
     PRODUCT_CONFLICT = "PRODUCT_CONFLICT"
     INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
     UNSUPPORTED_REQUEST = "UNSUPPORTED_REQUEST"
@@ -59,6 +60,7 @@ ERROR_USER_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.CALCULATION_INVALID: "计算参数不合法或缺失，请确认后重试",
     ErrorCode.INTENT_AMBIGUOUS: "意图不明确，请确认要做的分析类型",
     ErrorCode.INPUT_INCOMPLETE: "输入还不完整，请先回答追问",
+    ErrorCode.CLARIFICATION_INVALID: "追问答案不合法，请按选项或规范格式重新提交",
     ErrorCode.PRODUCT_CONFLICT: "产品类型存在冲突，请确认后继续",
     ErrorCode.INSUFFICIENT_EVIDENCE: "证据不足，无法给出确定结论",
     ErrorCode.UNSUPPORTED_REQUEST: "当前 Demo 不支持该类产品或请求",

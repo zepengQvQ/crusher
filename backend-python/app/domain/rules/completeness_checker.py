@@ -1,10 +1,10 @@
-"""输入完整性检查（P2-03）。
+"""输入完整性检查（P2-03 / P2-RC-03）。
 
 用途：按意图确定性矩阵判断能否继续；不足则生成最多 3 条业务追问。
 输入：CompletenessCheckRequest。
-输出：CompletenessResult。
-不变量：不调用大模型；材料内指令不改变要求矩阵。
-失败方式：can_continue=false + questions，不静默放行。
+输出：CompletenessResult（含规范化后的有效答案与 resolved_request）。
+不变量：不调用大模型；材料内指令不改变要求矩阵；非法澄清答案拒绝而非静默放行。
+失败方式：can_continue=false + questions；ClarificationRejected → 422。
 """
 from __future__ import annotations
 
@@ -19,6 +19,11 @@ from app.domain.models.completeness import (
 from app.domain.models.enums import ProductHint
 from app.domain.models.intent import IntentType, SourceRole
 from app.domain.models.p1_enums import CalculationKind
+from app.domain.rules.clarification_catalog import (
+    ClarificationRejected,
+    is_ack_only,
+    validate_and_apply_clarifications,
+)
 
 _LOAN_MARKERS = ("贷款", "消费贷", "借款", "等额本息", "年化利率")
 _DEPOSIT_MARKERS = ("结构性存款", "结构存款", "观察区间", "挂钩型存款")
@@ -31,22 +36,25 @@ class CompletenessChecker:
     """确定性完整性检查器。"""
 
     def check(self, request: CompletenessCheckRequest) -> CompletenessResult:
-        answers = {a.question_id: a.value for a in request.clarification_answers}
+        applied = validate_and_apply_clarifications(request)
+        resolved = applied.resolved_request or request
+        answers = dict(applied.effective_answers)
+
         raw: list[ClarifyingQuestion] = []
 
-        if request.intent == IntentType.single_analysis:
-            raw.extend(self._single_analysis(request, answers))
-        elif request.intent == IntentType.dual_source_compare:
-            raw.extend(self._dual(request, answers))
-        elif request.intent == IntentType.product_compare:
-            raw.extend(self._product_compare(request, answers))
-        elif request.intent == IntentType.calculation:
-            raw.extend(self._calculation(request, answers))
-        elif request.intent == IntentType.evidence_follow_up:
-            raw.extend(self._follow_up(request, answers))
-        elif request.intent == IntentType.document_extract:
-            raw.extend(self._document(request, answers))
-        elif request.intent in (IntentType.unsupported, IntentType.ambiguous):
+        if resolved.intent == IntentType.single_analysis:
+            raw.extend(self._single_analysis(resolved, answers))
+        elif resolved.intent == IntentType.dual_source_compare:
+            raw.extend(self._dual(resolved, answers))
+        elif resolved.intent == IntentType.product_compare:
+            raw.extend(self._product_compare(resolved, answers))
+        elif resolved.intent == IntentType.calculation:
+            raw.extend(self._calculation(resolved, answers))
+        elif resolved.intent == IntentType.evidence_follow_up:
+            raw.extend(self._follow_up(resolved, answers))
+        elif resolved.intent == IntentType.document_extract:
+            raw.extend(self._document(resolved, answers))
+        elif resolved.intent in (IntentType.unsupported, IntentType.ambiguous):
             raw.append(
                 ClarifyingQuestion(
                     question_id="intent_pick",
@@ -74,8 +82,15 @@ class CompletenessChecker:
                 )
             )
 
-        # 已回答的跳过；按阻塞优先级排序，最多 3 条
-        pending = [q for q in raw if q.question_id not in answers or not answers[q.question_id]]
+        # 仅当有效答案覆盖且非 ack_only 时跳过；文档「知道了」不可解阻
+        pending: list[ClarifyingQuestion] = []
+        for q in raw:
+            if is_ack_only(q.question_id):
+                pending.append(q)
+                continue
+            if q.question_id in answers and answers[q.question_id]:
+                continue
+            pending.append(q)
         pending.sort(key=lambda q: q.blocking_priority)
         top = pending[:3]
         can_continue = len(top) == 0
@@ -85,11 +100,12 @@ class CompletenessChecker:
             else f"还需确认 {len(top)} 项后才能继续"
         )
         return CompletenessResult(
-            intent=request.intent,
+            intent=resolved.intent,
             can_continue=can_continue,
             questions=top,
             summary=summary,
-            answered=list(request.clarification_answers),
+            answered=list(applied.normalized_answers),
+            resolved_request=resolved,
         )
 
     def _single_analysis(
@@ -116,14 +132,23 @@ class CompletenessChecker:
         deposit = any(m in joined for m in _DEPOSIT_MARKERS)
         hint = request.product_hint
         product_answer = answers.get("product_type_confirm", "")
+        hint_resolved = hint in (ProductHint.loan, ProductHint.structured_deposit)
 
         conflict = False
         if hint == ProductHint.auto and loan and deposit and not product_answer:
             conflict = True
-        if hint == ProductHint.structured_deposit and loan and not deposit and not product_answer:
+        if (
+            hint == ProductHint.structured_deposit
+            and loan
+            and not deposit
+            and not product_answer
+        ):
             conflict = True
         if hint == ProductHint.loan and deposit and not loan and not product_answer:
             conflict = True
+        # 已应用 product_hint 后 auto 冲突应已解除
+        if conflict and hint_resolved and product_answer:
+            conflict = False
         if conflict:
             out.append(
                 ClarifyingQuestion(
@@ -198,7 +223,6 @@ class CompletenessChecker:
             )
             return out
         ab_answer = answers.get("compare_ab", "")
-        # 无法区分 A/B：两侧角色都 unknown 且文本高度相似时追问；简化为两侧都 unknown 则确认
         if all(e.role == SourceRole.unknown for e in envs[:2]) and not ab_answer:
             out.append(
                 ClarifyingQuestion(
@@ -243,7 +267,13 @@ class CompletenessChecker:
             )
             return out
 
-        resolved_kind = kind or CalculationKind(kind_ans)
+        try:
+            resolved_kind = kind or CalculationKind(kind_ans)
+        except ValueError as exc:
+            raise ClarificationRejected(
+                f"calc_kind 的取值不在允许选项内：{kind_ans}"
+            ) from exc
+
         if resolved_kind == CalculationKind.simple_return:
             if not (request.principal or answers.get("principal")):
                 out.append(
@@ -431,3 +461,6 @@ class CompletenessChecker:
             )
         _ = answers
         return out
+
+
+__all__ = ["CompletenessChecker", "ClarificationRejected"]

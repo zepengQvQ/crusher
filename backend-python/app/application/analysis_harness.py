@@ -499,24 +499,61 @@ class AnalysisHarness:
 
     def _check_completeness(self, ctx: AnalysisContext) -> HarnessResult | None:
         """P2-03：完整性检查；can_continue=false 时停止，不进入抽取/规则/LLM。"""
-        # 用户澄清产品类型后写回 hint，再继续后续阶段
-        for ans in ctx.clarification_answers:
-            if ans.question_id == "product_type_confirm" and ans.value in (
-                "structured_deposit",
-                "loan",
-            ):
-                ctx.product_hint = ProductHint(ans.value)
+        from app.domain.rules.clarification_catalog import ClarificationRejected
 
-        result = self._completeness.check(
-            CompletenessCheckRequest(
-                intent=IntentType.single_analysis,
-                source_envelopes=[
-                    SourceEnvelope(source_id="src_main", text=ctx.source_text)
-                ],
-                product_hint=ctx.product_hint,
-                clarification_answers=list(ctx.clarification_answers),
+        try:
+            result = self._completeness.check(
+                CompletenessCheckRequest(
+                    intent=IntentType.single_analysis,
+                    source_envelopes=[
+                        SourceEnvelope(source_id="src_main", text=ctx.source_text)
+                    ],
+                    product_hint=ctx.product_hint,
+                    clarification_answers=list(ctx.clarification_answers),
+                )
             )
-        )
+        except ClarificationRejected as exc:
+            decision_pub = decide_clarify(
+                reason_code=ErrorCode.CLARIFICATION_INVALID,
+                user_reason=exc.message,
+                next_steps=["请按页面选项或规范格式重新回答追问"],
+            )
+            report = AnalysisReport(
+                product_candidates=[],
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                scope_reason=exc.message,
+                product_risk_grade=ProductRiskGrade(
+                    value=None,
+                    status=FactStatus.not_disclosed,
+                    note="原文未明确风险等级",
+                ),
+                plain_language=PlainLanguage(
+                    text=exc.message, status=StageStatus.partial
+                ),
+                key_parameters=[],
+                findings=[],
+                missing_disclosures=[],
+                general_references=[],
+                pending_questions=[exc.message],
+                disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+                publication=decision_pub,
+            )
+            ctx.report = report
+            ctx.outcome = OutcomeStatus.clarify
+            ctx.stop_reason = exc.message
+            return HarnessResult(
+                context=ctx,
+                outcome=OutcomeStatus.clarify,
+                report=report,
+                error_code=ErrorCode.CLARIFICATION_INVALID,
+                error_message=exc.message,
+            )
+
+        # 使用规范化后的请求写回上下文
+        if result.resolved_request is not None:
+            ctx.product_hint = result.resolved_request.product_hint
+            ctx.clarification_answers = list(result.answered)
         ctx.completeness_result = result
         if result.can_continue:
             return None

@@ -1398,6 +1398,16 @@
             },
             "type": "array",
             "title": "Answered"
+          },
+          "resolved_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompletenessCheckRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -1813,6 +1823,7 @@
           "CALCULATION_INVALID",
           "INTENT_AMBIGUOUS",
           "INPUT_INCOMPLETE",
+          "CLARIFICATION_INVALID",
           "PRODUCT_CONFLICT",
           "INSUFFICIENT_EVIDENCE",
           "UNSUPPORTED_REQUEST",

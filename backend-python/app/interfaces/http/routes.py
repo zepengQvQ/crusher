@@ -16,7 +16,10 @@ from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.calculate_scenario import CalculateScenarioUseCase
-from app.application.check_input_completeness import CheckInputCompletenessUseCase
+from app.application.check_input_completeness import (
+    CheckInputCompletenessUseCase,
+    ClarificationRejected,
+)
 from app.application.compare_products import CompareProductsUseCase
 from app.application.extract_document import ExtractDocumentUseCase
 from app.application.reanalyze_with_correction import (
@@ -499,4 +502,13 @@ def check_completeness(
     use_case: CompletenessUseCaseDep,
 ) -> CompletenessResult:
     """按意图检查输入完整性；不足则返回最多 3 条业务追问。"""
-    return use_case.execute(body)
+    try:
+        return use_case.execute(body)
+    except ClarificationRejected as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_code": exc.error_code.value,
+                "message": exc.message,
+            },
+        ) from exc

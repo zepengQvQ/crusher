@@ -102,3 +102,5 @@ class CompletenessResult(StrictModel):
     questions: list[ClarifyingQuestion] = Field(default_factory=list, max_length=3)
     summary: str = ""
     answered: list[ClarificationAnswer] = Field(default_factory=list)
+    # 已校验并应用澄清后的请求快照；后续 UseCase 必须使用该快照中的字段
+    resolved_request: CompletenessCheckRequest | None = None
