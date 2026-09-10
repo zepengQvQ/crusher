@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisCoverage", "AnalysisReport", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "ExtractorSource", "FactEvidenceRef", "FactPolarity", "FactSideValue", "FactStatus", "FieldStatus", "FinancialFact", "FinancialFactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "PublicationDecision", "PublicationOutcome", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValueKind"]
+export const SCHEMA_NAMES = ["AnalysisCoverage", "AnalysisReport", "AnalysisRevision", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CorrectionItem", "CorrectionKind", "CorrectionRecord", "CorrectionRequest", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "ExtractorSource", "FactEvidenceRef", "FactPolarity", "FactSideValue", "FactStatus", "FieldStatus", "FinancialFact", "FinancialFactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "PublicationDecision", "PublicationOutcome", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValueKind"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -72,6 +72,16 @@ export const ClaimSubject = Object.freeze({
   early_exit: "early_exit",
   principal_protection: "principal_protection",
   term: "term",
+})
+
+/**
+ * @typedef {"source_text"|"product_type"|"fact_value"} CorrectionKindValue
+ */
+
+export const CorrectionKind = Object.freeze({
+  source_text: "source_text",
+  product_type: "product_type",
+  fact_value: "fact_value",
 })
 
 /**
@@ -183,7 +193,7 @@ export const FactPolarity = Object.freeze({
 })
 
 /**
- * @typedef {"document_fact"|"calculated_fact"|"general_reference"|"not_disclosed"|"unknown"} FactStatusValue
+ * @typedef {"document_fact"|"calculated_fact"|"general_reference"|"not_disclosed"|"user_asserted"|"unknown"} FactStatusValue
  */
 
 export const FactStatus = Object.freeze({
@@ -191,6 +201,7 @@ export const FactStatus = Object.freeze({
   calculated_fact: "calculated_fact",
   general_reference: "general_reference",
   not_disclosed: "not_disclosed",
+  user_asserted: "user_asserted",
   unknown: "unknown",
 })
 
@@ -415,6 +426,8 @@ export const ValueKind = Object.freeze({
  * @property {ProductTypeIdValue} [resolved_product_type]
  * @property {AnalysisScopeValue} [analysis_scope]
  * @property {PublicationDecision} [publication]
+ * @property {string} [parent_task_id]
+ * @property {AnalysisRevision} [revision]
  */
 
 /**
@@ -772,6 +785,15 @@ export const ValueKind = Object.freeze({
  */
 
 /**
+ * @typedef {Object} AnalysisRevision
+ * @property {number} revision_no
+ * @property {string} parent_task_id
+ * @property {Array<CorrectionRecord>} corrections
+ * @property {string} [created_at]
+ * @property {string} [note]
+ */
+
+/**
  * @typedef {Object} Body_extract_document_api_v1_documents_extract_post
  * @property {Array<string>} files
  */
@@ -786,6 +808,32 @@ export const ValueKind = Object.freeze({
  * @typedef {Object} ClarifyingOption
  * @property {string} value
  * @property {string} label
+ */
+
+/**
+ * @typedef {Object} CorrectionItem
+ * @property {CorrectionKindValue} kind
+ * @property {string} [corrected_text]
+ * @property {ProductHintValue} [product_type]
+ * @property {ParameterKeyValue} [parameter_key]
+ * @property {string} [corrected_value]
+ * @property {string} [previous_value]
+ */
+
+/**
+ * @typedef {Object} CorrectionRecord
+ * @property {string} [correction_id]
+ * @property {CorrectionKindValue} kind
+ * @property {string} [previous_value]
+ * @property {string} new_value
+ * @property {ParameterKeyValue} [parameter_key]
+ * @property {string} [created_at]
+ */
+
+/**
+ * @typedef {Object} CorrectionRequest
+ * @property {Array<CorrectionItem>} corrections
+ * @property {string} [note]
  */
 
 /**

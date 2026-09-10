@@ -107,6 +107,17 @@ export async function checkCompleteness(payload) {
   return data
 }
 
+/**
+ * 基于父任务提交纠错并创建新修订任务。
+ * @param {string} taskId
+ * @param {{ corrections: object[], note?: string }} body
+ * @returns {Promise<CreateAnalysisResponse>}
+ */
+export async function createCorrection(taskId, body) {
+  const { data } = await http.post(`/api/v1/analyses/${taskId}/corrections`, body)
+  return data
+}
+
 export function pickErrorMessage(error) {
   if (!error?.response) {
     if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'

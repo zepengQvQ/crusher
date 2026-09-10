@@ -12,6 +12,10 @@
       </van-button>
     </div>
     <template v-else-if="report">
+      <div v-if="revisionBanner" class="block">
+        <van-notice-bar left-icon="replay" :text="revisionBanner" />
+      </div>
+
       <div v-if="outcomeBanner" class="block">
         <van-notice-bar
           left-icon="warning-o"
@@ -39,7 +43,12 @@
       </div>
 
       <div class="block">
-        <h3>产品候选</h3>
+        <div class="row-between">
+          <h3>产品候选</h3>
+          <van-button size="small" plain class="touch-btn" @click="openCorrection('product_type')">
+            产品认错了
+          </van-button>
+        </div>
         <van-cell
           v-for="(c, idx) in report.product_candidates || []"
           :key="c.product_type_id + idx"
@@ -55,7 +64,10 @@
           v-for="p in report.key_parameters || []"
           :key="p.key"
           :title="p.label || p.key"
+          :label="statusLabel(p.status)"
           :value="formatParam(p)"
+          is-link
+          @click="openFactCorrection(p)"
         />
       </div>
 
@@ -102,9 +114,14 @@
       <div class="block">
         <div class="row-between">
           <h3>原文折叠</h3>
-          <van-button size="small" plain class="touch-btn" @click="sourceExpanded = !sourceExpanded">
-            {{ sourceExpanded ? '收起' : '展开' }}
-          </van-button>
+          <div class="row-actions">
+            <van-button size="small" plain class="touch-btn" @click="openCorrection('source_text')">
+              原文错了
+            </van-button>
+            <van-button size="small" plain class="touch-btn" @click="sourceExpanded = !sourceExpanded">
+              {{ sourceExpanded ? '收起' : '展开' }}
+            </van-button>
+          </div>
         </div>
         <p class="source" :class="{ clamped: !sourceExpanded }">{{ sourceText }}</p>
         <van-button block plain class="touch-btn" @click="onCopy(sourceText)">复制原文</van-button>
@@ -167,6 +184,17 @@
         </van-button>
       </div>
     </template>
+
+    <CorrectionSheet
+      v-model="sheetOpen"
+      :task-id="taskId"
+      :mode="sheetMode"
+      :parameter-key="sheetParamKey"
+      :previous-value="sheetPrevValue"
+      :source-text="sourceText"
+      :product-hint="productHint"
+      @submitted="onCorrectionSubmitted"
+    />
   </div>
 </template>
 
@@ -176,8 +204,9 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
-import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
 import AnalysisCoverageCard from '../components/AnalysisCoverageCard.vue'
+import CorrectionSheet from '../components/CorrectionSheet.vue'
+import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
 import ReportActions from '../components/ReportActions.vue'
 import ScenarioCalculator from '../components/ScenarioCalculator.vue'
 import { useTaskStore } from '../stores/task'
@@ -192,9 +221,16 @@ const loading = ref(true)
 const loadError = ref('')
 const report = ref(null)
 const publication = ref(null)
+const revision = ref(null)
+const parentTaskId = ref('')
+const productHint = ref('auto')
 const activeFindings = ref([])
 const sourceExpanded = ref(false)
 const sourceText = ref('')
+const sheetOpen = ref(false)
+const sheetMode = ref('fact_value')
+const sheetParamKey = ref('')
+const sheetPrevValue = ref('')
 let active = true
 
 const productGradeText = computed(() => {
@@ -222,6 +258,13 @@ const outcomeBanner = computed(() => {
     return reason || '还需确认信息后才能继续完整分析'
   }
   return ''
+})
+
+const revisionBanner = computed(() => {
+  if (!revision.value) return ''
+  const parent = parentTaskId.value || revision.value.parent_task_id || ''
+  const n = revision.value.revision_no
+  return `本报告为修订 #${n}（父任务 ${parent}），未覆盖原报告`
 })
 
 const conclusion = computed(() => {
@@ -279,8 +322,40 @@ function candidateLabel(c) {
 
 function formatParam(p) {
   if (p.status === 'not_disclosed') return '材料未说明'
+  if (p.status === 'user_asserted') {
+    const v = p.key === 'amount' && p.amount != null ? String(p.amount) : p.value ?? '-'
+    return `${v}（用户声明）`
+  }
   if (p.key === 'amount' && p.amount != null) return String(p.amount)
   return p.value ?? '-'
+}
+
+function statusLabel(status) {
+  if (status === 'user_asserted') return '用户声明，非原文事实'
+  if (status === 'not_disclosed') return '材料未说明'
+  if (status === 'document_fact') return '原文事实'
+  return status || ''
+}
+
+function openCorrection(mode) {
+  sheetMode.value = mode
+  sheetParamKey.value = ''
+  sheetPrevValue.value = ''
+  sheetOpen.value = true
+}
+
+function openFactCorrection(p) {
+  sheetMode.value = 'fact_value'
+  sheetParamKey.value = p.key
+  sheetPrevValue.value =
+    p.status === 'not_disclosed' ? '' : p.value || (p.amount != null ? String(p.amount) : '')
+  sheetOpen.value = true
+}
+
+function onCorrectionSubmitted(res) {
+  showToast('已创建修订任务')
+  store.setTask(res.task_id, res.task_status)
+  router.replace({ name: 'status', params: { taskId: res.task_id } })
 }
 
 function findingTitle(f) {
@@ -332,6 +407,9 @@ onMounted(async () => {
     }
     report.value = data.report
     publication.value = data.publication || data.report.publication || null
+    revision.value = data.revision || null
+    parentTaskId.value = data.parent_task_id || ''
+    productHint.value = data.product_hint || 'auto'
     sourceText.value = data.source_text || ''
   } catch (e) {
     if (!active) return
@@ -369,6 +447,17 @@ h3 {
   font-size: 13px;
   color: #9a3412;
   line-height: 1.5;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .meta {
   margin: 8px 0 0;
@@ -413,12 +502,6 @@ h3 {
   margin: 0 0 8px;
   font-size: 12px;
   color: #9ca3af;
-}
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 .source {
   margin: 0 0 10px;

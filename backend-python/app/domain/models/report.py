@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.domain.models.correction import AnalysisRevision
 from app.domain.models.enums import (
     AnalysisScope,
     DemoErrorKind,
@@ -114,6 +115,9 @@ class KeyParameter(StrictModel):
         if self.status == FactStatus.not_disclosed:
             if self.value not in (None, "") or self.amount is not None:
                 raise ValueError("not_disclosed 参数不能带 value/amount")
+        if self.status == FactStatus.user_asserted:
+            if self.value in (None, ""):
+                raise ValueError("user_asserted 参数必须提供 value")
         if self.key == ParameterKey.amount and self.status == FactStatus.document_fact:
             if self.amount is None:
                 raise ValueError("amount 参数在 document_fact 时必须提供可解析金额")
@@ -254,6 +258,8 @@ class AnalysisTask(StrictModel):
     error_message: str | None = None
     report: AnalysisReport | None = None
     publication: PublicationDecision | None = None
+    parent_task_id: str | None = None
+    revision: AnalysisRevision | None = None
 
     def touch(self) -> None:
         self.updated_at = utc_now()

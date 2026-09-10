@@ -52,6 +52,7 @@ from app.domain.models.intent import (
 )
 from app.domain.models.llm import LlmExplainRequest
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
+from app.domain.rules.apply_fact_corrections import apply_fact_corrections_to_parameters
 from app.domain.rules.completeness_checker import CompletenessChecker
 from app.domain.rules.engine import RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
@@ -166,21 +167,50 @@ class AnalysisHarness:
             extracted = self._extractor.extract(
                 ctx.source_text, product_type_id=product_type_id
             )
+            # P2-09：用户事实纠错 → user_asserted，不复用旧草稿、不伪装 document_fact
+            if ctx.corrections:
+                from dataclasses import replace
+
+                patched = apply_fact_corrections_to_parameters(
+                    list(extracted.key_parameters), list(ctx.corrections)
+                )
+                extracted = replace(extracted, key_parameters=patched)
+                # 用户已声明的键从 missing 中移除
+                asserted = {
+                    c.parameter_key
+                    for c in ctx.corrections
+                    if c.parameter_key is not None
+                }
+                if asserted:
+                    extracted = replace(
+                        extracted,
+                        missing_disclosures=[
+                            m
+                            for m in extracted.missing_disclosures
+                            if m.key not in asserted
+                        ],
+                    )
             disclosed_n = sum(
                 1 for p in extracted.key_parameters if p.status == FactStatus.document_fact
             )
             missing_n = sum(
                 1 for p in extracted.key_parameters if p.status == FactStatus.not_disclosed
             )
+            user_n = sum(
+                1 for p in extracted.key_parameters if p.status == FactStatus.user_asserted
+            )
             extract_status = (
                 StageStatus.partial if disclosed_n and missing_n else StageStatus.success
             )
+            extract_msg = f"抽取完成：原文事实 {disclosed_n}，未说明 {missing_n}"
+            if user_n:
+                extract_msg += f"，用户声明 {user_n}"
             await self._emit_http(
                 ctx,
                 on_http_stage,
                 "extract",
                 extract_status,
-                f"抽取完成：原文事实 {disclosed_n}，未说明 {missing_n}",
+                extract_msg,
             )
 
             await self._stage(ctx, HarnessStage.apply_rules, on_http_stage)
