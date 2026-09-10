@@ -19,7 +19,11 @@ from app.composition_root import build_llm_gateway, require_real_llm_settings  #
 from app.config.settings import Settings  # noqa: E402
 from app.domain.llm_errors import LlmConfigError, LlmInvalidJsonError  # noqa: E402
 from app.domain.models import AnalyzeTextRequest  # noqa: E402
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
+from app.domain.models.llm import (  # noqa: E402
+    LlmAnalysisDraft,
+    LlmExplainRequest,
+    make_simple_draft,
+)
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
 from app.infrastructure.llm.mock_gateway import MockLlmGateway  # noqa: E402
 from app.infrastructure.llm.openai_compatible_gateway import (  # noqa: E402
@@ -44,8 +48,36 @@ def _settings(**overrides) -> Settings:
     return Settings(**base)
 
 
-def _json_content(plain: str) -> str:
-    return json.dumps({"plain_language": plain}, ensure_ascii=False)
+
+def _extract_json_list(user: str, label: str) -> list[str]:
+    marker = label
+    idx = user.find(marker)
+    if idx < 0:
+        return []
+    start = user.find("[", idx)
+    end = user.find("]", start)
+    if start < 0 or end < 0:
+        return []
+    try:
+        data = json.loads(user[start : end + 1])
+    except json.JSONDecodeError:
+        return []
+    return [str(x) for x in data] if isinstance(data, list) else []
+
+
+def _json_content_for_http(request: httpx.Request, plain: str) -> str:
+    body_in = json.loads(request.content.decode("utf-8"))
+    user = body_in["messages"][1]["content"]
+    fact_ids = _extract_json_list(user, "允许引用的 fact_ids：")
+    finding_ids = _extract_json_list(user, "允许引用的 finding_ids：")
+    knowledge_ids = _extract_json_list(user, "允许引用的 knowledge_ids：")
+    draft = make_simple_draft(
+        plain,
+        fact_ids=fact_ids[:1],
+        finding_ids=finding_ids[:1] if not fact_ids else [],
+        knowledge_ids=knowledge_ids[:1] if not fact_ids and not finding_ids else [],
+    )
+    return json.dumps(draft.model_dump(mode="json"), ensure_ascii=False)
 
 
 def _ok_handler(plain: str):
@@ -57,7 +89,7 @@ def _ok_handler(plain: str):
         assert roles == ["system", "user"], roles
         body = {
             "choices": [
-                {"message": {"content": _json_content(plain)}},
+                {"message": {"content": _json_content_for_http(request, plain)}},
             ]
         }
         return httpx.Response(200, json=body)
@@ -97,17 +129,18 @@ class MockGatewayTests(unittest.TestCase):
         async def run() -> None:
             a = await gw.complete(req)
             b = await gw.complete(req)
-            self.assertEqual(a.plain_language, b.plain_language)
-            self.assertIsInstance(a, LlmExplanation)
+            self.assertEqual(a.render_plain_language(), b.render_plain_language())
+            self.assertIsInstance(a, LlmAnalysisDraft)
 
         asyncio.run(run())
 
 
 class ParseContentTests(unittest.TestCase):
     def test_strips_markdown_fence(self):
-        raw = '```json\n{"plain_language":"你好"}\n```'
+        draft = make_simple_draft("你好", knowledge_ids=["knowledge:demo"])
+        raw = "```json\n" + json.dumps(draft.model_dump(mode="json"), ensure_ascii=False) + "\n```"
         exp = parse_llm_explanation_content(raw)
-        self.assertEqual(exp.plain_language, "你好")
+        self.assertEqual(exp.render_plain_language(), "你好")
 
     def test_empty_choices_content_invalid(self):
         with self.assertRaises(LlmInvalidJsonError):
@@ -221,9 +254,13 @@ class ForcedFindingContradictionTests(unittest.TestCase):
 
     def test_contradiction_fails_when_findings_present(self):
         class FixedGw:
-            async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
-                _ = request
-                return LlmExplanation(plain_language="综合来看没有风险。")
+            async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
+                return make_simple_draft(
+                    "综合来看没有风险。",
+                    fact_ids=list(request.allowed_fact_ids[:1]),
+                    finding_ids=list(request.allowed_finding_ids[:1]),
+                    knowledge_ids=list(request.allowed_knowledge_ids[:1]),
+                )
 
         class SeededUc(AnalyzeTextUseCase):
             def _collect_risks(self, text, product_type_id):

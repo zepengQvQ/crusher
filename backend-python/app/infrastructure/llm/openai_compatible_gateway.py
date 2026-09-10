@@ -13,7 +13,7 @@ from app.domain.llm_errors import (
     LlmTimeoutError,
     LlmUpstreamError,
 )
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation
+from app.domain.models.llm import LlmAnalysisDraft, LlmExplainRequest
 
 _FENCE_RE = re.compile(
     r"^\s*```(?:json)?\s*(.*?)\s*```\s*$",
@@ -29,8 +29,11 @@ def _strip_json_fence(raw: str) -> str:
     return text
 
 
-def parse_llm_explanation_content(content: str) -> LlmExplanation:
-    """把模型 content 解析为 LlmExplanation；失败抛 LlmInvalidJsonError。"""
+def parse_llm_explanation_content(content: str) -> LlmAnalysisDraft:
+    """把模型 content 解析为 LlmAnalysisDraft；失败抛 LlmInvalidJsonError。
+
+    不做正则修补残缺 JSON；多余字段 / 空引用由 Pydantic extra=forbid 拒绝。
+    """
     if not isinstance(content, str) or not content.strip():
         raise LlmInvalidJsonError("empty content")
     payload = _strip_json_fence(content)
@@ -38,8 +41,14 @@ def parse_llm_explanation_content(content: str) -> LlmExplanation:
         data = json.loads(payload)
     except json.JSONDecodeError as exc:
         raise LlmInvalidJsonError("content is not json") from exc
+    if not isinstance(data, dict):
+        raise LlmInvalidJsonError("content dto invalid")
+    # 模型不得直接生成 Finding / 风险级别
+    for banned in ("findings", "risk_level", "product_risk_grade", "calculation"):
+        if banned in data:
+            raise LlmInvalidJsonError(f"forbidden field: {banned}")
     try:
-        return LlmExplanation.model_validate(data)
+        return LlmAnalysisDraft.model_validate(data)
     except Exception as exc:  # noqa: BLE001 — Pydantic ValidationError 等
         raise LlmInvalidJsonError("content dto invalid") from exc
 
@@ -49,7 +58,7 @@ class OpenAiCompatibleLlmGateway:
 
     Java 对照：外部模型 Gateway 的实现类。
     输入：只接收 Application 组装的 LlmExplainRequest，不读取 H5 参数。
-    输出：已解析的 LlmExplanation DTO（与 Finding 一致性由 Application 再校验）。
+    输出：已解析的 LlmAnalysisDraft（引用白名单与语义由 Application 再校验）。
     业务不变量：异常必须显式失败；不得返回空结果冒充安全。
     安全边界：Key/Base URL 仅从后端 Settings 注入，不写日志。
     """
@@ -67,7 +76,7 @@ class OpenAiCompatibleLlmGateway:
         self._max_tokens = settings.llm_max_tokens
         self._client = client
 
-    async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+    async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
         url = f"{self._base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -95,7 +104,7 @@ class OpenAiCompatibleLlmGateway:
         url: str,
         headers: dict[str, str],
         payload: dict,
-    ) -> LlmExplanation:
+    ) -> LlmAnalysisDraft:
         try:
             resp = await client.post(url, headers=headers, json=payload)
         except httpx.TimeoutException as exc:

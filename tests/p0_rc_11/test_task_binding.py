@@ -13,7 +13,7 @@ from app.application.analyze_text import AnalyzeTextUseCase  # noqa: E402
 from app.config.settings import Settings  # noqa: E402
 from app.domain.models import AnalyzeTextRequest  # noqa: E402
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId  # noqa: E402
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
+from app.domain.models.llm import LlmExplainRequest, LlmAnalysisDraft, make_simple_draft  # noqa: E402
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
 from app.infrastructure.task_store.memory import InMemoryTaskStore  # noqa: E402
 from app.interfaces.http.routes import TaskResponse  # noqa: E402
@@ -32,9 +32,9 @@ def _settings() -> Settings:
 
 
 class FixedGw:
-    async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+    async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
         _ = request
-        return LlmExplanation(plain_language="（测试）通俗说明。")
+        return make_simple_draft("（测试）通俗说明。", fact_ids=list(request.allowed_fact_ids[:1]), finding_ids=list(request.allowed_finding_ids[:1]), knowledge_ids=list(request.allowed_knowledge_ids[:1]))
 
 
 class TaskBindingTests(unittest.TestCase):
@@ -92,7 +92,7 @@ class TaskBindingTests(unittest.TestCase):
 
     def test_failed_task_keeps_hint_for_retry(self):
         class BoomGw:
-            async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+            async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
                 from app.domain.llm_errors import LlmTimeoutError
 
                 raise LlmTimeoutError("timeout")

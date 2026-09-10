@@ -23,6 +23,7 @@ from app.domain.llm_errors import (
 )
 from app.domain.llm_explanation_guard import (
     allowed_numbers_from_program,
+    validate_draft_reference_whitelist,
     validate_explanation_against_program,
 )
 from app.domain.models import (
@@ -257,7 +258,23 @@ class AnalysisHarness:
                     failed_http_stage="explain",
                 )
 
-            plain = explanation.plain_language
+            plain = explanation.render_plain_language()
+            try:
+                validate_draft_reference_whitelist(
+                    explanation,
+                    allowed_fact_ids=explain_req.allowed_fact_ids,
+                    allowed_finding_ids=explain_req.allowed_finding_ids,
+                    allowed_knowledge_ids=explain_req.allowed_knowledge_ids,
+                )
+            except LlmInvalidJsonError:
+                return await self._refuse(
+                    ctx,
+                    HarnessStage.build_draft,
+                    ErrorCode.INVALID_MODEL_JSON,
+                    "草稿引用未通过白名单校验",
+                    on_http_stage,
+                    failed_http_stage="explain",
+                )
             allowed_nums = allowed_numbers_from_program(
                 findings=findings,
                 key_parameters=list(extracted.key_parameters),
@@ -562,16 +579,35 @@ class AnalysisHarness:
         extracted: ExtractResult,
         findings: list[Finding],
     ) -> LlmExplainRequest:
-        facts_payload = [
-            {
-                "key": p.key.value,
-                "label": p.label,
-                "status": p.status.value,
-                "value": p.value,
-                "amount": str(p.amount) if p.amount is not None else None,
-            }
-            for p in extracted.key_parameters
-        ]
+        fact_ids: list[str] = []
+        facts_payload: list[dict] = []
+        for p in extracted.key_parameters:
+            fid = f"param:{p.key.value}"
+            fact_ids.append(fid)
+            facts_payload.append(
+                {
+                    "fact_id": fid,
+                    "key": p.key.value,
+                    "label": p.label,
+                    "status": p.status.value,
+                    "value": p.value,
+                    "amount": str(p.amount) if p.amount is not None else None,
+                }
+            )
+        for ff in extracted.financial_facts:
+            fact_ids.append(ff.fact_id)
+            facts_payload.append(
+                {
+                    "fact_id": ff.fact_id,
+                    "field_key": ff.field_key,
+                    "raw_value": ff.raw_value,
+                    "normalized_value": ff.normalized_value,
+                    "status": ff.status.value,
+                    "qualifiers": list(ff.qualifiers),
+                    "condition_text": ff.condition_text,
+                }
+            )
+        finding_ids = [f.id for f in findings]
         findings_payload = [
             {
                 "id": f.id,
@@ -591,7 +627,26 @@ class AnalysisHarness:
             for f in findings
             for ev in f.evidence
         ]
+        knowledge_ids: list[str] = []
+        for ref in extracted.general_references:
+            kid = ref.source.strip() or "knowledge:general"
+            if kid not in knowledge_ids:
+                knowledge_ids.append(kid)
+        if not knowledge_ids:
+            knowledge_ids = ["knowledge:demo"]
+        # 去重保序
+        seen_f: set[str] = set()
+        unique_fact_ids: list[str] = []
+        for fid in fact_ids:
+            if fid in seen_f:
+                continue
+            seen_f.add(fid)
+            unique_fact_ids.append(fid)
+
         user_prompt = FINDINGS_USER_TEMPLATE.format(
+            allowed_fact_ids_json=json.dumps(unique_fact_ids, ensure_ascii=False),
+            allowed_finding_ids_json=json.dumps(finding_ids, ensure_ascii=False),
+            allowed_knowledge_ids_json=json.dumps(knowledge_ids, ensure_ascii=False),
             facts_json=json.dumps(facts_payload, ensure_ascii=False),
             findings_json=json.dumps(findings_payload, ensure_ascii=False),
             evidence_json=json.dumps(evidence_payload, ensure_ascii=False),
@@ -599,6 +654,9 @@ class AnalysisHarness:
         return LlmExplainRequest(
             system_prompt=RULE_REVIEW_SYSTEM,
             user_prompt=user_prompt,
+            allowed_fact_ids=unique_fact_ids,
+            allowed_finding_ids=finding_ids,
+            allowed_knowledge_ids=knowledge_ids,
         )
 
     def _build_scope_gate_report(self, resolution: ProductResolution) -> AnalysisReport:

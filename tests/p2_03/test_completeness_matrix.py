@@ -20,7 +20,7 @@ from app.domain.models.completeness import (  # noqa: E402
 )
 from app.domain.models.enums import ProductHint  # noqa: E402
 from app.domain.models.intent import IntentType, SourceEnvelope, SourceRole  # noqa: E402
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
+from app.domain.models.llm import LlmExplainRequest, LlmAnalysisDraft, make_simple_draft  # noqa: E402
 from app.domain.models.p1_enums import CalculationKind, DayCountBasis  # noqa: E402
 from app.domain.rules.engine import RuleEngine  # noqa: E402
 from app.domain.rules.fact_extractor import FactExtractor  # noqa: E402
@@ -33,9 +33,9 @@ class CountingLlm:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+    async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
         self.calls += 1
-        return LlmExplanation(plain_language="（测试）通俗说明")
+        return make_simple_draft("（测试）通俗说明", fact_ids=list(request.allowed_fact_ids[:1]), finding_ids=list(request.allowed_finding_ids[:1]), knowledge_ids=list(request.allowed_knowledge_ids[:1]))
 
 
 class CompletenessMatrixTests(unittest.TestCase):
