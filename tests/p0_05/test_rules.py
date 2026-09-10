@@ -76,7 +76,38 @@ class NegationAndStabilityTests(unittest.TestCase):
     def test_bad_regex_fails_at_load(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "products.json").write_text("[]", encoding="utf-8")
+            (root / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "content_version": "test",
+                        "last_verified_at": "2026-09-10",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (root / "products.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": "loan",
+                            "name": "借贷",
+                            "aliases": ["贷款"],
+                            "strong_aliases": ["贷款"],
+                            "weak_aliases": [],
+                            "category": "信贷",
+                            "definition": "借贷。",
+                            "typical_terms": [],
+                            "source_name": "测试",
+                            "source_note": "knowledge/products.json",
+                            "verified_at": "2026-09-10",
+                        }
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
             (root / "terms.json").write_text("[]", encoding="utf-8")
             (root / "risk_patterns.json").write_text(
                 json.dumps(
@@ -86,9 +117,13 @@ class NegationAndStabilityTests(unittest.TestCase):
                             "name": "坏正则",
                             "keywords": ["x"],
                             "regex": "(",
+                            "match_mode": "regex_or_keywords",
                             "applicable_product_types": ["loan"],
                             "risk_level": "低",
                             "explanation": "x",
+                            "source_name": "测试",
+                            "source_note": "knowledge/risk_patterns.json",
+                            "verified_at": "2026-09-10",
                         }
                     ],
                     ensure_ascii=False,

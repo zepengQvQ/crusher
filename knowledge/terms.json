@@ -1,290 +1,586 @@
 [
   {
+    "id": "term_structured_deposit",
     "term": "结构性存款",
-    "aliases": ["结构存款", "保本浮动收益型结构性存款", "挂钩型存款"],
+    "aliases": [
+      "结构存款",
+      "保本浮动收益型结构性存款",
+      "挂钩型存款"
+    ],
     "category": "银行理财",
     "definition": "在普通存款基础上嵌入金融衍生工具（挂钩汇率、利率、指数等），收益随挂钩标的波动而变化，本金通常受存款保险保障的存款产品。",
     "plain_explanation": "一种银行存单，本金一般安全，但利息跟汇率或指数涨跌挂钩，可能很高也可能很低。",
-    "risk_hint": "收益不保证，通常不支持提前支取或提前支取损失收益。"
+    "risk_hint": "收益不保证，通常不支持提前支取或提前支取损失收益。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_underlying",
     "term": "挂钩标的",
-    "aliases": ["挂钩", "挂钩资产", "标的资产"],
+    "aliases": [
+      "挂钩",
+      "挂钩资产",
+      "标的资产"
+    ],
     "category": "结构化产品",
     "definition": "结构性产品的收益所参考的基础资产，如汇率、利率、股票指数、黄金价格等。",
     "plain_explanation": "你的利息跟哪个东西的涨跌绑定。",
-    "risk_hint": "挂钩标的波动越大，收益不确定性越高。"
+    "risk_hint": "挂钩标的波动越大，收益不确定性越高。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_observation_range",
     "term": "观察区间",
-    "aliases": ["参考区间", "目标区间", "波动区间"],
+    "aliases": [
+      "参考区间",
+      "目标区间",
+      "波动区间"
+    ],
     "category": "结构化产品",
     "definition": "结构性产品中，挂钩标的需要落入的约定价格区间，收益按是否落入区间分别计算。",
     "plain_explanation": "约定的一个价格范围，价格待在范围内就高收益，跑出去就低收益。",
-    "risk_hint": "一旦突破区间，收益率会大幅下降。"
+    "risk_hint": "一旦突破区间，收益率会大幅下降。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_observation_period",
     "term": "观察期",
-    "aliases": ["观察期间", "计息观察期"],
+    "aliases": [
+      "观察期间",
+      "计息观察期"
+    ],
     "category": "结构化产品",
     "definition": "观察挂钩标的表现、判断是否触发收益条件的期间。",
     "plain_explanation": "盯着价格看的那段时间。",
-    "risk_hint": "观察期内标的波动决定最终收益。"
+    "risk_hint": "观察期内标的波动决定最终收益。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_principal_protected_floating",
     "term": "保本浮动收益",
-    "aliases": ["保本浮动", "本金保障浮动收益"],
+    "aliases": [
+      "保本浮动",
+      "本金保障浮动收益"
+    ],
     "category": "银行理财",
     "definition": "本金到期全额返还，但收益不固定、随挂钩标的波动的一种收益模式。",
     "plain_explanation": "本金不亏，但利息能拿多少没准。",
-    "risk_hint": "保本不等于保收益，收益可能极低。"
+    "risk_hint": "保本不等于保收益，收益可能极低。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_annualized_return",
     "term": "年化收益率",
-    "aliases": ["年化收益"],
+    "aliases": [
+      "年化收益"
+    ],
     "category": "通用",
     "definition": "把一段时间的收益率折算成一整年的收益率，便于横向比较。",
     "plain_explanation": "假设放满一年能拿到的收益率。",
-    "risk_hint": "年化不代表实际到手的绝对收益，需看期限和本金。"
+    "risk_hint": "年化不代表实际到手的绝对收益，需看期限和本金。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_snowball",
     "term": "雪球",
-    "aliases": ["雪球结构", "雪球产品", "雪球收益凭证"],
+    "aliases": [
+      "雪球结构",
+      "雪球产品",
+      "雪球收益凭证"
+    ],
     "category": "结构化产品",
     "definition": "一种挂钩指数、设有敲出价和敲入价的收益凭证结构，指数在一定区间内震荡时按月获取票息，发生敲入且到期未敲出则承担指数跌幅亏损。",
     "plain_explanation": "赌指数在某个区间里来回震荡，震荡就按月拿利息；一旦大跌触发条件可能亏本金。",
-    "risk_hint": "极端下跌时可能承担与指数跌幅等同的本金亏损。"
+    "risk_hint": "极端下跌时可能承担与指数跌幅等同的本金亏损。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_income_certificate",
     "term": "收益凭证",
-    "aliases": ["券商收益凭证", "雪球收益凭证"],
+    "aliases": [
+      "券商收益凭证",
+      "雪球收益凭证"
+    ],
     "category": "结构化产品",
     "definition": "证券公司发行、以自身信用为担保的债务融资工具，收益与约定标的挂钩。",
     "plain_explanation": "券商打的一张借条，利息跟某个指数表现挂钩。",
-    "risk_hint": "收益与风险取决于挂钩结构和券商信用。"
+    "risk_hint": "收益与风险取决于挂钩结构和券商信用。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_knock_out",
     "term": "敲出",
-    "aliases": ["敲出事件", "触发敲出"],
+    "aliases": [
+      "敲出事件",
+      "触发敲出"
+    ],
     "category": "雪球",
     "definition": "挂钩标的价格在观察日达到或超过敲出价，产品提前终止并结算收益。",
     "plain_explanation": "价格涨过约定的上线，产品提前结束，你按约定拿票息。",
-    "risk_hint": "敲出通常对投资者有利，但意味着收益提前锁定、后续上涨与你无关。"
+    "risk_hint": "敲出通常对投资者有利，但意味着收益提前锁定、后续上涨与你无关。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_knock_out_price",
     "term": "敲出价",
-    "aliases": ["敲出线", "敲出价格"],
+    "aliases": [
+      "敲出线",
+      "敲出价格"
+    ],
     "category": "雪球",
     "definition": "触发敲出事件的标的价阈值，通常设为期初价格的一定比例。",
     "plain_explanation": "价格涨到这条线，产品就提前结束。",
-    "risk_hint": "敲出价越低越容易提前结束、锁死收益。"
+    "risk_hint": "敲出价越低越容易提前结束、锁死收益。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_knock_in",
     "term": "敲入",
-    "aliases": ["敲入事件", "跌破敲入价", "触发敲入"],
+    "aliases": [
+      "敲入事件",
+      "跌破敲入价",
+      "触发敲入"
+    ],
     "category": "雪球",
     "definition": "挂钩标的价格跌破约定的敲入价，触发不利条款生效（后续可能承担本金亏损）。",
     "plain_explanation": "价格跌穿约定的底线，之后要按跌幅算亏损。",
-    "risk_hint": "敲入后若到期未敲出，需承担与指数跌幅等同的本金亏损。"
+    "risk_hint": "敲入后若到期未敲出，需承担与指数跌幅等同的本金亏损。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_knock_in_price",
     "term": "敲入价",
-    "aliases": ["敲入线", "敲入价格"],
+    "aliases": [
+      "敲入线",
+      "敲入价格"
+    ],
     "category": "雪球",
     "definition": "触发敲入事件的标的价阈值，通常设为期初价格的一定比例。",
     "plain_explanation": "价格跌破这条线，亏损风险就来了。",
-    "risk_hint": "敲入价越接近期初价，越容易触发敲入、亏损概率越高。"
+    "risk_hint": "敲入价越接近期初价，越容易触发敲入、亏损概率越高。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_observation_day",
     "term": "观察日",
-    "aliases": ["每月观察日", "敲出观察日"],
+    "aliases": [
+      "每月观察日",
+      "敲出观察日"
+    ],
     "category": "雪球",
     "definition": "雪球产品中定期检验挂钩标的价格是否触发敲出的约定日期。",
     "plain_explanation": "每个月固定几天，看看价格有没有到线。",
-    "risk_hint": "只在观察日检验，非观察日的波动不影响判定。"
+    "risk_hint": "只在观察日检验，非观察日的波动不影响判定。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_coupon",
     "term": "票息",
-    "aliases": ["票息收益", "年化票息"],
+    "aliases": [
+      "票息收益",
+      "年化票息"
+    ],
     "category": "雪球",
     "definition": "雪球类产品在未发生敲入或持续持有期间，按约定定期支付的收益。",
     "plain_explanation": "只要没出幺蛾子，按月发的利息。",
-    "risk_hint": "票息高低与敲入敲出价设置直接相关，高票息通常对应更宽的亏损风险。"
+    "risk_hint": "票息高低与敲入敲出价设置直接相关，高票息通常对应更宽的亏损风险。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_early_termination",
     "term": "提前终止",
-    "aliases": ["提前结束", "产品提前终止"],
+    "aliases": [
+      "提前结束",
+      "产品提前终止"
+    ],
     "category": "结构化产品",
     "definition": "达到约定条件（如敲出）后，产品在到期日前提前结束并按约定结算。",
     "plain_explanation": "条件满足，产品提前收摊结算。",
-    "risk_hint": "提前终止会锁定收益，资金需要再投资。"
+    "risk_hint": "提前终止会锁定收益，资金需要再投资。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_cooling_off",
     "term": "犹豫期",
-    "aliases": ["冷静期", "犹豫期内"],
+    "aliases": [
+      "冷静期",
+      "犹豫期内"
+    ],
     "category": "保险",
     "definition": "投保人签收保单后的一段时间（通常10-15天），期内退保可全额退还保费。",
     "plain_explanation": "买完后悔还能全额退款的窗口期。",
-    "risk_hint": "过了犹豫期再退保，只能退现金价值，损失很大。"
+    "risk_hint": "过了犹豫期再退保，只能退现金价值，损失很大。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_cash_value",
     "term": "现金价值",
-    "aliases": ["保单现金价值", "退保现金价值"],
+    "aliases": [
+      "保单现金价值",
+      "退保现金价值"
+    ],
     "category": "保险",
     "definition": "退保时保险公司实际退还的金额，通常远低于已交保费，前期尤其低。",
     "plain_explanation": "退保时能拿回来的钱，头几年很少。",
-    "risk_hint": "首年现金价值可能仅为已交保费的很小比例，早期退保损失大。"
+    "risk_hint": "首年现金价值可能仅为已交保费的很小比例，早期退保损失大。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_waiting_period",
     "term": "等待期",
-    "aliases": ["等待期内"],
+    "aliases": [
+      "等待期内"
+    ],
     "category": "保险",
     "definition": "保险合同生效后的一段约定期间，期间内发生保险事故（如确诊重疾）保险公司不承担赔付责任。",
     "plain_explanation": "买完保险后的一段空窗期，这期间出事不赔。",
-    "risk_hint": "等待期内确诊重疾，通常仅退还保费、不赔付。"
+    "risk_hint": "等待期内确诊重疾，通常仅退还保费、不赔付。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_exclusion",
     "term": "免责条款",
-    "aliases": ["责任免除", "免责事项", "除外责任"],
+    "aliases": [
+      "责任免除",
+      "免责事项",
+      "除外责任"
+    ],
     "category": "保险",
     "definition": "保险合同中约定保险公司不承担赔偿责任的情形。",
     "plain_explanation": "哪些情况出了事保险公司不赔。",
-    "risk_hint": "故意犯罪、酒驾、吸毒、战争等通常属于免责情形。"
+    "risk_hint": "故意犯罪、酒驾、吸毒、战争等通常属于免责情形。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_surrender",
     "term": "退保",
-    "aliases": ["退保处理", "解除合同"],
+    "aliases": [
+      "退保处理",
+      "解除合同"
+    ],
     "category": "保险",
     "definition": "投保人在保险期内解除合同，保险公司按约定退还现金价值。",
     "plain_explanation": "不想要这份保险了，把它退掉。",
-    "risk_hint": "退保越早损失越大，犹豫期后可退金额远低于已交保费。"
+    "risk_hint": "退保越早损失越大，犹豫期后可退金额远低于已交保费。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_management_fee",
     "term": "管理费",
-    "aliases": ["基金管理费", "管理费率"],
+    "aliases": [
+      "基金管理费",
+      "管理费率"
+    ],
     "category": "基金",
     "definition": "基金公司为管理基金资产按资产净值一定比例收取的费用，按年计提。",
     "plain_explanation": "基金公司帮你管钱收的年费。",
-    "risk_hint": "管理费越高，长期侵蚀收益越多。"
+    "risk_hint": "管理费越高，长期侵蚀收益越多。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_custody_fee",
     "term": "托管费",
-    "aliases": ["基金托管费", "托管费率"],
+    "aliases": [
+      "基金托管费",
+      "托管费率"
+    ],
     "category": "基金",
     "definition": "托管银行保管基金资产并收取的费用，按年计提。",
     "plain_explanation": "银行帮你看着这笔钱收的费用。",
-    "risk_hint": "与管理费、销售服务费叠加构成持有成本。"
+    "risk_hint": "与管理费、销售服务费叠加构成持有成本。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_sales_service_fee",
     "term": "销售服务费",
-    "aliases": ["销售服务费率"],
+    "aliases": [
+      "销售服务费率"
+    ],
     "category": "基金",
     "definition": "基金销售机构为提供持续销售服务收取的费用，通常按年计提。",
     "plain_explanation": "卖你基金、做后续服务的机构收的钱。",
-    "risk_hint": "各类费用叠加会明显抬高实际持有成本。"
+    "risk_hint": "各类费用叠加会明显抬高实际持有成本。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_performance_fee",
     "term": "业绩报酬",
-    "aliases": ["业绩报酬计提", "业绩提成", "超额业绩报酬"],
+    "aliases": [
+      "业绩报酬计提",
+      "业绩提成",
+      "超额业绩报酬"
+    ],
     "category": "基金",
     "definition": "基金收益超过业绩比较基准的部分，按约定比例向管理人计提的报酬。",
     "plain_explanation": "赚得超过约定目标，基金公司从中抽成。",
-    "risk_hint": "业绩报酬直接减少投资者实际到手的超额收益。"
+    "risk_hint": "业绩报酬直接减少投资者实际到手的超额收益。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_performance_benchmark",
     "term": "业绩比较基准",
-    "aliases": ["业绩基准", "比较基准"],
+    "aliases": [
+      "业绩基准",
+      "比较基准"
+    ],
     "category": "基金",
     "definition": "衡量基金投资表现的参照标准，业绩报酬常以超过该基准的部分计提。",
     "plain_explanation": "一个用来对比业绩的标尺。",
-    "risk_hint": "超额收益中有一部分会被以业绩报酬形式扣走。"
+    "risk_hint": "超额收益中有一部分会被以业绩报酬形式扣走。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_accrual",
     "term": "计提",
-    "aliases": ["计提比例", "按比例计提"],
+    "aliases": [
+      "计提比例",
+      "按比例计提"
+    ],
     "category": "通用",
     "definition": "按约定规则从资产或收益中计算并提取某笔费用。",
     "plain_explanation": "按规矩从收益里先扣出来的部分。",
-    "risk_hint": "计提会直接减少投资者实际收益。"
+    "risk_hint": "计提会直接减少投资者实际收益。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_redemption_fee",
     "term": "赎回费",
-    "aliases": ["赎回费用", "惩罚性赎回费"],
+    "aliases": [
+      "赎回费用",
+      "惩罚性赎回费"
+    ],
     "category": "基金",
     "definition": "赎回基金份额时收取的费用，持有时间越短费率通常越高。",
     "plain_explanation": "卖出基金时收的手续费，拿的时间越短越贵。",
-    "risk_hint": "持有不满7天赎回可能收取高额惩罚性赎回费。"
+    "risk_hint": "持有不满7天赎回可能收取高额惩罚性赎回费。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_annualized_rate",
     "term": "年化利率",
-    "aliases": ["年化利率（单利）", "年利率", "单利"],
+    "aliases": [
+      "年化利率（单利）",
+      "年利率",
+      "单利"
+    ],
     "category": "借贷",
     "definition": "借款一年按单利计算的利率，是衡量贷款成本的核心指标。",
     "plain_explanation": "借一年要付的利息比例。",
-    "risk_hint": "需关注是单利还是复利，以及罚息、违约金等额外成本。"
+    "risk_hint": "需关注是单利还是复利，以及罚息、违约金等额外成本。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_equal_principal_interest",
     "term": "等额本息",
-    "aliases": ["等额本息还款", "等额本息方式"],
+    "aliases": [
+      "等额本息还款",
+      "等额本息方式"
+    ],
     "category": "借贷",
     "definition": "每月偿还固定金额（本金+利息），初期利息占比高、本金占比低的还款方式。",
     "plain_explanation": "每个月还一样的钱，先还的大头是利息。",
-    "risk_hint": "总利息高于等额本金方式。"
+    "risk_hint": "总利息高于等额本金方式。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_penalty_interest",
     "term": "罚息",
-    "aliases": ["逾期罚息", "罚息利率"],
+    "aliases": [
+      "逾期罚息",
+      "罚息利率"
+    ],
     "category": "借贷",
     "definition": "借款人逾期还款时，对逾期部分按更高利率计收的利息。",
     "plain_explanation": "逾期没还的钱要按更贵的利息算。",
-    "risk_hint": "罚息利率可能达正常利率的数倍，逾期成本高。"
+    "risk_hint": "罚息利率可能达正常利率的数倍，逾期成本高。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_liquidated_damages",
     "term": "违约金",
-    "aliases": ["提前还款违约金", "违约罚金"],
+    "aliases": [
+      "提前还款违约金",
+      "违约罚金"
+    ],
     "category": "借贷",
     "definition": "违反合同约定（如提前还款、逾期）时需支付的一笔约定金额。",
     "plain_explanation": "违反约定要交的罚款。",
-    "risk_hint": "提前还款也可能被收取违约金，抬高实际融资成本。"
+    "risk_hint": "提前还款也可能被收取违约金，抬高实际融资成本。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_acceleration",
     "term": "加速到期",
-    "aliases": ["提前到期", "宣布贷款提前到期", "债务加速到期"],
+    "aliases": [
+      "提前到期",
+      "宣布贷款提前到期",
+      "债务加速到期"
+    ],
     "category": "借贷",
     "definition": "借款人违约时，贷款人有权宣布全部未到期债务立即到期并要求一次性偿还。",
     "plain_explanation": "一旦违约，剩余欠款可能被要求一次性还清。",
-    "risk_hint": "逾期达到约定天数可能触发全部本息提前到期。"
+    "risk_hint": "逾期达到约定天数可能触发全部本息提前到期。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_principal_protection",
     "term": "本金保障",
-    "aliases": ["保本", "本金保证", "本金全额返还"],
+    "aliases": [
+      "保本",
+      "本金保证",
+      "本金全额返还"
+    ],
     "category": "通用",
     "definition": "产品到期时本金是否受保障、保障程度如何。",
     "plain_explanation": "你的本钱到期能不能拿回来。",
-    "risk_hint": "保本产品仍有流动性风险；非保本产品可能亏损本金。"
+    "risk_hint": "保本产品仍有流动性风险；非保本产品可能亏损本金。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_expected_return",
     "term": "预期收益",
-    "aliases": ["预期收益率", "预期收益区间"],
+    "aliases": [
+      "预期收益率",
+      "预期收益区间"
+    ],
     "category": "通用",
     "definition": "产品宣传或说明中给出的参考收益水平，不代表保证收益。",
     "plain_explanation": "预计能赚多少，但不打包票。",
-    "risk_hint": "预期收益不等于实际收益，可能无法实现。"
+    "risk_hint": "预期收益不等于实际收益，可能无法实现。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_risk_grade",
     "term": "风险等级",
-    "aliases": ["风险评级", "产品风险等级"],
+    "aliases": [
+      "风险评级",
+      "产品风险等级"
+    ],
     "category": "通用",
     "definition": "对产品风险高低的分级标识，如R1-R5，数值越高风险越大。",
     "plain_explanation": "这个产品有多险的官方分级。",
-    "risk_hint": "风险等级越高，本金损失可能性越大。"
+    "risk_hint": "风险等级越高，本金损失可能性越大。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   },
   {
+    "id": "term_early_redemption",
     "term": "提前赎回",
-    "aliases": ["提前支取", "提前赎回条件", "提前退出"],
+    "aliases": [
+      "提前支取",
+      "提前赎回条件",
+      "提前退出"
+    ],
     "category": "通用",
     "definition": "在产品到期前赎回或支取资金的条件与限制。",
     "plain_explanation": "没到期想拿钱出来的条件。",
-    "risk_hint": "很多产品不支持提前赎回，或赎回需付违约金、损失收益。"
+    "risk_hint": "很多产品不支持提前赎回，或赎回需付违约金、损失收益。",
+    "source_name": "本地术语表",
+    "source_url": null,
+    "source_note": "knowledge/terms.json",
+    "verified_at": "2026-09-10"
   }
 ]

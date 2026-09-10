@@ -5,6 +5,11 @@ Java 对照：interface。Domain/Application 只依赖这些抽象。
 import re
 from typing import Protocol
 
+from app.domain.models.knowledge import (
+    ProductKnowledge,
+    RiskPatternKnowledge,
+    TermKnowledge,
+)
 from app.domain.models.llm import LlmExplainRequest, LlmExplanation
 from app.domain.models.report import AnalysisTask
 
@@ -28,10 +33,13 @@ class KnowledgeRepository(Protocol):
     def ping(self) -> bool:
         ...
 
-    def list_products(self) -> list[dict]:
+    def list_products(self) -> list[ProductKnowledge]:
         ...
 
-    def list_risk_patterns(self) -> list[dict]:
+    def list_risk_patterns(self) -> list[RiskPatternKnowledge]:
+        ...
+
+    def list_terms(self) -> list[TermKnowledge]:
         ...
 
     def get_compiled_regex(self, pattern: str) -> re.Pattern[str]:

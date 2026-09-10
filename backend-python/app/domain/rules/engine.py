@@ -8,6 +8,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.domain.models.knowledge import ProductKnowledge, RiskPatternKnowledge
 from app.domain.ports.protocols import KnowledgeRepository
 from app.domain.rules.negation import (
     DEFAULT_NEGATION_CUES,
@@ -77,28 +78,25 @@ class RuleEngine:
         text = text or ""
         matched: list[RiskHit] = []
         for pattern in self._knowledge.list_risk_patterns():
-            if product_type and product_type not in pattern.get(
-                "applicable_product_types", []
-            ):
+            if product_type and product_type not in pattern.applicable_product_types:
                 continue
             hit = self._match_one_pattern(text, pattern)
             if hit is not None:
                 matched.append(hit)
         return matched
 
-    def _score_product(self, text: str, product: dict) -> ProductHit | None:
-        strong = list(product.get("strong_aliases") or [])
-        weak = list(product.get("weak_aliases") or [])
+    def _score_product(self, text: str, product: ProductKnowledge) -> ProductHit | None:
+        strong = list(product.strong_aliases)
+        weak = list(product.weak_aliases)
         if not strong and not weak:
-            aliases = list(product.get("aliases") or [])
-            for a in aliases:
+            for a in product.aliases:
                 if len(a) <= 2:
                     weak.append(a)
                 else:
                     strong.append(a)
 
-        cues = tuple(product.get("negation_cues") or DEFAULT_NEGATION_CUES)
-        window = int(product.get("context_window") or 16)
+        cues = tuple(product.negation_cues or DEFAULT_NEGATION_CUES)
+        window = int(product.context_window or 16)
         evidence: list[str] = []
         strong_score = 0.0
         weak_score = 0.0
@@ -129,21 +127,21 @@ class RuleEngine:
         if confidence <= 0:
             return None
         return ProductHit(
-            product_id=str(product["id"]),
-            product_name=str(product.get("name") or product["id"]),
+            product_id=product.id,
+            product_name=product.name or product.id,
             confidence=confidence,
             evidence_quotes=evidence,
         )
 
     @staticmethod
-    def _alias_blocked_by_context(text: str, idx: int, alias: str, product: dict) -> bool:
+    def _alias_blocked_by_context(
+        text: str, idx: int, alias: str, product: ProductKnowledge
+    ) -> bool:
         """排除「存款保险」等误触发非支持产品的上下文。"""
-        pid = str(product.get("id") or "")
-        if pid == "insurance" and alias == "保险":
+        if product.id == "insurance" and alias == "保险":
             if idx >= 2 and text[idx - 2 : idx] == "存款":
                 return True
         return False
-
     @staticmethod
     def _iter_alias_starts(text: str, alias: str) -> list[int]:
         if not alias:
@@ -158,16 +156,18 @@ class RuleEngine:
             start = idx + max(1, len(alias))
         return starts
 
-    def _match_one_pattern(self, text: str, pattern: dict) -> RiskHit | None:
-        pattern_id = str(pattern["id"])
+    def _match_one_pattern(
+        self, text: str, pattern: RiskPatternKnowledge
+    ) -> RiskHit | None:
+        pattern_id = pattern.id
         if pattern_id == "principal_not_guaranteed":
             if re.search(r"确保本金|本金安全|保证本金", text):
                 if not re.search(r"不保证本金|本金(可能)?(面临)?亏损|本金损失|本金受损", text):
                     return None
 
-        cues = tuple(pattern.get("negation_cues") or DEFAULT_NEGATION_CUES)
-        window = int(pattern.get("context_window") or 16)
-        match_mode = str(pattern.get("match_mode") or "regex_or_keywords")
+        cues = tuple(pattern.negation_cues or DEFAULT_NEGATION_CUES)
+        window = int(pattern.context_window or 16)
+        match_mode = pattern.match_mode.value
 
         for start, end, quote in self._iter_spans(text, pattern, match_mode):
             if is_target_negated(text, start, end, cues=cues, window=window):
@@ -180,16 +180,15 @@ class RuleEngine:
             start, end, quote = self._build_evidence(pattern_id, text, start, end)
             return RiskHit(
                 pattern_id=pattern_id,
-                name=str(pattern["name"]),
-                risk_level=str(pattern.get("risk_level") or "中"),
-                explanation=str(pattern.get("explanation") or ""),
+                name=pattern.name,
+                risk_level=pattern.risk_level.value,
+                explanation=pattern.explanation,
                 quote=quote,
                 start=start,
                 end=end,
                 confidence=0.9,
             )
         return None
-
     def _build_evidence(
         self,
         pattern_id: str,
@@ -232,12 +231,12 @@ class RuleEngine:
     def _iter_spans(
         self,
         text: str,
-        pattern: dict,
+        pattern: RiskPatternKnowledge,
         match_mode: str,
     ) -> list[tuple[int, int, str]]:
-        regex = pattern.get("regex") or ""
-        keywords: Sequence[str] = pattern.get("keywords") or []
-        max_span = int(pattern.get("max_keyword_span") or MAX_KEYWORD_SPAN)
+        regex = pattern.regex or ""
+        keywords: Sequence[str] = pattern.keywords or []
+        max_span = int(pattern.max_keyword_span or MAX_KEYWORD_SPAN)
 
         if match_mode == "regex_only":
             return self._regex_spans_per_sentence(text, regex)
@@ -309,17 +308,15 @@ class RuleEngine:
     def _numeric_ok(
         self,
         text: str,
-        pattern: dict,
+        pattern: RiskPatternKnowledge,
         *,
         start: int = 0,
         end: int | None = None,
     ) -> bool:
-        rule = pattern.get("numeric_rule")
-        if not rule:
+        rule = pattern.numeric_rule
+        if rule is None:
             return True
-        field_regex = str(rule.get("extract_regex") or "")
-        if not field_regex:
-            raise ValueError(f"风险模式 {pattern.get('id')} 的 numeric_rule 缺少 extract_regex")
+        field_regex = rule.extract_regex
         if end is None:
             end = len(text)
         sent_start, sent_end = strong_sentence_span(text, start)
@@ -331,11 +328,9 @@ class RuleEngine:
         try:
             value = float(m.group(1))
         except (IndexError, ValueError) as exc:
-            raise ValueError(
-                f"风险模式 {pattern.get('id')} 数值提取失败: {exc}"
-            ) from exc
-        op = str(rule.get("operator") or ">")
-        threshold = float(rule.get("threshold") or 0)
+            raise ValueError(f"风险模式 {pattern.id} 数值提取失败: {exc}") from exc
+        op = rule.operator.value
+        threshold = float(rule.threshold)
         if op == ">":
             return value > threshold
         if op == ">=":
@@ -344,4 +339,6 @@ class RuleEngine:
             return value < threshold
         if op == "<=":
             return value <= threshold
+        if op == "==":
+            return value == threshold
         raise ValueError(f"不支持的 numeric operator: {op}")

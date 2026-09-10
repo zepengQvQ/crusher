@@ -21,15 +21,15 @@ def _engine() -> RuleEngine:
 
 
 def get_terms() -> list[dict]:
-    return _engine()._knowledge.list_terms()  # noqa: SLF001
+    return [t.model_dump(mode="json") for t in _engine()._knowledge.list_terms()]  # noqa: SLF001
 
 
 def get_products() -> list[dict]:
-    return _engine()._knowledge.list_products()  # noqa: SLF001
+    return [p.model_dump(mode="json") for p in _engine()._knowledge.list_products()]  # noqa: SLF001
 
 
 def get_risk_patterns() -> list[dict]:
-    return _engine()._knowledge.list_risk_patterns()  # noqa: SLF001
+    return [r.model_dump(mode="json") for r in _engine()._knowledge.list_risk_patterns()]  # noqa: SLF001
 
 
 def search_terms(query: str, limit: int = 10) -> list[dict]:

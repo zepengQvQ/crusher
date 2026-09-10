@@ -1,4 +1,4 @@
-.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 test-p0-rc-11 test-p0-rc-12 test-p1-01 test-p1-02 test-p1-03 test-p1-04 test-p1-06 test-p2-01 test-p2-02 test-p2-03 lint install export-openapi
+.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 test-p0-rc-11 test-p0-rc-12 test-p1-01 test-p1-02 test-p1-03 test-p1-04 test-p1-06 test-p2-01 test-p2-02 test-p2-03 test-p2-04 lint install export-openapi validate-knowledge
 
 setup:
 	bash scripts/dev.sh
@@ -22,6 +22,9 @@ dev-h5:
 
 test:
 	bash scripts/run_all_tests.sh
+
+validate-knowledge:
+	PYTHONPATH=backend-python backend-python/.venv/bin/python scripts/validate_knowledge.py
 
 test-api:
 	cd backend-python && MOCK_MODE=true ../backend-python/.venv/bin/python -m unittest discover -s ../tests/api -v
@@ -115,3 +118,7 @@ test-p2-02:
 
 test-p2-03:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_03 -v
+
+test-p2-04:
+	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_04 -v
+	$(MAKE) validate-knowledge

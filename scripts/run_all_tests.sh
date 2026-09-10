@@ -85,6 +85,10 @@ echo "==> P2-02"
 echo "==> P2-03"
 "$PY" -m unittest discover -s "${ROOT}/tests/p2_03" -v
 
+echo "==> P2-04"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_04" -v
+"$PY" "${ROOT}/scripts/validate_knowledge.py"
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 

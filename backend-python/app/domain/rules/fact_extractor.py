@@ -429,22 +429,28 @@ class FactExtractor:
         if not product_type_id:
             return refs
         for product in self._knowledge.list_products():
-            if product.get("id") != product_type_id:
+            if product.id != product_type_id:
                 continue
-            hint = (product.get("principal_protection_hint") or "").strip()
+            hint = (product.principal_protection_hint or "").strip()
             if hint and product_type_id == "structured_deposit":
                 refs.append(
                     GeneralReference(
                         text=f"行业参考（非本材料事实）：{hint}",
-                        source=f"knowledge/products.json#{product_type_id}",
+                        source=(
+                            f"{product.source_note}#{product.id}"
+                            f"|{product.source_name}|verified={product.verified_at.isoformat()}"
+                        ),
                     )
                 )
-            note = (product.get("regulatory_notes") or "").strip()
+            note = (product.regulatory_notes or "").strip()
             if note:
                 refs.append(
                     GeneralReference(
                         text=f"监管要点参考：{note}",
-                        source=f"knowledge/products.json#{product_type_id}",
+                        source=(
+                            f"{product.source_note}#{product.id}"
+                            f"|{product.source_name}|verified={product.verified_at.isoformat()}"
+                        ),
                     )
                 )
             break

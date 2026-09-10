@@ -94,7 +94,7 @@
     {
       "status": "general_reference",
       "text": "结构性存款在监管语境下常与存款保险相关，但不得据此自动填写当前材料的本金字段。",
-      "source": "knowledge/products.json#structured_deposit"
+      "source": "knowledge/products.json#structured_deposit|本地产品知识|verified=2026-09-10"
     }
   ],
   "pending_questions": [
