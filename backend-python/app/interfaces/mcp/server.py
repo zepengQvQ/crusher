@@ -5,13 +5,14 @@
 
 注意：工具函数故意不用 `X | Y` / `dict[str, Any]` 注解，
 避免 FastMCP 1.x 在嵌套函数里对未求值注解调用 issubclass 失败。
+优先注册 async Tool，避免同步体内 asyncio.run 与 Host 事件循环冲突。
 """
 import json
 import logging
 import sys
 
 from app.interfaces.mcp.resources import list_resource_uris, read_resource
-from app.interfaces.mcp.tools import TOOL_WHITELIST, invoke_tool
+from app.interfaces.mcp.tools import TOOL_WHITELIST, invoke_tool_async
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger("crusher.mcp")
 
 
-def _resolve_financial_intent(
+async def _resolve_financial_intent(
     user_query="",
     explicit_intent="",
     page_route="",
@@ -37,18 +38,18 @@ def _resolve_financial_intent(
         payload["explicit_intent"] = str(explicit_intent).strip()
     if str(page_route).strip():
         payload["page_route"] = str(page_route).strip()
-    return invoke_tool("resolve_financial_intent", payload)
+    return await invoke_tool_async("resolve_financial_intent", payload)
 
 
-def _analyze_financial_text(text, product_hint="auto"):
+async def _analyze_financial_text(text, product_hint="auto"):
     """单材料分析；返回发布门禁后的结构化结果。"""
-    return invoke_tool(
+    return await invoke_tool_async(
         "analyze_financial_text",
         {"text": text, "product_hint": product_hint},
     )
 
 
-def _compare_financial_products(
+async def _compare_financial_products(
     text_a,
     text_b,
     product_hint_a="auto",
@@ -57,7 +58,7 @@ def _compare_financial_products(
     label_b="产品 B",
 ):
     """两款产品事实对照；不返回推荐或排名。"""
-    return invoke_tool(
+    return await invoke_tool_async(
         "compare_financial_products",
         {
             "text_a": text_a,
@@ -71,7 +72,7 @@ def _compare_financial_products(
     )
 
 
-def _calculate_financial_scenario(
+async def _calculate_financial_scenario(
     kind,
     user_confirmed=False,
     principal="",
@@ -89,7 +90,7 @@ def _calculate_financial_scenario(
         text = str(value or "").strip()
         return text or None
 
-    return invoke_tool(
+    return await invoke_tool_async(
         "calculate_financial_scenario",
         {
             "kind": kind,
@@ -106,15 +107,20 @@ def _calculate_financial_scenario(
     )
 
 
-def _verify_financial_draft(request_json):
-    """对结构化草稿做确定性发布前校验；入参为 JSON 字符串。"""
-    try:
-        payload = json.loads(request_json)
-    except json.JSONDecodeError as exc:
-        raise ValueError("request_json 不是合法 JSON") from exc
+async def _verify_financial_draft(request_json):
+    """对结构化草稿做确定性发布前校验；入参为 JSON 字符串或对象。"""
+    if isinstance(request_json, dict):
+        payload = request_json
+    elif isinstance(request_json, str):
+        try:
+            payload = json.loads(request_json)
+        except json.JSONDecodeError as exc:
+            raise ValueError("request_json 不是合法 JSON") from exc
+    else:
+        raise ValueError("request_json 必须是对象或 JSON 字符串")
     if not isinstance(payload, dict):
         raise ValueError("request_json 必须是对象")
-    return invoke_tool("verify_financial_draft", payload)
+    return await invoke_tool_async("verify_financial_draft", payload)
 
 
 def build_mcp_server():

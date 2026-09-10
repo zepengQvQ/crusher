@@ -44,9 +44,10 @@ def _loan_product() -> dict:
         "category": "信贷",
         "definition": "借贷产品。",
         "typical_terms": [],
-        "source_name": "测试",
-        "source_note": "knowledge/products.json",
+        "source_name": "未核验本地草稿",
+        "source_note": "本地 Demo 草稿，未经外部权威来源核验",
         "verified_at": VERIFIED,
+        "verification_status": "UNVERIFIED",
     }
 
 
@@ -60,9 +61,10 @@ def _pattern(**overrides: object) -> dict:
         "applicable_product_types": ["loan"],
         "risk_level": "中",
         "explanation": "说明",
-        "source_name": "测试",
-        "source_note": "knowledge/risk_patterns.json",
+        "source_name": "未核验本地草稿",
+        "source_note": "本地 Demo 草稿，未经外部权威来源核验",
         "verified_at": VERIFIED,
+        "verification_status": "UNVERIFIED",
     }
     base.update(overrides)
     return base
@@ -77,9 +79,10 @@ def _term(**overrides: object) -> dict:
         "definition": "逾期加收的利息。",
         "plain_explanation": "欠钱多付的利息。",
         "risk_hint": "",
-        "source_name": "测试",
-        "source_note": "knowledge/terms.json",
+        "source_name": "未核验本地草稿",
+        "source_note": "本地 Demo 草稿，未经外部权威来源核验",
         "verified_at": VERIFIED,
+        "verification_status": "UNVERIFIED",
     }
     base.update(overrides)
     return base

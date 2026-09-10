@@ -1,4 +1,4 @@
-.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 test-p0-rc-11 test-p0-rc-12 test-p1-01 test-p1-02 test-p1-03 test-p1-04 test-p1-06 test-p2-01 test-p2-02 test-p2-03 test-p2-04 test-p2-05 test-p2-06 test-p2-07 test-p2-08 test-p2-09 test-p2-10 test-p2-rc-01 test-p2-rc-02 test-p2-rc-03 test-p2-rc-04 test-p2-rc-05 test-p2-rc-06 setup-mcp run-mcp lint install export-openapi validate-knowledge
+.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 test-p0-rc-11 test-p0-rc-12 test-p1-01 test-p1-02 test-p1-03 test-p1-04 test-p1-06 test-p2-01 test-p2-02 test-p2-03 test-p2-04 test-p2-05 test-p2-06 test-p2-07 test-p2-08 test-p2-09 test-p2-10 test-p2-rc-01 test-p2-rc-02 test-p2-rc-03 test-p2-rc-04 test-p2-rc-05 test-p2-rc-06 test-p2-rc-07 test-p2-rc setup-mcp run-mcp lint install export-openapi validate-knowledge
 
 setup:
 	bash scripts/dev.sh
@@ -146,7 +146,8 @@ run-mcp:
 	cd backend-python && MOCK_MODE=true PYTHONPATH=. .venv/bin/python -m app.interfaces.mcp.server
 
 test-p2-10:
-	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_10 -v
+	@backend-python/.venv/bin/python -c "import mcp" || (echo "请先执行 make setup-mcp"; exit 1)
+	CRUSHER_REQUIRE_MCP=1 MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_10 -v
 
 test-p2-rc-01:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_rc_01 -v
@@ -165,3 +166,17 @@ test-p2-rc-05:
 
 test-p2-rc-06:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_rc_06 -v
+
+test-p2-rc-07:
+	@backend-python/.venv/bin/python -c "import mcp" || (echo "请先执行 make setup-mcp"; exit 1)
+	CRUSHER_REQUIRE_MCP=1 MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_rc_07 -v
+	$(MAKE) validate-knowledge
+
+test-p2-rc:
+	$(MAKE) test-p2-rc-01
+	$(MAKE) test-p2-rc-02
+	$(MAKE) test-p2-rc-03
+	$(MAKE) test-p2-rc-04
+	$(MAKE) test-p2-rc-05
+	$(MAKE) test-p2-rc-06
+	$(MAKE) test-p2-rc-07

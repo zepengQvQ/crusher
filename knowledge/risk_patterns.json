@@ -19,10 +19,11 @@
     ],
     "risk_level": "中",
     "explanation": "产品收益随挂钩标的或市场波动，宣传的收益水平并非保证，实际可能远低于预期甚至为零。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "low_floor_return",
@@ -38,10 +39,11 @@
     ],
     "risk_level": "中",
     "explanation": "一旦挂钩标的价格突破观察区间，收益率将从高位骤降到极低水平（如活期利率），高收益落空。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "no_early_redemption",
@@ -60,10 +62,11 @@
     ],
     "risk_level": "中",
     "explanation": "产品到期前无法取回资金，存在流动性风险，急需用钱时无法变现。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "knock_in_loss",
@@ -88,10 +91,11 @@
     ],
     "risk_level": "高",
     "explanation": "若标的跌破敲入价且到期未能敲出，投资者需承担与标的跌幅等同的本金亏损，可能损失较大。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "principal_not_guaranteed",
@@ -110,10 +114,11 @@
     ],
     "risk_level": "高",
     "explanation": "产品不保本，投资者可能面临本金亏损风险，最坏情况下损失全部或大部分本金。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "low_cash_value_first_year",
@@ -130,10 +135,11 @@
     ],
     "risk_level": "高",
     "explanation": "保单首年现金价值远低于已交保费（如仅20%），犹豫期后退保将损失大部分保费。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "surrender_loss_after_cooling",
@@ -150,10 +156,11 @@
     ],
     "risk_level": "中",
     "explanation": "犹豫期后退保只能拿回现金价值而非已交保费，退保越早损失越大。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "waiting_period_no_claim",
@@ -178,10 +185,11 @@
     ],
     "risk_level": "中",
     "explanation": "等待期内确诊约定的疾病，保险公司不承担赔付责任，仅退还已交保费，保障落空。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "exclusion_clause",
@@ -199,10 +207,11 @@
     ],
     "risk_level": "低",
     "explanation": "合同列明的免责情形（如故意犯罪、酒驾、吸毒、战争等）出险时不予赔付，投保前需知晓。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "punitive_redemption_fee",
@@ -219,10 +228,11 @@
     ],
     "risk_level": "中",
     "explanation": "持有不满7天赎回会被收取高额惩罚性赎回费（如1.5%），短期进出成本很高。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "high_management_fee",
@@ -244,10 +254,11 @@
     ],
     "risk_level": "中",
     "explanation": "管理费、托管费、销售服务费叠加，按年持续侵蚀投资收益，长期持有成本不可忽视。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "performance_fee",
@@ -265,10 +276,11 @@
     ],
     "risk_level": "中",
     "explanation": "超过业绩比较基准的超额收益中，有一部分（如20%）会被作为业绩报酬扣走，实际到手收益减少。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "high_penalty_interest",
@@ -284,10 +296,11 @@
     ],
     "risk_level": "高",
     "explanation": "逾期后按远高于正常利率的罚息计收（如正常利率的2.5倍），逾期成本会迅速累积。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "acceleration_clause",
@@ -305,10 +318,11 @@
     ],
     "risk_level": "中",
     "explanation": "逾期达到约定天数，贷款人可宣布全部贷款提前到期并要求一次性偿还，还款压力骤增。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "prepayment_penalty",
@@ -334,9 +348,10 @@
     ],
     "risk_level": "中",
     "explanation": "提前还款需支付违约金（如剩余本金的3%），会抬高实际融资成本，抵消部分节省的利息。",
-    "source_name": "本地风险模式",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/risk_patterns.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   }
 ]

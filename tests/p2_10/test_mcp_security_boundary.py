@@ -80,17 +80,27 @@ class McpSecurityBoundaryTests(unittest.TestCase):
     def test_server_registers_only_whitelist_when_mcp_installed(self) -> None:
         try:
             import mcp  # noqa: F401
-        except ImportError:
+        except ImportError as exc:
+            if os.environ.get("CRUSHER_REQUIRE_MCP") == "1":
+                self.fail(f"mcp 未安装；显式 P2-10 测试要求先 make setup-mcp: {exc}")
             self.skipTest("mcp 未安装；执行 make setup-mcp 后可测 SDK 注册")
+        from mcp.shared.memory import create_connected_server_and_client_session
+
         from app.interfaces.mcp.server import build_mcp_server
         from app.interfaces.mcp.tools import TOOL_WHITELIST
 
-        server = build_mcp_server()
-        # FastMCP 内部工具表
-        tools = getattr(server, "_tool_manager", None)
-        if tools is None:
-            self.skipTest("当前 FastMCP 版本无 _tool_manager，跳过深层断言")
-        names = set(tools._tools.keys())  # noqa: SLF001
+        async def _list() -> set[str]:
+            mcp_app = build_mcp_server()
+            async with create_connected_server_and_client_session(
+                mcp_app._mcp_server,  # noqa: SLF001
+                raise_exceptions=True,
+            ) as session:
+                tools = await session.list_tools()
+                return {t.name for t in tools.tools}
+
+        import asyncio
+
+        names = asyncio.run(_list())
         self.assertEqual(names, set(TOOL_WHITELIST))
 
 

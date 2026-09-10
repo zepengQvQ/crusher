@@ -34,10 +34,11 @@
       "挂钩标的波动导致收益不确定"
     ],
     "regulatory_notes": "同一存款人在同一家银行的本息合计50万元以内受《存款保险条例》保障。",
-    "source_name": "本地产品知识",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/products.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "snowball",
@@ -87,10 +88,11 @@
       "产品提前终止后需承担再投资风险"
     ],
     "regulatory_notes": "资管新规打破刚性兑付，金融机构不得承诺保本保收益。",
-    "source_name": "本地产品知识",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/products.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "insurance",
@@ -129,10 +131,11 @@
       "免责条款范围外的情形不予赔付"
     ],
     "regulatory_notes": "犹豫期通常为10-15天（重疾险常见15天），期内退保全额退还保费。",
-    "source_name": "本地产品知识",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/products.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "fund",
@@ -171,10 +174,11 @@
       "管理费、托管费、业绩报酬等抬高持有成本"
     ],
     "regulatory_notes": "公募基金持有期不满7日赎回的，监管要求收取不低于1.5%的赎回费。",
-    "source_name": "本地产品知识",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/products.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   },
   {
     "id": "loan",
@@ -219,9 +223,10 @@
       "提前还款需支付违约金，抬高实际成本"
     ],
     "regulatory_notes": "民间借贷利率受司法保护上限约束；金融机构贷款需明示年化利率（单利）。",
-    "source_name": "本地产品知识",
+    "source_name": "未核验本地草稿",
     "source_url": null,
-    "source_note": "knowledge/products.json",
-    "verified_at": "2026-09-10"
+    "source_note": "本地 Demo 草稿，未经外部权威来源核验",
+    "verified_at": "2026-09-10",
+    "verification_status": "UNVERIFIED"
   }
 ]

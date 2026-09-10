@@ -30,7 +30,8 @@ class KnowledgeReferenceChannelTests(unittest.TestCase):
         terms = repo.list_terms()
         self.assertGreater(len(terms), 0)
         self.assertTrue(all(hasattr(t, "id") and hasattr(t, "term") for t in terms))
-        self.assertTrue(all(t.source_note.startswith("knowledge/") for t in terms))
+        self.assertTrue(all(hasattr(t, "verification_status") for t in terms))
+        self.assertTrue(all(t.source_note for t in terms))
 
     def test_document_fact_vs_general_reference(self) -> None:
         repo = LocalFileKnowledgeRepository(knowledge_dir=PROJECT_ROOT / "knowledge")
@@ -52,9 +53,9 @@ class KnowledgeReferenceChannelTests(unittest.TestCase):
         for ref in result.general_references:
             self.assertEqual(ref.status, FactStatus.general_reference)
             self.assertTrue(ref.source)
-            if "products.json" in ref.source:
-                self.assertIn("verified=", ref.source)
-                self.assertIn("本地产品知识", ref.source)
+            if "status=UNVERIFIED" in ref.source or "未核验" in ref.text:
+                self.assertIn("status=UNVERIFIED", ref.source)
+                self.assertIn("verified_at=", ref.source)
 
 
 if __name__ == "__main__":

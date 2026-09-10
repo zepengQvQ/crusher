@@ -1,11 +1,13 @@
-"""知识库 JSON Schema 校验与加载（P2-04）。
+"""知识库 JSON Schema 校验与加载（P2-04 / P2-RC-07）。
 
 启动或 CLI 均可调用；缺字段、重复 ID、坏正则、未知产品引用一律失败。
+来源不得自证；敏感知识缺外部来源须 UNVERIFIED；日期不得晚于今天且须与 Manifest 一致。
 """
 from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -13,9 +15,15 @@ from pydantic import ValidationError
 from app.domain.models.knowledge import (
     KnowledgeBundle,
     KnowledgeManifest,
+    KnowledgeVerificationStatus,
     ProductKnowledge,
     RiskPatternKnowledge,
     TermKnowledge,
+)
+
+_SELF_PROOF_NOTE = re.compile(
+    r"^(knowledge/[\w./-]+\.json)(#.*)?$",
+    re.IGNORECASE,
 )
 
 
@@ -90,6 +98,122 @@ def _check_product_refs(
                 )
 
 
+def _has_external_source(*, source_url: str | None, source_note: str) -> bool:
+    url = (source_url or "").strip()
+    if url.startswith(("http://", "https://")):
+        return True
+    note = (source_note or "").strip()
+    if not note:
+        return False
+    if _SELF_PROOF_NOTE.match(note):
+        return False
+    if note.startswith("knowledge/") and note.endswith(".json"):
+        return False
+    return True
+
+
+def _is_self_proving(*, source_url: str | None, source_note: str) -> bool:
+    """来源仅回指 knowledge/*.json 自身时视为自证。"""
+    url = (source_url or "").strip()
+    if url.startswith(("http://", "https://")):
+        return False
+    note = (source_note or "").strip()
+    if _SELF_PROOF_NOTE.match(note):
+        return True
+    if note.startswith("knowledge/") and ".json" in note:
+        return True
+    return False
+
+
+def _check_entry_provenance(
+    *,
+    label: str,
+    entry_id: str,
+    verification_status: KnowledgeVerificationStatus,
+    source_url: str | None,
+    source_note: str,
+    verified_at: date,
+    manifest: KnowledgeManifest,
+    sensitive: bool,
+) -> None:
+    today = date.today()
+    if verified_at > today:
+        raise KnowledgeValidationError(
+            f"{label} {entry_id} 的 verified_at 不能是未来日期: {verified_at.isoformat()}"
+        )
+    if verified_at > manifest.last_verified_at:
+        raise KnowledgeValidationError(
+            f"{label} {entry_id} 的 verified_at 晚于 Manifest.last_verified_at"
+        )
+    if verification_status == KnowledgeVerificationStatus.verified:
+        if _is_self_proving(source_url=source_url, source_note=source_note):
+            raise KnowledgeValidationError(
+                f"{label} {entry_id} 不得用知识 JSON 自身自证为 VERIFIED"
+            )
+        if not _has_external_source(source_url=source_url, source_note=source_note):
+            raise KnowledgeValidationError(
+                f"{label} {entry_id} 标记 VERIFIED 但缺少可核查外部来源"
+            )
+    elif sensitive and not _has_external_source(
+        source_url=source_url, source_note=source_note
+    ):
+        if verification_status != KnowledgeVerificationStatus.unverified:
+            raise KnowledgeValidationError(
+                f"{label} {entry_id} 监管/风险/定义类知识缺外部来源必须为 UNVERIFIED"
+            )
+
+
+def _check_provenance_bundle(
+    manifest: KnowledgeManifest,
+    products: list[ProductKnowledge],
+    patterns: list[RiskPatternKnowledge],
+    terms: list[TermKnowledge],
+) -> None:
+    if manifest.last_verified_at > date.today():
+        raise KnowledgeValidationError(
+            f"Manifest.last_verified_at 不能是未来日期: "
+            f"{manifest.last_verified_at.isoformat()}"
+        )
+    for product in products:
+        sensitive = bool(
+            (product.definition or "").strip()
+            or (product.regulatory_notes or "").strip()
+            or (product.risk_level_hint or "").strip()
+        )
+        _check_entry_provenance(
+            label="产品",
+            entry_id=product.id,
+            verification_status=product.verification_status,
+            source_url=product.source_url,
+            source_note=product.source_note,
+            verified_at=product.verified_at,
+            manifest=manifest,
+            sensitive=sensitive,
+        )
+    for pattern in patterns:
+        _check_entry_provenance(
+            label="风险模式",
+            entry_id=pattern.id,
+            verification_status=pattern.verification_status,
+            source_url=pattern.source_url,
+            source_note=pattern.source_note,
+            verified_at=pattern.verified_at,
+            manifest=manifest,
+            sensitive=True,
+        )
+    for term in terms:
+        _check_entry_provenance(
+            label="术语",
+            entry_id=term.id,
+            verification_status=term.verification_status,
+            source_url=term.source_url,
+            source_note=term.source_note,
+            verified_at=term.verified_at,
+            manifest=manifest,
+            sensitive=bool((term.definition or "").strip()),
+        )
+
+
 def load_knowledge_bundle(
     knowledge_dir: Path,
 ) -> tuple[KnowledgeBundle, dict[str, re.Pattern[str]]]:
@@ -113,6 +237,7 @@ def load_knowledge_bundle(
     _unique_ids(risk_patterns, "risk_patterns.json")
     _unique_ids(terms, "terms.json")
     _check_product_refs(products, risk_patterns)
+    _check_provenance_bundle(manifest, products, risk_patterns, terms)
     compiled = _compile_regexes(risk_patterns)
 
     bundle = KnowledgeBundle(

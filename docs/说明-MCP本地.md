@@ -68,8 +68,10 @@ npx @modelcontextprotocol/inspector \
 ## 测试
 
 ```bash
-make test-p2-10          # 含白名单 / Use Case 一致性；SDK 注册测在已安装 mcp 时执行
-make test                # 核心全量：不依赖 MCP 可选包仍可通过「无 mcp 也能启动」检查
+make test-p2-10          # 要求已 make setup-mcp；SDK 协议测试不得静默 skip
+make test-p2-rc-07       # RC-07：MCP SDK + 知识来源 + Harness 拆分
+make test-p2-rc          # RC-01～07 收口聚合
+make test                # 核心全量：未装 mcp 时 SDK 用例可 skip，其余仍通过
 ```
 
 ## 安全边界

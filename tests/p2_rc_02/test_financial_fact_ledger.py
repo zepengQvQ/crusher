@@ -68,7 +68,9 @@ class AmountEvidenceTests(unittest.TestCase):
             text=LOAN, label="A", hint=ProductHint.loan, knowledge=repo
         )
         side = fields["amount"]
-        self.assertEqual(side.display, "100000")
+        # display 保留原文「10万元」；标准化值在 normalized（与 RC-06 证据口径一致）
+        self.assertEqual(side.display, "10万元")
+        self.assertEqual(side.normalized, "100000")
         self.assertTrue(side.evidence)
         self.assertEqual(side.evidence[0].quote, "10万元")
 

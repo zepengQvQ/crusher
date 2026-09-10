@@ -1,7 +1,8 @@
-"""本地知识库强类型条目（P2-04）。
+"""本地知识库强类型条目（P2-04 / P2-RC-07）。
 
 文档事实与通用知识分通道：通用知识只能进入 general_references，
 不能写入 document_fact。
+来源字段不得用 JSON 自身证明正确；缺可核查来源须标 UNVERIFIED。
 """
 from __future__ import annotations
 
@@ -18,6 +19,13 @@ class MatchMode(str, Enum):
     regex_or_keywords = "regex_or_keywords"
     regex_only = "regex_only"
     all_keywords = "all_keywords"
+
+
+class KnowledgeVerificationStatus(str, Enum):
+    """知识核验状态：仅 VERIFIED 可作为已确认知识引用发布。"""
+
+    verified = "VERIFIED"
+    unverified = "UNVERIFIED"
 
 
 class KnowledgeRiskLevel(str, Enum):
@@ -66,10 +74,13 @@ class ProductKnowledge(StrictModel):
     principal_protection_hint: str = ""
     common_risks: list[str] = Field(default_factory=list)
     regulatory_notes: str = ""
-    source_name: str = "本地产品知识"
+    source_name: str = "未核验本地草稿"
     source_url: str | None = None
-    source_note: str = "knowledge/products.json"
+    source_note: str = "本地 Demo 草稿，未经外部权威来源核验"
     verified_at: date
+    verification_status: KnowledgeVerificationStatus = (
+        KnowledgeVerificationStatus.unverified
+    )
 
 
 class RiskPatternKnowledge(StrictModel):
@@ -85,10 +96,13 @@ class RiskPatternKnowledge(StrictModel):
     negation_cues: list[str] = Field(default_factory=list)
     max_keyword_span: int = Field(default=48, ge=1, le=500)
     numeric_rule: NumericRule | None = None
-    source_name: str = "本地风险模式"
+    source_name: str = "未核验本地草稿"
     source_url: str | None = None
-    source_note: str = "knowledge/risk_patterns.json"
+    source_note: str = "本地 Demo 草稿，未经外部权威来源核验"
     verified_at: date
+    verification_status: KnowledgeVerificationStatus = (
+        KnowledgeVerificationStatus.unverified
+    )
 
     @model_validator(mode="after")
     def _need_matcher(self) -> RiskPatternKnowledge:
@@ -113,10 +127,13 @@ class TermKnowledge(StrictModel):
     definition: str = Field(..., min_length=1)
     plain_explanation: str = Field(..., min_length=1)
     risk_hint: str = ""
-    source_name: str = "本地术语表"
+    source_name: str = "未核验本地草稿"
     source_url: str | None = None
-    source_note: str = "knowledge/terms.json"
+    source_note: str = "本地 Demo 草稿，未经外部权威来源核验"
     verified_at: date
+    verification_status: KnowledgeVerificationStatus = (
+        KnowledgeVerificationStatus.unverified
+    )
 
 
 class KnowledgeManifest(StrictModel):

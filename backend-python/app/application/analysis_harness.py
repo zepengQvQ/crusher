@@ -1,19 +1,17 @@
-"""分析流程 Harness（P2-01）。
-
-用途：用显式阶段顺序编排单材料分析，并在停止条件处退出。
+"""
+用途：单材料分析流程协调器，只控制阶段顺序与停止条件。
+Java 对照：Application Orchestrator / Workflow 编排器（非规则引擎、非 Agent）。
 输入：AnalysisContext（任务 ID、原文、产品提示）。
 输出：HarnessResult（Outcome、报告或 error_code、停止阶段）。
-不变量：不依赖 FastAPI/HTTPException/Vue/MCP；后续未实现阶段用兼容适配器且显式标注。
-失败方式：OutcomeStatus.refuse + failed_http_stage；
-未知异常按当前 Harness 阶段映射，不一律标 explain。
-
-Java 对照：Application Orchestrator / Workflow 编排器（非规则引擎、非 Agent 框架）。
+业务不变量：不拼装 ExplainRequest/Report；发布裁决交给 PublicationService。
+失败方式：OutcomeStatus.refuse + failed_http_stage；未知异常按当前阶段映射。
 """
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable, Callable
 
+from app.application.explain_request_builder import ExplainRequestBuilder
+from app.application.report_assembler import ReportAssembler
 from app.domain.llm_errors import (
     LlmGatewayError,
     LlmInvalidJsonError,
@@ -29,10 +27,8 @@ from app.domain.models import (
     Finding,
     FindingSeverity,
     PlainLanguage,
-    ProductCandidate,
     ProductResolution,
     ProductRiskGrade,
-    ProductTypeId,
 )
 from app.domain.models.analysis_context import (
     HARNESS_TO_HTTP_STAGE,
@@ -43,7 +39,7 @@ from app.domain.models.analysis_context import (
     OutcomeStatus,
 )
 from app.domain.models.completeness import CompletenessCheckRequest
-from app.domain.models.enums import EvidenceSource, ParameterKey
+from app.domain.models.enums import EvidenceSource
 from app.domain.models.intent import (
     INTENT_USE_CASE_MAP,
     DecisionSource,
@@ -53,7 +49,6 @@ from app.domain.models.intent import (
     IntentType,
     SourceEnvelope,
 )
-from app.domain.models.llm import LlmExplainRequest
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
 from app.domain.rules.apply_fact_corrections import (
     active_financial_facts,
@@ -62,15 +57,12 @@ from app.domain.rules.apply_fact_corrections import (
 from app.domain.rules.completeness_checker import CompletenessChecker
 from app.domain.rules.engine import RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
-from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
+from app.domain.rules.fact_extractor import FactExtractor
 from app.domain.rules.intent_resolver import IntentResolver
 from app.domain.rules.product_resolver import (
-    CONFIRM_PENDING_QUESTION,
     DEMO_SUPPORTED_PRODUCTS,
-    SCOPE_PENDING_QUESTION,
     ProductResolver,
 )
-from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
 from app.domain.validation.program_plain_language import render_program_plain_language
 from app.domain.validation.publication_gate import (
     decide_clarify,
@@ -266,7 +258,7 @@ class AnalysisHarness:
                         failed_http_stage="explain",
                     )
 
-            explain_req = self._build_explain_request(extracted, findings)
+            explain_req = ExplainRequestBuilder.build(extracted, findings)
             try:
                 explanation = await self._llm.complete(explain_req)
             except LlmTimeoutError:
@@ -347,7 +339,7 @@ class AnalysisHarness:
                     decision.user_reason,
                 )
                 await self._stage(ctx, HarnessStage.decide_outcome, on_http_stage)
-                report = self._build_report(
+                report = ReportAssembler.build_supported_report(
                     resolution,
                     extracted,
                     findings,
@@ -378,7 +370,7 @@ class AnalysisHarness:
                 financial_facts=list(extracted.financial_facts),
                 key_parameters=list(extracted.key_parameters),
             )
-            report = self._build_report(
+            report = ReportAssembler.build_supported_report(
                 resolution,
                 extracted,
                 findings,
@@ -584,7 +576,10 @@ class AnalysisHarness:
                 outcome=OutcomeStatus.clarify,
                 report=report,
                 error_code=ErrorCode.CLARIFICATION_INVALID,
-                error_message=exc.message,
+                stop_harness_stage=HarnessStage.check_completeness,
+                stop_reason=exc.message,
+                failed_http_stage=None,
+                publication=decision_pub,
             )
 
         # 使用规范化后的请求写回上下文
@@ -681,7 +676,7 @@ class AnalysisHarness:
                 ],
             )
             outcome = OutcomeStatus.publish_partial
-        report = self._build_scope_gate_report(resolution, publication=decision)
+        report = ReportAssembler.build_scope_gate_report(resolution, publication=decision)
         ctx.report = report
         ctx.outcome = outcome
         ctx.error_code = decision.reason_code
@@ -777,148 +772,6 @@ class AnalysisHarness:
             return []
         return list(self._rules.match_risks(text, product_type=product_type_id))
 
-    def _build_explain_request(
-        self,
-        extracted: ExtractResult,
-        findings: list[Finding],
-    ) -> LlmExplainRequest:
-        fact_ids: list[str] = []
-        facts_payload: list[dict] = []
-        for p in extracted.key_parameters:
-            fid = f"param:{p.key.value}"
-            fact_ids.append(fid)
-            facts_payload.append(
-                {
-                    "fact_id": fid,
-                    "key": p.key.value,
-                    "label": p.label,
-                    "status": p.status.value,
-                    "value": p.value,
-                    "amount": str(p.amount) if p.amount is not None else None,
-                }
-            )
-        for ff in active_financial_facts(extracted.financial_facts):
-            fact_ids.append(ff.fact_id)
-            facts_payload.append(
-                {
-                    "fact_id": ff.fact_id,
-                    "field_key": ff.field_key,
-                    "raw_value": ff.raw_value,
-                    "normalized_value": ff.normalized_value,
-                    "status": ff.status.value,
-                    "qualifiers": list(ff.qualifiers),
-                    "condition_text": ff.condition_text,
-                }
-            )
-        finding_ids = [f.id for f in findings]
-        findings_payload = [
-            {
-                "id": f.id,
-                "title": f.title,
-                "severity": f.finding_severity.value,
-                "explanation": f.explanation,
-            }
-            for f in findings
-        ]
-        evidence_payload = [
-            {
-                "finding_id": f.id,
-                "quote": ev.quote,
-                "start": ev.start,
-                "end": ev.end,
-            }
-            for f in findings
-            for ev in f.evidence
-        ]
-        knowledge_ids: list[str] = []
-        for ref in extracted.general_references:
-            kid = ref.source.strip() or "knowledge:general"
-            if kid not in knowledge_ids:
-                knowledge_ids.append(kid)
-        if not knowledge_ids:
-            knowledge_ids = ["knowledge:demo"]
-        # 去重保序
-        seen_f: set[str] = set()
-        unique_fact_ids: list[str] = []
-        for fid in fact_ids:
-            if fid in seen_f:
-                continue
-            seen_f.add(fid)
-            unique_fact_ids.append(fid)
-
-        user_prompt = FINDINGS_USER_TEMPLATE.format(
-            allowed_fact_ids_json=json.dumps(unique_fact_ids, ensure_ascii=False),
-            allowed_finding_ids_json=json.dumps(finding_ids, ensure_ascii=False),
-            allowed_knowledge_ids_json=json.dumps(knowledge_ids, ensure_ascii=False),
-            facts_json=json.dumps(facts_payload, ensure_ascii=False),
-            findings_json=json.dumps(findings_payload, ensure_ascii=False),
-            evidence_json=json.dumps(evidence_payload, ensure_ascii=False),
-        )
-        return LlmExplainRequest(
-            system_prompt=RULE_REVIEW_SYSTEM,
-            user_prompt=user_prompt,
-            allowed_fact_ids=unique_fact_ids,
-            allowed_finding_ids=finding_ids,
-            allowed_knowledge_ids=knowledge_ids,
-        )
-
-    def _build_scope_gate_report(
-        self,
-        resolution: ProductResolution,
-        *,
-        publication=None,
-    ) -> AnalysisReport:
-        if resolution.analysis_scope == AnalysisScope.needs_confirmation:
-            plain = "产品类型存在冲突，请确认后重新分析。本次未做完整风险分析。"
-            pending = [CONFIRM_PENDING_QUESTION]
-        else:
-            plain = "当前 Demo 未分析该产品，请选择结构性存款或贷款。本次未做完整风险分析。"
-            pending = [SCOPE_PENDING_QUESTION]
-        candidates = list(resolution.candidates)
-        if not candidates:
-            candidates = [
-                ProductCandidate(
-                    product_type_id=ProductTypeId.unknown,
-                    product_type_name="未识别",
-                    confidence=0.0,
-                    evidence_quotes=[],
-                )
-            ]
-        elif resolution.analysis_scope == AnalysisScope.out_of_scope:
-            tagged: list[ProductCandidate] = []
-            for c in candidates:
-                name = c.product_type_name
-                if "out of scope" not in name.lower():
-                    name = f"{name}（out of scope）"
-                tagged.append(
-                    ProductCandidate(
-                        product_type_id=c.product_type_id,
-                        product_type_name=name,
-                        confidence=c.confidence,
-                        evidence_quotes=list(c.evidence_quotes),
-                    )
-                )
-            candidates = tagged
-        return AnalysisReport(
-            product_candidates=candidates,
-            resolved_product_type=resolution.resolved_product_type,
-            analysis_scope=resolution.analysis_scope,
-            scope_reason=resolution.reason,
-            product_risk_grade=ProductRiskGrade(
-                value=None,
-                status=FactStatus.not_disclosed,
-                note="原文未明确风险等级",
-            ),
-            plain_language=PlainLanguage(text=plain, status=StageStatus.partial),
-            key_parameters=[],
-            findings=[],
-            missing_disclosures=[],
-            general_references=[],
-            pending_questions=pending,
-            disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
-            publication=publication,
-        )
-
     def _hits_to_findings(self, risk_hits: list[RiskHit]) -> list[Finding]:
         findings: list[Finding] = []
         for hit in risk_hits:
@@ -942,62 +795,3 @@ class AnalysisHarness:
                 )
             )
         return findings
-
-    def _build_report(
-        self,
-        resolution: ProductResolution,
-        extracted: ExtractResult,
-        findings: list[Finding],
-        plain: str,
-        *,
-        plain_status: StageStatus = StageStatus.success,
-        publication=None,
-    ) -> AnalysisReport:
-        candidates = list(resolution.candidates)
-        if not candidates and resolution.resolved_product_type is not None:
-            candidates = [
-                ProductCandidate(
-                    product_type_id=resolution.resolved_product_type,
-                    product_type_name=resolution.resolved_product_type.value,
-                    confidence=1.0,
-                    evidence_quotes=[],
-                )
-            ]
-
-        grade_param = next(
-            (
-                p
-                for p in extracted.key_parameters
-                if p.key == ParameterKey.product_risk_grade
-            ),
-            None,
-        )
-        if grade_param and grade_param.status == FactStatus.document_fact and grade_param.value:
-            risk_grade = ProductRiskGrade(
-                value=grade_param.value,
-                status=FactStatus.document_fact,
-                note="",
-            )
-        else:
-            risk_grade = ProductRiskGrade(
-                value=None,
-                status=FactStatus.not_disclosed,
-                note="原文未明确风险等级",
-            )
-
-        return AnalysisReport(
-            product_candidates=candidates,
-            resolved_product_type=resolution.resolved_product_type,
-            analysis_scope=AnalysisScope.supported,
-            scope_reason=resolution.reason,
-            product_risk_grade=risk_grade,
-            plain_language=PlainLanguage(text=plain, status=plain_status),
-            key_parameters=list(extracted.key_parameters),
-            financial_facts=list(extracted.financial_facts),
-            findings=findings,
-            missing_disclosures=list(extracted.missing_disclosures),
-            general_references=list(extracted.general_references),
-            pending_questions=list(extracted.pending_questions),
-            disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
-            publication=publication,
-        )

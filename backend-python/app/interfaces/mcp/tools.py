@@ -1,8 +1,12 @@
-"""P2-10：MCP Tools —— 仅白名单，委托现有 Use Case / 校验门禁。"""
+"""P2-10：MCP Tools —— 仅白名单，委托现有 Use Case / 校验门禁。
+
+分析类工具为 async，避免在已有事件循环内调用 asyncio.run()。
+"""
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import inspect
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from pydantic import Field, ValidationError
@@ -25,7 +29,7 @@ from app.domain.models.report import (
     KeyParameter,
     StrictModel,
 )
-from app.domain.validation.publication_gate import run_publication_gate
+from app.domain.validation.publication_service import PublicationService
 from app.interfaces.mcp.sanitize import sanitize_public_payload
 from app.shared.constants import MAX_INPUT_CHARS
 
@@ -38,6 +42,8 @@ TOOL_WHITELIST = frozenset(
         "verify_financial_draft",
     }
 )
+
+_PUBLICATION = PublicationService()
 
 
 class McpToolError(ValueError):
@@ -75,7 +81,7 @@ def resolve_financial_intent(payload: dict[str, Any]) -> dict[str, Any]:
     return _dump(decision)
 
 
-def analyze_financial_text(payload: dict[str, Any]) -> dict[str, Any]:
+async def analyze_financial_text(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         args = AnalyzeFinancialTextArgs.model_validate(payload)
         req = AnalyzeTextRequest.model_validate(
@@ -87,11 +93,7 @@ def analyze_financial_text(payload: dict[str, Any]) -> dict[str, Any]:
     uc = get_analyze_text_use_case()
     store = get_task_store()
     task = uc.submit(req)
-
-    async def _run() -> None:
-        await uc.run(task.task_id, req)
-
-    asyncio.run(_run())
+    await uc.run(task.task_id, req)
     done = store.get(task.task_id)
     if done is None:
         raise McpToolError("任务丢失")
@@ -115,13 +117,13 @@ def analyze_financial_text(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def compare_financial_products(payload: dict[str, Any]) -> dict[str, Any]:
+    """产品对照：走 CompareProductsUseCase → PublicationService（与 RC-06 同门禁）。"""
     try:
         req = ProductCompareRequest.model_validate(payload)
     except ValidationError as exc:
         raise McpToolError("产品对照请求不合法") from exc
     report = get_compare_products_use_case().execute(req)
     data = _dump(report)
-    # 不返回推荐与综合排名（模型本身也不产出）；显式剔除可能字段
     data.pop("recommendation", None)
     data.pop("ranking", None)
     data.pop("score", None)
@@ -146,7 +148,7 @@ def verify_financial_draft(payload: dict[str, Any]) -> dict[str, Any]:
     except ValidationError as exc:
         raise McpToolError("校验请求不合法") from exc
     plain = args.draft.render_plain_language()
-    result = run_publication_gate(
+    result = _PUBLICATION.verify_single_analysis(
         source_text=args.source_text,
         draft=args.draft,
         plain=plain,
@@ -160,7 +162,7 @@ def verify_financial_draft(payload: dict[str, Any]) -> dict[str, Any]:
     return _dump(result)
 
 
-_HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+_HANDLERS: dict[str, Callable[..., dict[str, Any] | Awaitable[dict[str, Any]]]] = {
     "resolve_financial_intent": resolve_financial_intent,
     "analyze_financial_text": analyze_financial_text,
     "compare_financial_products": compare_financial_products,
@@ -169,10 +171,38 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
 }
 
 
-def invoke_tool(name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-    """唯一工具入口：模型返回的工具名不能绕过白名单。"""
+async def invoke_tool_async(
+    name: str, arguments: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """异步工具入口：供 MCP Host / 已有事件循环调用。"""
     tool = (name or "").strip()
     if tool not in TOOL_WHITELIST:
         raise McpToolError(f"工具不在白名单：{tool}")
     handler = _HANDLERS[tool]
-    return handler(arguments or {})
+    result = handler(arguments or {})
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+def invoke_tool(name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    """同步桥接：仅在无运行中事件循环时用 asyncio.run；有循环时请用 invoke_tool_async。"""
+    tool = (name or "").strip()
+    if tool not in TOOL_WHITELIST:
+        raise McpToolError(f"工具不在白名单：{tool}")
+    handler = _HANDLERS[tool]
+    result = handler(arguments or {})
+    if not inspect.isawaitable(result):
+        return result
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        if inspect.iscoroutine(result):
+            return asyncio.run(result)
+        async def _await_once() -> dict[str, Any]:
+            return await result  # type: ignore[misc]
+
+        return asyncio.run(_await_once())
+    raise McpToolError(
+        f"工具 {tool} 为 async，当前已有事件循环，请使用 invoke_tool_async"
+    )

@@ -552,26 +552,37 @@ class FactExtractor:
         for product in self._knowledge.list_products():
             if product.id != product_type_id:
                 continue
+            status = product.verification_status.value
+            source_meta = (
+                f"{product.source_note}#{product.id}"
+                f"|{product.source_name}|status={status}"
+                f"|verified_at={product.verified_at.isoformat()}"
+            )
             hint = (product.principal_protection_hint or "").strip()
             if hint and product_type_id == "structured_deposit":
+                prefix = (
+                    "行业参考（非本材料事实，未核验知识）"
+                    if status == "UNVERIFIED"
+                    else "行业参考（非本材料事实）"
+                )
                 refs.append(
                     GeneralReference(
-                        text=f"行业参考（非本材料事实）：{hint}",
-                        source=(
-                            f"{product.source_note}#{product.id}"
-                            f"|{product.source_name}|verified={product.verified_at.isoformat()}"
-                        ),
+                        text=f"{prefix}：{hint}",
+                        source=source_meta,
                     )
                 )
             note = (product.regulatory_notes or "").strip()
             if note:
+                # UNVERIFIED 监管要点仅作参考标注，不得伪装为已确认知识
+                prefix = (
+                    "监管要点参考（未核验，不得当作已确认结论）"
+                    if status == "UNVERIFIED"
+                    else "监管要点参考"
+                )
                 refs.append(
                     GeneralReference(
-                        text=f"监管要点参考：{note}",
-                        source=(
-                            f"{product.source_note}#{product.id}"
-                            f"|{product.source_name}|verified={product.verified_at.isoformat()}"
-                        ),
+                        text=f"{prefix}：{note}",
+                        source=source_meta,
                     )
                 )
             break
