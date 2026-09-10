@@ -53,9 +53,11 @@
           class="touch-btn"
           @click="fillExample(ex)"
         >
-          {{ ex.name }}
+          <van-icon :name="exIcon(ex.id)" size="14" style="margin-right:4px" />{{ ex.name }}
         </van-button>
-        <van-button size="small" plain class="touch-btn" @click="onClear">清空</van-button>
+        <van-button size="small" plain class="touch-btn" @click="onClear">
+          <van-icon name="delete-o" size="14" style="margin-right:4px" />清空
+        </van-button>
       </div>
       <van-button
         type="primary"
@@ -65,6 +67,7 @@
         :loading="loading"
         @click="onSubmit()"
       >
+        <template #icon v-if="!loading"><van-icon name="fire-o" /></template>
         开始分析
       </van-button>
       <van-button
@@ -174,6 +177,12 @@ const productLabel = computed(() => {
   const hit = PRODUCT_OPTIONS.find((o) => o.value === productHint.value)
   return hit?.text || '自动识别'
 })
+
+function exIcon(id) {
+  if (id === 'structured_deposit') return 'gold-coin-o'
+  if (id === 'loan') return 'cash-o'
+  return 'certificate'
+}
 
 onMounted(() => {
   store.restoreFromStorage()
