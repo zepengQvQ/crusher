@@ -1,0 +1,24 @@
+---
+description: Crusher Demo 改代码硬约束（分层、类型权威、禁区）
+alwaysApply: true
+---
+
+# Crusher Agent 硬约束
+
+改代码前阅读并遵守：`docs/约定-Agent改代码.md`。范围看 `docs/范围-Demo支持与样例.md`，落点看 `docs/地图-代码与请求链路.md`。
+
+## 必须
+
+- HTTP 只校验/组装；规则在 `domain/`；编排在 `application/`；接线只在 `composition_root.py`
+- 新代码用 `CreateAnalysisRequest`、`LlmAnalysisDraft`、`is_target_negated`；禁止再加兼容别名
+- `error_code` 走枚举；发布只信 `publication`；禁止静默 fallback / 空 findings 冒充安全
+- Finding 必须有原文证据；未披露用 `not_disclosed`
+- 前端只经 `api/client.js`；禁止手改 `generated-types.js`
+- 先补失败测试再改实现；用户要求才 commit；禁止提交 `.env`
+
+## 禁止
+
+- 恢复 `legacy/`；把 MCP 挂进 H5/FastAPI 主链路
+- 在 `routes.py` 写领域规则
+- 未改范围文档就扩产品类型/主链路
+- 编造「下一清单编号」；对用户不用简体中文以外的回复语言（代码标识保持英文）
