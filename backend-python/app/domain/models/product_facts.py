@@ -9,6 +9,7 @@ from app.domain.models.claim_comparison import EvidenceRef
 from app.domain.models.enums import ProductHint, ProductTypeId
 from app.domain.models.p1_enums import DiffStatus, FieldStatus, ProductFactDimension
 from app.domain.models.report import StrictModel
+from app.domain.models.verification import PublicationDecision
 from app.shared.constants import MAX_INPUT_CHARS
 
 
@@ -63,4 +64,8 @@ class ProductComparisonReport(StrictModel):
     disclaimer: str = (
         "本对照仅按固定维度并列展示已提交材料中的事实与缺失项，"
         "不对产品做选择判断，不构成投资建议。"
+    )
+    publication: PublicationDecision | None = Field(
+        default=None,
+        description="发布决策（由 PublicationService 写入）",
     )

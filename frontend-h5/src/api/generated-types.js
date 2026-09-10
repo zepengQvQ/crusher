@@ -550,6 +550,7 @@ export const ValueKind = Object.freeze({
  * @property {Array<FinancialFact>} [sales_financial_facts]
  * @property {Array<FinancialFact>} [official_financial_facts]
  * @property {string} [disclaimer]
+ * @property {PublicationDecision} [publication]
  */
 
 /**
@@ -630,6 +631,7 @@ export const ValueKind = Object.freeze({
  * @property {string} answer
  * @property {Array<EvidenceRef>} [evidence]
  * @property {Array<string>} [missing_info]
+ * @property {PublicationDecision} [publication]
  */
 
 /**
@@ -655,6 +657,7 @@ export const ValueKind = Object.freeze({
  * @property {string} result
  * @property {string} [rounding]
  * @property {string} [disclaimer]
+ * @property {PublicationDecision} [publication]
  */
 
 /**
@@ -674,6 +677,7 @@ export const ValueKind = Object.freeze({
  * @property {ProductFacts} product_b
  * @property {Array<DimensionComparison>} [dimensions]
  * @property {string} [disclaimer]
+ * @property {PublicationDecision} [publication]
  */
 
 /**

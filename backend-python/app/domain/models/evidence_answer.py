@@ -7,6 +7,7 @@ from pydantic import Field
 
 from app.domain.models.claim_comparison import EvidenceRef
 from app.domain.models.report import StrictModel
+from app.domain.models.verification import PublicationDecision
 
 
 class AnswerStatus(str, Enum):
@@ -27,3 +28,7 @@ class EvidenceAnswer(StrictModel):
     answer: str
     evidence: list[EvidenceRef] = Field(default_factory=list)
     missing_info: list[str] = Field(default_factory=list)
+    publication: PublicationDecision | None = Field(
+        default=None,
+        description="发布决策（由 PublicationService 写入）",
+    )

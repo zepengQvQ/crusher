@@ -43,7 +43,7 @@ from app.domain.models.analysis_context import (
     OutcomeStatus,
 )
 from app.domain.models.completeness import CompletenessCheckRequest
-from app.domain.models.enums import EvidenceSource, ParameterKey, ProductHint
+from app.domain.models.enums import EvidenceSource, ParameterKey
 from app.domain.models.intent import (
     INTENT_USE_CASE_MAP,
     DecisionSource,
@@ -74,12 +74,11 @@ from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
 from app.domain.validation.program_plain_language import render_program_plain_language
 from app.domain.validation.publication_gate import (
     decide_clarify,
-    decide_from_verification,
     decide_publish,
     decide_publish_partial,
     decide_refuse,
-    run_publication_gate,
 )
+from app.domain.validation.publication_service import PublicationService
 from app.shared.enums import ErrorCode, StageStatus, user_message_for
 
 _SEVERITY = {
@@ -104,6 +103,7 @@ class AnalysisHarness:
         rule_engine: RuleEngine,
         intent_resolver: IntentResolver | None = None,
         completeness_checker: CompletenessChecker | None = None,
+        publication: PublicationService | None = None,
     ) -> None:
         self._knowledge = knowledge_repository
         self._llm = llm_gateway
@@ -112,6 +112,7 @@ class AnalysisHarness:
         self._rules = rule_engine
         self._intent_resolver = intent_resolver or IntentResolver()
         self._completeness = completeness_checker or CompletenessChecker()
+        self._publication = publication or PublicationService()
 
     async def run(
         self,
@@ -311,8 +312,8 @@ class AnalysisHarness:
             )
 
             await self._stage(ctx, HarnessStage.verify, on_http_stage)
-            # P2-07：确定性发布门禁（证据/数值/条件/边界），不调用大模型
-            verification = run_publication_gate(
+            # P2-07 / P2-RC-06：经 PublicationService 跑确定性门禁（不调用大模型）
+            verification = self._publication.verify_single_analysis(
                 source_text=ctx.source_text,
                 draft=explanation,
                 plain=plain,
@@ -326,7 +327,7 @@ class AnalysisHarness:
                 rule_hit_count=rule_hit_count,
             )
             if not verification.can_publish:
-                decision = decide_from_verification(verification)
+                decision = self._publication.decide_from_verification(verification)
                 program_bits = render_program_plain_language(
                     findings=findings,
                     financial_facts=list(extracted.financial_facts),

@@ -9,6 +9,7 @@ from pydantic import Field, field_validator, model_validator
 from app.domain.models.claim_comparison import EvidenceRef
 from app.domain.models.p1_enums import CalculationKind, DayCountBasis, FieldStatus
 from app.domain.models.report import StrictModel
+from app.domain.models.verification import PublicationDecision
 
 T = TypeVar("T")
 
@@ -73,6 +74,10 @@ class CalculationResult(StrictModel):
     result: str
     rounding: str = "ROUND_HALF_UP, scale=2"
     disclaimer: str = "这不是收益承诺，仅按你确认的参数做简单演算。"
+    publication: PublicationDecision | None = Field(
+        default=None,
+        description="发布决策（由 PublicationService 写入）",
+    )
 
 
 def parse_decimal_input(raw: str | None, *, label: str) -> Decimal:

@@ -15,6 +15,7 @@ from app.domain.models.enums import ProductHint
 from app.domain.models.financial_fact import FinancialFact
 from app.domain.models.p1_enums import ClaimStatus, ClaimSubject, SourceType
 from app.domain.models.report import StrictModel
+from app.domain.models.verification import PublicationDecision
 from app.shared.constants import MAX_INPUT_CHARS
 
 
@@ -123,4 +124,8 @@ class DualAnalysisReport(StrictModel):
     )
     disclaimer: str = (
         "本对照仅比较已提交材料中的表述，不判断合同法律效力，不对销售人员打分。"
+    )
+    publication: PublicationDecision | None = Field(
+        default=None,
+        description="发布决策（由 PublicationService 写入）",
     )

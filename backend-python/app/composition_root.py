@@ -14,6 +14,7 @@ from app.application.resolve_intent import ResolveIntentUseCase
 from app.config.settings import Settings, get_settings
 from app.domain.llm_errors import LlmConfigError
 from app.domain.ports.protocols import LlmGateway
+from app.domain.validation.publication_service import PublicationService
 from app.infrastructure.document.mock_ocr import MockOcrGateway
 from app.infrastructure.document.pdf_image_parser import PdfImageDocumentParser
 from app.infrastructure.document.unavailable_ocr import UnavailableOcrGateway
@@ -55,6 +56,12 @@ def get_knowledge_repository() -> LocalFileKnowledgeRepository:
 
 
 @lru_cache
+def get_publication_service() -> PublicationService:
+    """P2-RC-06：跨入口共享结果门禁。"""
+    return PublicationService()
+
+
+@lru_cache
 def get_analyze_text_use_case() -> AnalyzeTextUseCase:
     settings = get_settings()
     return AnalyzeTextUseCase(
@@ -67,7 +74,7 @@ def get_analyze_text_use_case() -> AnalyzeTextUseCase:
 
 @lru_cache
 def get_analyze_dual_sources_use_case() -> AnalyzeDualSourcesUseCase:
-    return AnalyzeDualSourcesUseCase()
+    return AnalyzeDualSourcesUseCase(publication=get_publication_service())
 
 
 @lru_cache
@@ -79,17 +86,20 @@ def get_extract_document_use_case() -> ExtractDocumentUseCase:
 
 @lru_cache
 def get_answer_from_evidence_use_case() -> AnswerFromEvidenceUseCase:
-    return AnswerFromEvidenceUseCase()
+    return AnswerFromEvidenceUseCase(publication=get_publication_service())
 
 
 @lru_cache
 def get_calculate_scenario_use_case() -> CalculateScenarioUseCase:
-    return CalculateScenarioUseCase()
+    return CalculateScenarioUseCase(publication=get_publication_service())
 
 
 @lru_cache
 def get_compare_products_use_case() -> CompareProductsUseCase:
-    return CompareProductsUseCase(get_knowledge_repository())
+    return CompareProductsUseCase(
+        get_knowledge_repository(),
+        publication=get_publication_service(),
+    )
 
 
 @lru_cache

@@ -4,7 +4,7 @@ Java 对照：Application Service / UseCase。
 用途：对比同一产品的销售话术与正式材料。
 前置条件：两侧文本均非空。
 处理边界：只做确定性主张抽取与对照，不判断法律效力、不给销售打分。
-返回：DualAnalysisReport；单侧空在 HTTP 层拒绝。
+返回：DualAnalysisReport（经 PublicationService 门禁）。
 错误：无业务异常码时由路由映射 4xx。
 """
 from __future__ import annotations
@@ -19,13 +19,15 @@ from app.domain.rules.claim_extractor import extract_sales_claims
 from app.domain.rules.claim_matcher import match_claims_to_official
 from app.domain.rules.financial_fact_compare import compare_ledgers, merge_comparisons
 from app.domain.rules.financial_fact_extractor import FinancialFactExtractor
+from app.domain.validation.publication_service import PublicationService
 
 
 class AnalyzeDualSourcesUseCase:
     """同一产品：销售材料 A vs 正式材料 B。"""
 
-    def __init__(self) -> None:
+    def __init__(self, publication: PublicationService | None = None) -> None:
         self._facts = FinancialFactExtractor()
+        self._publication = publication or PublicationService()
 
     def execute(self, request: DualAnalysisRequest) -> DualAnalysisReport:
         sales = SourceDocument(
@@ -75,7 +77,7 @@ class AnalyzeDualSourcesUseCase:
                 continue
             seen.add(q)
             uniq_pending.append(q)
-        return DualAnalysisReport(
+        report = DualAnalysisReport(
             sales_source=sales,
             official_source=official,
             comparisons=comparisons,
@@ -83,3 +85,4 @@ class AnalyzeDualSourcesUseCase:
             sales_financial_facts=sales_facts,
             official_financial_facts=official_facts,
         )
+        return self._publication.finalize_dual(report)

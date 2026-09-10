@@ -232,13 +232,10 @@ def _from_param_or_fact(
     *,
     normalize: str | None = None,
 ) -> FactSideValue:
-    """优先使用 FinancialFact 原文证据；display 可用标准化金额。"""
+    """优先使用 FinancialFact 原文证据；金额 display 保留「10万元」原文。"""
     if fact is not None and fact.status.value == "CONFIRMED" and fact.evidence_refs:
-        display = (
-            format(Decimal(fact.normalized_value), "f")
-            if normalize == "amount" and fact.normalized_value
-            else (fact.raw_value or fact.normalized_value)
-        )
+        # display 用 raw_value（原文），normalized 才做标准化
+        display = fact.raw_value or fact.normalized_value
         if not display:
             return FactSideValue(status=FieldStatus.missing)
         nature = None
@@ -251,7 +248,9 @@ def _from_param_or_fact(
                 amount = Decimal(fact.normalized_value) if fact.normalized_value else None
             except Exception:  # noqa: BLE001
                 amount = None
-            normalized = normalize_amount(fact.raw_value, amount) or display
+            normalized = normalize_amount(fact.raw_value, amount) or (
+                format(amount, "f") if amount is not None else display
+            )
         elif normalize == "rate":
             nature, normalized = normalize_rate(fact.raw_value)
         evidence = [
@@ -293,7 +292,17 @@ def _from_param(
         return FactSideValue(status=FieldStatus.missing)
     value = getattr(param, "value", None)
     amount = getattr(param, "amount", None)
-    display = format(amount, "f") if amount is not None else (str(value).strip() if value else None)
+    # 金额优先保留原文 value（如「10万元」），不用标准化数字冒充 display
+    if normalize == "amount":
+        display = (str(value).strip() if value else None) or (
+            format(amount, "f") if amount is not None else None
+        )
+    else:
+        display = (
+            format(amount, "f")
+            if amount is not None and not value
+            else (str(value).strip() if value else None)
+        )
     if not display:
         return FactSideValue(status=FieldStatus.missing)
     nature = None
@@ -301,7 +310,9 @@ def _from_param(
     if normalize == "term":
         normalized = normalize_term_months(display) or display
     elif normalize == "amount":
-        normalized = normalize_amount(display, amount) or display
+        normalized = normalize_amount(display, amount) or (
+            format(amount, "f") if amount is not None else display
+        )
     elif normalize == "rate":
         nature, normalized = normalize_rate(display)
     evidence = _quote_evidence(product_id, text, display)

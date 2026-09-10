@@ -228,6 +228,9 @@ class AnalysisDispatcher:
             publication = decide_publish(
                 user_reason="单材料分析任务已提交，发布门禁将在任务完成后给出"
             )
+        elif hasattr(payload, "publication") and payload.publication is not None:
+            # P2-RC-06：同步入口以报告内 PublicationService 决策为准
+            publication = payload.publication
         elif intent in (
             IntentType.dual_source_compare,
             IntentType.product_compare,
@@ -235,9 +238,8 @@ class AnalysisDispatcher:
             IntentType.evidence_follow_up,
             IntentType.document_extract,
         ):
-            # RC-06 前：同步结果先标记为已产出；不冒充已过完整发布门禁文案
             publication = decide_publish(
-                user_reason="已按意图执行对应 UseCase（完整跨入口门禁见后续收口）"
+                user_reason="已按意图执行对应 UseCase"
             )
 
         return DispatchResult(

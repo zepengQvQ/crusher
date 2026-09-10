@@ -4,7 +4,7 @@ Java 对照：Application Service / UseCase。
 用途：按固定维度并列展示两款产品事实与缺失，不输出推荐或评分。
 前置条件：两侧文本均非空。
 处理边界：只支持两款；等值期限不伪差异；不同收益口径标 incomparable。
-返回：ProductComparisonReport。
+返回：ProductComparisonReport（经 PublicationService 门禁）。
 错误：参数校验失败由路由 422；业务缺参以维度 MISSING 表达。
 """
 from __future__ import annotations
@@ -17,6 +17,7 @@ from app.domain.models.product_facts import (
 )
 from app.domain.ports.protocols import KnowledgeRepository
 from app.domain.rules.product_fact_builder import build_side_facts, compare_side_values
+from app.domain.validation.publication_service import PublicationService
 
 _DIMENSIONS: list[tuple[ProductFactDimension, str, str]] = [
     (ProductFactDimension.product_type, "产品类型", "product_type"),
@@ -32,8 +33,13 @@ _DIMENSIONS: list[tuple[ProductFactDimension, str, str]] = [
 
 
 class CompareProductsUseCase:
-    def __init__(self, knowledge: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        knowledge: KnowledgeRepository,
+        publication: PublicationService | None = None,
+    ) -> None:
         self._knowledge = knowledge
+        self._publication = publication or PublicationService()
 
     def execute(self, request: ProductCompareRequest) -> ProductComparisonReport:
         meta_a, fields_a = build_side_facts(
@@ -64,8 +70,9 @@ class CompareProductsUseCase:
                     note=note,
                 )
             )
-        return ProductComparisonReport(
+        report = ProductComparisonReport(
             product_a=meta_a,
             product_b=meta_b,
             dimensions=dimensions,
         )
+        return self._publication.finalize_compare(report)

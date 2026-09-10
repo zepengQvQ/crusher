@@ -1,17 +1,26 @@
 """
-用途：校验 FinancialFact 证据是否与原文精确一致。
+用途：校验 FinancialFact / Finding / EvidenceRef 证据是否与原文精确一致。
 Java 对照：Validator。
-输入：原文 + 事实列表。
-输出：VerificationIssue 列表（空表示通过）。
+输入：原文 + 事实/发现/证据引用。
+输出：VerificationIssue 列表（空表示通过）；`evidence_ref_locates` 返回 bool。
 业务不变量：CONFIRMED 事实必须有合法 quote/span；失败不得进入允许数值集合。
 失败方式：返回 issues，由发布门禁降级为 PUBLISH_PARTIAL/REFUSE。
 """
 from __future__ import annotations
 
+from app.domain.models.claim_comparison import EvidenceRef
 from app.domain.models.financial_fact import FinancialFact, FinancialFactStatus
 from app.domain.models.report import Finding
 from app.domain.validation.types import VerificationCheck, VerificationIssue
 from app.shared.enums import ErrorCode
+
+
+def evidence_ref_locates(source_text: str, ref: EvidenceRef) -> bool:
+    """证据 quote/span 必须与指定原文精确一致。"""
+    text = source_text or ""
+    if not (0 <= ref.start < ref.end <= len(text)):
+        return False
+    return text[ref.start : ref.end] == ref.quote
 
 
 def validate_finding_evidence(

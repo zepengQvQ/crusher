@@ -949,6 +949,17 @@
             "type": "string",
             "title": "Disclaimer",
             "default": "这不是收益承诺，仅按你确认的参数做简单演算。"
+          },
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationDecision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布决策（由 PublicationService 写入）"
           }
         },
         "additionalProperties": false,
@@ -1804,6 +1815,17 @@
             "type": "string",
             "title": "Disclaimer",
             "default": "本对照仅比较已提交材料中的表述，不判断合同法律效力，不对销售人员打分。"
+          },
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationDecision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布决策（由 PublicationService 写入）"
           }
         },
         "additionalProperties": false,
@@ -1935,6 +1957,17 @@
             },
             "type": "array",
             "title": "Missing Info"
+          },
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationDecision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布决策（由 PublicationService 写入）"
           }
         },
         "additionalProperties": false,
@@ -2861,6 +2894,17 @@
             "type": "string",
             "title": "Disclaimer",
             "default": "本对照仅按固定维度并列展示已提交材料中的事实与缺失项，不对产品做选择判断，不构成投资建议。"
+          },
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationDecision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布决策（由 PublicationService 写入）"
           }
         },
         "additionalProperties": false,
