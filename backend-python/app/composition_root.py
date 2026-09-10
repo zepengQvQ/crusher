@@ -1,6 +1,7 @@
 """组合根：显式构造依赖。"""
 from functools import lru_cache
 
+from app.application.analysis_dispatcher import AnalysisDispatcher
 from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
@@ -106,4 +107,19 @@ def get_reanalyze_with_correction_use_case() -> ReanalyzeWithCorrectionUseCase:
     return ReanalyzeWithCorrectionUseCase(
         task_store=get_task_store(),
         analyze_text=get_analyze_text_use_case(),
+    )
+
+
+@lru_cache
+def get_analysis_dispatcher() -> AnalysisDispatcher:
+    """P2-RC-05：显式 IntentType → UseCase 映射（构造函数注入，禁止动态 import）。"""
+    return AnalysisDispatcher(
+        resolve_intent=get_resolve_intent_use_case(),
+        check_completeness=get_check_input_completeness_use_case(),
+        analyze_text=get_analyze_text_use_case(),
+        analyze_dual=get_analyze_dual_sources_use_case(),
+        compare_products=get_compare_products_use_case(),
+        calculate=get_calculate_scenario_use_case(),
+        answer_from_evidence=get_answer_from_evidence_use_case(),
+        extract_document=get_extract_document_use_case(),
     )

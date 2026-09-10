@@ -46,11 +46,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { createDualAnalysis, pickErrorMessage } from '../api/client'
 import { MAX_INPUT_CHARS } from '../api/generated-types'
+import {
+  DUAL_SALES_PREFILL_KEY,
+  clearIntentContext,
+  loadIntentContext,
+} from '../utils/intentContext'
 
 const DUAL_STORE_KEY = 'crusher_dual_report'
 
@@ -58,6 +63,23 @@ const router = useRouter()
 const salesText = ref('')
 const officialText = ref('')
 const loading = ref(false)
+
+onMounted(() => {
+  try {
+    const prefill = sessionStorage.getItem(DUAL_SALES_PREFILL_KEY)
+    if (prefill && !salesText.value.trim()) {
+      salesText.value = prefill
+      sessionStorage.removeItem(DUAL_SALES_PREFILL_KEY)
+    }
+    const ctx = loadIntentContext()
+    if (ctx?.text && !salesText.value.trim()) {
+      salesText.value = ctx.text
+    }
+    if (ctx) clearIntentContext()
+  } catch {
+    /* ignore */
+  }
+})
 
 function fillDemo() {
   salesText.value = '本产品年化收益率3.65%，我们不收费，随时可以提前支取。'

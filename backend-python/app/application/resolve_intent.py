@@ -26,26 +26,21 @@ class ResolveIntentUseCase:
 
     def execute(self, request: IntentResolveRequest) -> IntentDecision:
         decision = self._resolver.resolve(request)
-        # P2-02：允许模型候选开关存在，但 Demo 默认关闭；开启且仍 ambiguous 时
-        # 不调用任意工具名，直接返回可操作澄清项（避免静默猜测）。
-        if (
-            request.allow_model_candidate
-            and decision.intent == IntentType.ambiguous
-            and decision.status == DecisionStatus.needs_clarification
-            and decision.source == DecisionSource.rule
-        ):
-            # 不引入第二套自由工具协议；保持 NEEDS_CLARIFICATION
+        # P2-RC-05：Demo 未接入真实模型候选。开关打开时仍只返回规则澄清，
+        # 禁止在未调用模型时把 source 标成 model_candidate。
+        if request.allow_model_candidate and decision.intent == IntentType.ambiguous:
             return IntentDecision(
                 intent=IntentType.ambiguous,
                 status=DecisionStatus.needs_clarification,
-                source=DecisionSource.model_candidate,
+                source=DecisionSource.rule,
                 rationale=list(decision.rationale)
-                + ["模型候选未启用实际调用：规则已无法唯一确定，返回澄清选项"],
+                + ["Demo 未启用模型候选调用：保持规则澄清，不标记 model_candidate"],
                 clarifying_options=decision.clarifying_options
                 or _options(
                     (IntentType.single_analysis, "单材料分析", ""),
                     (IntentType.product_compare, "两款产品对照", ""),
                     (IntentType.calculation, "简单计算", ""),
                 ),
+                missing=list(decision.missing),
             )
         return decision

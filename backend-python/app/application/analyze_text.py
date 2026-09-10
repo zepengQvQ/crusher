@@ -17,6 +17,7 @@ from app.application.analysis_harness import AnalysisHarness
 from app.config.settings import Settings
 from app.domain.models import AnalysisTask, AnalyzeTextRequest, ProductResolution, StageInfo
 from app.domain.models.analysis_context import AnalysisContext, OutcomeStatus
+from app.domain.models.intent import IntentType
 from app.domain.models.verification import PublicationDecision
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
 from app.domain.rules.engine import RuleEngine
@@ -113,6 +114,8 @@ class AnalyzeTextUseCase:
             source_text=request.text,
             product_hint=request.product_hint,
             demo_error=request.demo_error,
+            # P2-RC-05：页面「开始分析」明确为单材料显式意图
+            explicit_intent=IntentType.single_analysis,
             corrections=(
                 list(task.revision.effective_corrections)
                 if task.revision and task.revision.effective_corrections

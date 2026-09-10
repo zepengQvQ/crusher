@@ -158,6 +158,7 @@ import ClarificationCard from '../components/ClarificationCard.vue'
 import IntentConfirmSheet from '../components/IntentConfirmSheet.vue'
 import { EXAMPLES, PRODUCT_OPTIONS } from '../data/examples'
 import { useTaskStore } from '../stores/task'
+import { saveIntentContext } from '../utils/intentContext'
 
 const router = useRouter()
 const store = useTaskStore()
@@ -227,6 +228,18 @@ function routeForIntent(intent) {
   return null
 }
 
+/** 跳转前保存首页已输入材料与用户目标，避免目标页丢上下文 */
+function persistAndGo(path, intent) {
+  saveIntentContext({
+    text: text.value,
+    userGoal: userGoal.value,
+    productHint: productHint.value,
+    targetIntent: intent || '',
+  })
+  store.setDraft(text.value.trim(), productHint.value)
+  router.push(path)
+}
+
 async function onSmartIntent() {
   intentLoading.value = true
   try {
@@ -237,13 +250,14 @@ async function onSmartIntent() {
       user_query: userGoal.value.trim(),
       page_route: null,
       source_envelopes: envelopes,
+      // Demo 未接模型候选；保持 false，避免误标 model_candidate
       allow_model_candidate: false,
     })
     intentDecision.value = decision
     if (decision.status === 'resolved') {
       const path = routeForIntent(decision.intent)
       if (path) {
-        router.push(path)
+        persistAndGo(path, decision.intent)
         return
       }
       if (decision.intent === 'single_analysis') {
@@ -270,11 +284,19 @@ async function onSmartIntent() {
 function onIntentPick(opt) {
   const path = routeForIntent(opt.intent)
   if (path) {
-    router.push(path)
+    persistAndGo(path, opt.intent)
     return
   }
   if (opt.intent === 'single_analysis') {
     onSubmit()
+    return
+  }
+  if (opt.intent === 'calculation') {
+    showToast('请先完成一次分析，再在报告页打开计算器')
+    return
+  }
+  if (opt.intent === 'evidence_follow_up') {
+    showToast('请先完成分析，再在报告页追问')
     return
   }
   showToast('请从对应入口继续')

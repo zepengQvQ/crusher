@@ -45,7 +45,10 @@ from app.domain.models.analysis_context import (
 from app.domain.models.completeness import CompletenessCheckRequest
 from app.domain.models.enums import EvidenceSource, ParameterKey, ProductHint
 from app.domain.models.intent import (
+    INTENT_USE_CASE_MAP,
+    DecisionSource,
     DecisionStatus,
+    IntentDecision,
     IntentResolveRequest,
     IntentType,
     SourceEnvelope,
@@ -412,21 +415,46 @@ class AnalysisHarness:
             )
 
     def _resolve_intent(self, ctx: AnalysisContext) -> HarnessResult | None:
-        """P2-02：解析意图；单材料 Harness 仅接受 single_analysis。
+        """P2-02 / P2-RC-05：解析意图；单材料 Harness 仅接受 single_analysis。
 
-        显式意图 / 已注入决议优先；材料正文中的命令不参与解析。
+        页面「开始分析」提交带 explicit_intent 时直接标记 explicit_ui，
+        不再用空 user_query 走规则默认假装完成意图识别。
+        材料正文中的命令不参与解析。
         """
         if ctx.intent_decision is not None:
             decision = ctx.intent_decision
-        else:
-            decision = self._intent_resolver.resolve(
-                IntentResolveRequest(
-                    user_query="",
-                    explicit_intent=ctx.explicit_intent,
-                    source_envelopes=[
-                        SourceEnvelope(source_id="src_main", text=ctx.source_text)
+        elif ctx.explicit_intent is not None:
+            # 明确页面提交：直接构造 explicit_ui 决议
+            if ctx.explicit_intent == IntentType.single_analysis:
+                decision = IntentDecision(
+                    intent=IntentType.single_analysis,
+                    status=DecisionStatus.resolved,
+                    source=DecisionSource.explicit_ui,
+                    rationale=[
+                        "来自明确页面操作（开始分析），忽略材料内指令",
                     ],
+                    use_case_key=INTENT_USE_CASE_MAP[IntentType.single_analysis],
                 )
+            else:
+                decision = self._intent_resolver.resolve(
+                    IntentResolveRequest(
+                        explicit_intent=ctx.explicit_intent,
+                        source_envelopes=[
+                            SourceEnvelope(
+                                source_id="src_main", text=ctx.source_text
+                            )
+                        ],
+                    )
+                )
+            ctx.intent_decision = decision
+        else:
+            # 无显式意图：不假装完成；返回澄清
+            decision = IntentDecision(
+                intent=IntentType.ambiguous,
+                status=DecisionStatus.needs_clarification,
+                source=DecisionSource.rule,
+                rationale=["单材料入口缺少显式页面意图"],
+                missing=["请从首页点击「开始分析」"],
             )
             ctx.intent_decision = decision
 

@@ -72,8 +72,7 @@ import { createProductComparison, pickErrorMessage } from '../api/client'
 import { MAX_INPUT_CHARS } from '../api/generated-types'
 import { EXAMPLES } from '../data/examples'
 import ProductComparisonCard from '../components/ProductComparisonCard.vue'
-
-const COMPARE_A_KEY = 'crusher_compare_a'
+import { COMPARE_A_KEY, clearIntentContext, loadIntentContext } from '../utils/intentContext'
 
 const textA = ref('')
 const textB = ref('')
@@ -87,6 +86,11 @@ onMounted(() => {
       textA.value = draft
       sessionStorage.removeItem(COMPARE_A_KEY)
     }
+    const ctx = loadIntentContext()
+    if (ctx?.text && !textA.value.trim()) {
+      textA.value = ctx.text
+    }
+    if (ctx) clearIntentContext()
   } catch {
     /* ignore */
   }
