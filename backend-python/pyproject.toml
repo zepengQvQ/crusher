@@ -25,9 +25,13 @@ dev = [
   "ruff>=0.6.0",
   "pyright>=1.1.380",
 ]
+mcp = [
+  "mcp>=1.9,<2",
+]
 
 [project.scripts]
 crusher-api = "app.main:run"
+crusher-mcp = "app.interfaces.mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -46,6 +50,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pyright]
 include = ["app"]
+exclude = ["app/interfaces/mcp/server.py"]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
 reportMissingImports = true

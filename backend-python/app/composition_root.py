@@ -48,11 +48,17 @@ def get_task_store() -> InMemoryTaskStore:
 
 
 @lru_cache
+def get_knowledge_repository() -> LocalFileKnowledgeRepository:
+    """本地知识库单例；MCP Resources / Use Case 共用，禁止另起一套。"""
+    return LocalFileKnowledgeRepository()
+
+
+@lru_cache
 def get_analyze_text_use_case() -> AnalyzeTextUseCase:
     settings = get_settings()
     return AnalyzeTextUseCase(
         task_store=get_task_store(),
-        knowledge_repository=LocalFileKnowledgeRepository(),
+        knowledge_repository=get_knowledge_repository(),
         llm_gateway=build_llm_gateway(settings),
         settings=settings,
     )
@@ -82,7 +88,7 @@ def get_calculate_scenario_use_case() -> CalculateScenarioUseCase:
 
 @lru_cache
 def get_compare_products_use_case() -> CompareProductsUseCase:
-    return CompareProductsUseCase(LocalFileKnowledgeRepository())
+    return CompareProductsUseCase(get_knowledge_repository())
 
 
 @lru_cache

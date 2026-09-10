@@ -173,6 +173,9 @@ class NoMcpInApplicationTests(unittest.TestCase):
         app_root = ROOT / "backend-python" / "app"
         offenders = []
         for path in app_root.rglob("*.py"):
+            # P2-10：仅允许 interfaces/mcp 可选适配层依赖 mcp 包
+            if "interfaces/mcp" in path.as_posix():
+                continue
             src = path.read_text(encoding="utf-8")
             tree = ast.parse(src)
             for node in ast.walk(tree):

@@ -104,6 +104,9 @@ echo "==> P2-08"
 echo "==> P2-09"
 "$PY" -m unittest discover -s "${ROOT}/tests/p2_09" -v
 
+echo "==> P2-10 (no MCP package required for core checks)"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_10" -v
+
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v
 

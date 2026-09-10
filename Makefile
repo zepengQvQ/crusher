@@ -1,4 +1,4 @@
-.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 test-p0-rc-11 test-p0-rc-12 test-p1-01 test-p1-02 test-p1-03 test-p1-04 test-p1-06 test-p2-01 test-p2-02 test-p2-03 test-p2-04 test-p2-05 test-p2-06 test-p2-07 lint install export-openapi validate-knowledge
+.PHONY: setup demo dev-api dev-h5 test test-api test-p0-01 test-p0-05 test-p0-06 test-p0-07 test-p0-08 test-p0-09 test-p0-rc-01 test-p0-rc-02 test-p0-rc-03 test-p0-rc-04 test-p0-rc-05 test-p0-rc-06 test-p0-rc-07 test-p0-rc-08 test-p0-rc-09 test-p0-rc-10 test-p0-rc-11 test-p0-rc-12 test-p1-01 test-p1-02 test-p1-03 test-p1-04 test-p1-06 test-p2-01 test-p2-02 test-p2-03 test-p2-04 test-p2-05 test-p2-06 test-p2-07 test-p2-08 test-p2-09 test-p2-10 setup-mcp run-mcp lint install export-openapi validate-knowledge
 
 setup:
 	bash scripts/dev.sh
@@ -132,8 +132,18 @@ test-p2-06:
 test-p2-07:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_07 -v
 
-.test-p2-08:
+test-p2-08:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_08 -v
 
 test-p2-09:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_09 -v
+
+setup-mcp:
+	backend-python/.venv/bin/pip install -r backend-python/requirements-mcp.lock
+
+run-mcp:
+	@echo "STDIO MCP：日志在 stderr。Host 需通过 stdin/stdout 对话。"
+	cd backend-python && MOCK_MODE=true PYTHONPATH=. .venv/bin/python -m app.interfaces.mcp.server
+
+test-p2-10:
+	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_10 -v
