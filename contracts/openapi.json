@@ -1419,6 +1419,22 @@
             "type": "array",
             "title": "Pending Questions"
           },
+          "sales_financial_facts": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialFact"
+            },
+            "type": "array",
+            "title": "Sales Financial Facts",
+            "description": "销售材料侧同源 FinancialFact 账本"
+          },
+          "official_financial_facts": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialFact"
+            },
+            "type": "array",
+            "title": "Official Financial Facts",
+            "description": "正式材料侧同源 FinancialFact 账本"
+          },
           "disclaimer": {
             "type": "string",
             "title": "Disclaimer",
@@ -1678,6 +1694,51 @@
         "title": "ExtractedDocument",
         "description": "用户确认前的提取结果（可编辑文本）。"
       },
+      "ExtractorSource": {
+        "type": "string",
+        "enum": [
+          "RULE",
+          "MODEL_CANDIDATE",
+          "USER_CORRECTION"
+        ],
+        "title": "ExtractorSource"
+      },
+      "FactEvidenceRef": {
+        "properties": {
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quote",
+          "start",
+          "end"
+        ],
+        "title": "FactEvidenceRef"
+      },
+      "FactPolarity": {
+        "type": "string",
+        "enum": [
+          "affirmative",
+          "negative",
+          "contrastive"
+        ],
+        "title": "FactPolarity"
+      },
       "FactSideValue": {
         "properties": {
           "display": {
@@ -1752,6 +1813,128 @@
         ],
         "title": "FieldStatus",
         "description": "抽取字段状态（计算器预填等）。"
+      },
+      "FinancialFact": {
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Fact Id"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "field_key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Field Key"
+          },
+          "raw_value": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Raw Value"
+          },
+          "normalized_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "$ref": "#/components/schemas/ValueKind"
+          },
+          "polarity": {
+            "$ref": "#/components/schemas/FactPolarity",
+            "default": "affirmative"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Qualifiers"
+          },
+          "condition_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Text"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FinancialFactStatus"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/FactEvidenceRef"
+            },
+            "type": "array",
+            "title": "Evidence Refs"
+          },
+          "extractor_source": {
+            "$ref": "#/components/schemas/ExtractorSource",
+            "default": "RULE"
+          },
+          "negated_raw_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negated Raw Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fact_id",
+          "field_key",
+          "raw_value",
+          "value_kind",
+          "status"
+        ],
+        "title": "FinancialFact",
+        "description": "程序确认的金融事实条目。"
+      },
+      "FinancialFactStatus": {
+        "type": "string",
+        "enum": [
+          "CONFIRMED",
+          "UNCERTAIN",
+          "NOT_DISCLOSED"
+        ],
+        "title": "FinancialFactStatus"
       },
       "Finding": {
         "properties": {
@@ -2635,6 +2818,17 @@
         ],
         "title": "TaskStatus",
         "description": "整次分析任务：排队 / 进行中 / 成功 / 失败。"
+      },
+      "ValueKind": {
+        "type": "string",
+        "enum": [
+          "amount",
+          "percent",
+          "term",
+          "text",
+          "fee"
+        ],
+        "title": "ValueKind"
       }
     }
   }

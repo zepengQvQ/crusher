@@ -11,7 +11,12 @@ from decimal import Decimal, InvalidOperation
 
 from app.domain.models import GeneralReference, KeyParameter, MissingDisclosure
 from app.domain.models.enums import FactStatus, ParameterKey
+from app.domain.models.financial_fact import (
+    FinancialFact,
+    FinancialFactStatus,
+)
 from app.domain.ports.protocols import KnowledgeRepository
+from app.domain.rules.financial_fact_extractor import FinancialFactExtractor
 from app.domain.rules.negation import strong_sentence_span
 
 _AMOUNT_RE = re.compile(
@@ -31,6 +36,10 @@ _RETURN_RANGE_RE = re.compile(
 _RETURN_SINGLE_RE = re.compile(
     r"(?:到期)?年化收益率?\s*(?:为)?\s*[:：]?\s*([0-9.]+%)",
 )
+_RETURN_MAX_RE = re.compile(
+    r"(?:年化(?:收益率?|利率)?|收益率?)[^。；\n]{0,12}?"
+    r"(最高|不超过|至多|不高于)\s*([0-9.]+)\s*%",
+)
 
 
 @dataclass
@@ -39,6 +48,7 @@ class ExtractResult:
     missing_disclosures: list[MissingDisclosure] = field(default_factory=list)
     general_references: list[GeneralReference] = field(default_factory=list)
     pending_questions: list[str] = field(default_factory=list)
+    financial_facts: list[FinancialFact] = field(default_factory=list)
 
 
 class FactExtractor:
@@ -46,6 +56,7 @@ class FactExtractor:
 
     def __init__(self, knowledge: KnowledgeRepository) -> None:
         self._knowledge = knowledge
+        self._fact_ledger = FinancialFactExtractor()
 
     def extract(self, text: str, product_type_id: str | None = None) -> ExtractResult:
         text = text or ""
@@ -57,7 +68,97 @@ class FactExtractor:
             result = ExtractResult()
         result.general_references = self._general_refs_for_product(product_type_id)
         result.pending_questions = []
+        ledger = self._fact_ledger.extract(text, product_id=product_type_id)
+        result.financial_facts = list(ledger.facts)
+        self._overlay_key_parameters_from_facts(result)
         return result
+
+    def _overlay_key_parameters_from_facts(self, result: ExtractResult) -> None:
+        """用 FinancialFact 账本校正 KeyParameter 展示，保留旧 API。"""
+        by_key = {p.key: p for p in result.key_parameters}
+        for fact in result.financial_facts:
+            if fact.status == FinancialFactStatus.NOT_DISCLOSED:
+                if fact.field_key == "management_fee":
+                    fee = by_key.get(ParameterKey.fee_structure)
+                    if fee and fee.status == FactStatus.document_fact:
+                        # 未披露不得写成已披露管理费数值
+                        if fee.value and "管理费" in fee.value and "%" in fee.value:
+                            result.key_parameters = [
+                                p
+                                for p in result.key_parameters
+                                if p.key != ParameterKey.fee_structure
+                            ]
+                            result.missing_disclosures.append(
+                                MissingDisclosure(
+                                    key=ParameterKey.fee_structure,
+                                    question="费用（管理费/手续费等）如何收取？",
+                                )
+                            )
+                continue
+            if fact.status != FinancialFactStatus.CONFIRMED:
+                continue
+            if fact.field_key == "expected_return":
+                display = fact.raw_value
+                if fact.qualifiers:
+                    display = f"{'、'.join(fact.qualifiers)} {fact.normalized_value}%"
+                elif fact.polarity.value == "contrastive" and fact.normalized_value:
+                    display = f"{fact.normalized_value}%"
+                elif fact.condition_text and fact.normalized_value:
+                    display = f"{fact.condition_text} {fact.normalized_value}%"
+                self._upsert_param(
+                    result,
+                    key=ParameterKey.expected_return,
+                    label="预期/到期收益率",
+                    value=display,
+                    question="合同是否写明预期/到期收益率？",
+                )
+            elif fact.field_key == "prepayment_fee":
+                self._upsert_param(
+                    result,
+                    key=ParameterKey.prepayment_fee,
+                    label="提前还款费用",
+                    value=fact.raw_value,
+                    question="提前还款是否收取违约金或手续费？",
+                )
+            elif fact.field_key == "term" and fact.normalized_value:
+                # 不覆盖已有更精确期限展示，仅在缺失时补齐
+                if ParameterKey.term not in by_key or by_key[
+                    ParameterKey.term
+                ].status == FactStatus.not_disclosed:
+                    self._upsert_param(
+                        result,
+                        key=ParameterKey.term,
+                        label="产品期限",
+                        value=fact.raw_value,
+                        question="合同是否明确产品期限？",
+                    )
+
+    @staticmethod
+    def _upsert_param(
+        result: ExtractResult,
+        *,
+        key: ParameterKey,
+        label: str,
+        value: str | None,
+        question: str,
+    ) -> None:
+        result.key_parameters = [p for p in result.key_parameters if p.key != key]
+        result.missing_disclosures = [
+            m for m in result.missing_disclosures if m.key != key
+        ]
+        if value:
+            result.key_parameters.append(
+                KeyParameter(
+                    key=key,
+                    label=label,
+                    value=value,
+                    status=FactStatus.document_fact,
+                )
+            )
+        else:
+            result.missing_disclosures.append(
+                MissingDisclosure(key=key, question=question)
+            )
 
     def extract_structured_deposit(self, text: str) -> ExtractResult:
         """结构性存款专属字段抽取。"""
@@ -364,6 +465,12 @@ class FactExtractor:
     @staticmethod
     def _collect_deposit_returns(text: str) -> list[str]:
         seen: list[str] = []
+        for m in _RETURN_MAX_RE.finditer(text):
+            val = f"{m.group(1)} {m.group(2)}%"
+            if val not in seen:
+                seen.append(val)
+        if seen:
+            return seen
         for m in _RETURN_RANGE_RE.finditer(text):
             val = re.sub(r"\s+", "", m.group(1))
             val = val.replace("至", "-").replace("到", "-").replace("～", "-").replace("~", "-")

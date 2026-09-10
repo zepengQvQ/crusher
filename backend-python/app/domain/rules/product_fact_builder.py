@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from uuid import uuid4
 
 from app.domain.models.claim_comparison import EvidenceRef
@@ -12,13 +12,14 @@ from app.domain.models.product_facts import FactSideValue, ProductFacts
 from app.domain.ports.protocols import KnowledgeRepository
 from app.domain.rules.engine import RuleEngine
 from app.domain.rules.fact_extractor import FactExtractor
+from app.domain.rules.value_normalizer import (
+    normalize_amount_key,
+    normalize_rate_key,
+    normalize_term_months_key,
+)
 
 _LOAN_MARKERS = ("贷款", "消费贷", "借款", "等额本息", "年化利率")
 _DEPOSIT_MARKERS = ("结构性存款", "结构存款", "观察区间", "挂钩型存款")
-_RANGE_RE = re.compile(r"[0-9.]+\s*%?\s*[-~～至到]\s*[0-9.]+\s*%?")
-_MONTHS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*个?月")
-_YEARS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*年")
-_DAYS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*天")
 _PCT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 
 
@@ -228,46 +229,15 @@ def _from_param(
 
 
 def normalize_term_months(raw: str) -> str | None:
-    text = raw.replace(" ", "")
-    m = _YEARS_RE.search(text)
-    if m:
-        months = Decimal(m.group(1)) * Decimal(12)
-        return format(months.normalize(), "f")
-    m = _MONTHS_RE.search(text)
-    if m:
-        return format(Decimal(m.group(1)).normalize(), "f")
-    m = _DAYS_RE.search(text)
-    if m:
-        months = (Decimal(m.group(1)) / Decimal(30)).quantize(Decimal("0.01"))
-        return format(months.normalize(), "f")
-    return None
+    return normalize_term_months_key(raw)
 
 
 def normalize_amount(raw: str, amount: Decimal | None) -> str | None:
-    if amount is not None:
-        return format(amount.normalize(), "f")
-    text = raw.replace(",", "").replace("，", "")
-    m = re.search(r"(\d+(?:\.\d+)?)\s*万", text)
-    if m:
-        return format((Decimal(m.group(1)) * Decimal(10000)).normalize(), "f")
-    m = re.search(r"(\d+(?:\.\d+)?)", text)
-    if m:
-        try:
-            return format(Decimal(m.group(1)).normalize(), "f")
-        except InvalidOperation:
-            return None
-    return None
+    return normalize_amount_key(raw, amount)
 
 
 def normalize_rate(raw: str) -> tuple[str | None, str | None]:
-    text = raw.replace(" ", "")
-    if _RANGE_RE.search(text):
-        # 区间不取上限，整段作为规范化键
-        return "range", text
-    m = _PCT_RE.search(text)
-    if m:
-        return "single", format(Decimal(m.group(1)).normalize(), "f")
-    return "other", text
+    return normalize_rate_key(raw)
 
 
 def _quote_evidence(product_id: str, text: str, needle: str) -> list[EvidenceRef]:
