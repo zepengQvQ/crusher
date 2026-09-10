@@ -1,5 +1,16 @@
-# 旧 Streamlit/MCP 依赖已不再作为 Demo 主路径。
-# 请安装：
-#   pip install -e "backend-python/.[dev]"
+# 根目录依赖说明（占位）
+
+Demo 主路径请安装：
+
+```bash
+pip install -e "backend-python/.[dev]"
 # 或锁定版本：
-#   pip install -r backend-python/requirements.lock
+pip install -r backend-python/requirements.lock
+```
+
+可选 MCP：
+
+```bash
+make setup-mcp
+# 或：pip install -r backend-python/requirements-mcp.lock
+```

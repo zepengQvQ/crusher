@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Demo 全量测试入口（不含 legacy Streamlit/Mermaid 旧脚本）。
+# Demo 全量测试入口。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${ROOT}/backend-python/.venv/bin/python"

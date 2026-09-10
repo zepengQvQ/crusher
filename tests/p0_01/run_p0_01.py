@@ -1,7 +1,7 @@
 """
 P0-01 回归入口（金标 + 否定句）。
 
-错误语义旧测已迁到 legacy/tests/；新链路见 tests/api 与 tests/p0_08。
+错误语义见 tests/api 与 tests/p0_08。
 
   python tests/p0_01/run_p0_01.py
   python tests/p0_01/run_p0_01.py --only golden
