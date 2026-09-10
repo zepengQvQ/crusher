@@ -5,6 +5,7 @@ from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.calculate_scenario import CalculateScenarioUseCase
+from app.application.check_input_completeness import CheckInputCompletenessUseCase
 from app.application.compare_products import CompareProductsUseCase
 from app.application.extract_document import ExtractDocumentUseCase
 from app.application.resolve_intent import ResolveIntentUseCase
@@ -86,3 +87,8 @@ def get_compare_products_use_case() -> CompareProductsUseCase:
 @lru_cache
 def get_resolve_intent_use_case() -> ResolveIntentUseCase:
     return ResolveIntentUseCase()
+
+
+@lru_cache
+def get_check_input_completeness_use_case() -> CheckInputCompletenessUseCase:
+    return CheckInputCompletenessUseCase()

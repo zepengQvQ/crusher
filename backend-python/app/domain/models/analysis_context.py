@@ -12,6 +12,10 @@ from enum import Enum
 
 from pydantic import Field
 
+from app.domain.models.completeness import (
+    ClarificationAnswer,
+    CompletenessResult,
+)
 from app.domain.models.enums import DemoErrorKind, ProductHint
 from app.domain.models.intent import IntentDecision, IntentType
 from app.domain.models.report import (
@@ -67,6 +71,8 @@ class AnalysisContext(StrictModel):
     # P2-02：单材料 Harness 默认显式意图；可由上层注入已决议结果
     explicit_intent: IntentType = IntentType.single_analysis
     intent_decision: IntentDecision | None = None
+    clarification_answers: list[ClarificationAnswer] = Field(default_factory=list)
+    completeness_result: CompletenessResult | None = None
     current_stage: HarnessStage = HarnessStage.receive
     product_resolution: ProductResolution | None = None
     report: AnalysisReport | None = None

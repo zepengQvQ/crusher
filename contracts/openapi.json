@@ -407,6 +407,45 @@
           }
         }
       }
+    },
+    "/api/v1/completeness/check": {
+      "post": {
+        "summary": "Check Completeness",
+        "description": "按意图检查输入完整性；不足则返回最多 3 条业务追问。",
+        "operationId": "check_completeness_api_v1_completeness_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletenessCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletenessResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -506,6 +545,15 @@
         ],
         "title": "AnalysisScope",
         "description": "一次分析的范围状态。"
+      },
+      "AnswerControl": {
+        "type": "string",
+        "enum": [
+          "buttons",
+          "enum",
+          "free_text"
+        ],
+        "title": "AnswerControl"
       },
       "AnswerStatus": {
         "type": "string",
@@ -894,6 +942,319 @@
         ],
         "title": "ClaimSubject",
         "description": "可对照的主张主题。"
+      },
+      "ClarificationAnswer": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Question Id"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question_id",
+          "value"
+        ],
+        "title": "ClarificationAnswer"
+      },
+      "ClarifyingOption": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ClarifyingOption"
+      },
+      "ClarifyingQuestion": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Question Id"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "gap_kind": {
+            "$ref": "#/components/schemas/GapKind"
+          },
+          "control": {
+            "$ref": "#/components/schemas/AnswerControl",
+            "default": "buttons"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ClarifyingOption"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "blocking_priority": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Blocking Priority",
+            "default": 100
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question_id",
+          "prompt",
+          "gap_kind"
+        ],
+        "title": "ClarifyingQuestion"
+      },
+      "CompletenessCheckRequest": {
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "source_envelopes": {
+            "items": {
+              "$ref": "#/components/schemas/SourceEnvelope"
+            },
+            "type": "array",
+            "title": "Source Envelopes"
+          },
+          "product_hint": {
+            "$ref": "#/components/schemas/ProductHint",
+            "default": "auto"
+          },
+          "calculation_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalculationKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "principal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal"
+          },
+          "annual_rate_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Rate Percent"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "day_count_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DayCountBasis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fee_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Base"
+          },
+          "fee_rate_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Rate Percent"
+          },
+          "return_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Amount"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Amount"
+          },
+          "user_confirmed_calculation": {
+            "type": "boolean",
+            "title": "User Confirmed Calculation",
+            "default": false
+          },
+          "follow_up_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up Question"
+          },
+          "bound_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bound Source Id"
+          },
+          "document_file_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Document File Names"
+          },
+          "document_bytes_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Bytes Total"
+          },
+          "document_page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Page Count"
+          },
+          "clarification_answers": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationAnswer"
+            },
+            "type": "array",
+            "title": "Clarification Answers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "intent"
+        ],
+        "title": "CompletenessCheckRequest"
+      },
+      "CompletenessResult": {
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/IntentType"
+          },
+          "can_continue": {
+            "type": "boolean",
+            "title": "Can Continue"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ClarifyingQuestion"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Questions"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "default": ""
+          },
+          "answered": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationAnswer"
+            },
+            "type": "array",
+            "title": "Answered"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "intent",
+          "can_continue"
+        ],
+        "title": "CompletenessResult"
       },
       "CreateAnalysisRequest": {
         "properties": {
@@ -1489,6 +1850,18 @@
           "source_text"
         ],
         "title": "FollowUpRequest"
+      },
+      "GapKind": {
+        "type": "string",
+        "enum": [
+          "field_missing",
+          "not_disclosed",
+          "ocr_unrecognized",
+          "value_conflict",
+          "user_unconfirmed"
+        ],
+        "title": "GapKind",
+        "description": "缺失/冲突类型。"
       },
       "GeneralReference": {
         "properties": {

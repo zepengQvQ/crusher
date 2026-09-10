@@ -61,6 +61,9 @@ PRIORITY_SCHEMAS = [
     "IntentDecision",
     "IntentOption",
     "SourceEnvelope",
+    "CompletenessCheckRequest",
+    "CompletenessResult",
+    "ClarifyingQuestion",
 ]
 
 

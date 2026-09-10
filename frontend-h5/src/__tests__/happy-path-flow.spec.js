@@ -11,6 +11,7 @@ vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
+    checkCompleteness: vi.fn(),
     createAnalysis: vi.fn(),
     getAnalysis: vi.fn(),
     copyText: vi.fn(async () => true),
@@ -21,6 +22,7 @@ describe('H5 成功流程', () => {
   beforeEach(() => {
     sessionStorage.clear()
     vi.useFakeTimers()
+    api.checkCompleteness.mockReset()
     api.createAnalysis.mockReset()
     api.getAnalysis.mockReset()
   })
@@ -32,6 +34,11 @@ describe('H5 成功流程', () => {
 
   it('输入→POST→轮询→报告，展示原文/风险/多候选；草稿 B 不串到任务 A', async () => {
     const sourceA = '任务A原文：区间外收益可能为零'
+    api.checkCompleteness.mockResolvedValue({
+      can_continue: true,
+      summary: '输入完整，可以继续分析',
+      questions: [],
+    })
     api.createAnalysis.mockResolvedValue({ task_id: 'tsk_a', task_status: 'queued' })
     api.getAnalysis
       .mockResolvedValueOnce({

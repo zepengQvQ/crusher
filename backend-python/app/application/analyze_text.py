@@ -134,8 +134,8 @@ class AnalyzeTextUseCase:
             await self._fail(task_id, failed, code)
             return
 
+        # clarify 且带报告：输入不完整，发布待确认报告（禁止空风险伪装成功分析）
         if result.outcome == OutcomeStatus.clarify and result.report is None:
-            # 意图未决：不发布空风险报告
             await self._fail(task_id, "preprocess", ErrorCode.INTERNAL_ERROR)
             return
 

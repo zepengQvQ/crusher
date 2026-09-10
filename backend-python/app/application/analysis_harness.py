@@ -46,7 +46,8 @@ from app.domain.models.analysis_context import (
     HttpStageUpdate,
     OutcomeStatus,
 )
-from app.domain.models.enums import EvidenceSource, ParameterKey
+from app.domain.models.completeness import CompletenessCheckRequest
+from app.domain.models.enums import EvidenceSource, ParameterKey, ProductHint
 from app.domain.models.intent import (
     DecisionStatus,
     IntentResolveRequest,
@@ -56,6 +57,7 @@ from app.domain.models.intent import (
 from app.domain.models.llm import LlmExplainRequest
 from app.domain.models.verification import VerificationResult
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
+from app.domain.rules.completeness_checker import CompletenessChecker
 from app.domain.rules.engine import RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
 from app.domain.rules.fact_extractor import ExtractResult, FactExtractor
@@ -90,6 +92,7 @@ class AnalysisHarness:
         fact_extractor: FactExtractor,
         rule_engine: RuleEngine,
         intent_resolver: IntentResolver | None = None,
+        completeness_checker: CompletenessChecker | None = None,
     ) -> None:
         self._knowledge = knowledge_repository
         self._llm = llm_gateway
@@ -97,6 +100,7 @@ class AnalysisHarness:
         self._extractor = fact_extractor
         self._rules = rule_engine
         self._intent_resolver = intent_resolver or IntentResolver()
+        self._completeness = completeness_checker or CompletenessChecker()
 
     async def run(
         self,
@@ -121,7 +125,9 @@ class AnalysisHarness:
                 return intent_stop
 
             await self._stage(ctx, HarnessStage.check_completeness, on_http_stage)
-            self._check_completeness_adapter(ctx)
+            completeness_stop = self._check_completeness(ctx)
+            if completeness_stop is not None:
+                return completeness_stop
 
             if not self._knowledge.ping():
                 return await self._refuse(
@@ -375,9 +381,62 @@ class AnalysisHarness:
             failed_http_stage="preprocess",
         )
 
-    def _check_completeness_adapter(self, ctx: AnalysisContext) -> None:
-        """P2-01 兼容适配器：CreateAnalysisRequest 已保证非空文本；完整矩阵见 P2-03。"""
-        _ = ctx
+    def _check_completeness(self, ctx: AnalysisContext) -> HarnessResult | None:
+        """P2-03：完整性检查；can_continue=false 时停止，不进入抽取/规则/LLM。"""
+        # 用户澄清产品类型后写回 hint，再继续后续阶段
+        for ans in ctx.clarification_answers:
+            if ans.question_id == "product_type_confirm" and ans.value in (
+                "structured_deposit",
+                "loan",
+            ):
+                ctx.product_hint = ProductHint(ans.value)
+
+        result = self._completeness.check(
+            CompletenessCheckRequest(
+                intent=IntentType.single_analysis,
+                source_envelopes=[
+                    SourceEnvelope(source_id="src_main", text=ctx.source_text)
+                ],
+                product_hint=ctx.product_hint,
+                clarification_answers=list(ctx.clarification_answers),
+            )
+        )
+        ctx.completeness_result = result
+        if result.can_continue:
+            return None
+
+        prompts = [q.prompt for q in result.questions]
+        plain = result.summary or "请先确认以下问题后再分析。"
+        report = AnalysisReport(
+            product_candidates=[],
+            resolved_product_type=None,
+            analysis_scope=AnalysisScope.needs_confirmation,
+            scope_reason=result.summary,
+            product_risk_grade=ProductRiskGrade(
+                value=None,
+                status=FactStatus.not_disclosed,
+                note="原文未明确风险等级",
+            ),
+            plain_language=PlainLanguage(text=plain, status=StageStatus.success),
+            key_parameters=[],
+            findings=[],
+            missing_disclosures=[],
+            general_references=[],
+            pending_questions=prompts,
+            disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+        )
+        ctx.report = report
+        ctx.outcome = OutcomeStatus.clarify
+        ctx.stop_reason = result.summary
+        return HarnessResult(
+            context=ctx,
+            outcome=OutcomeStatus.clarify,
+            report=report,
+            error_code=None,
+            stop_harness_stage=HarnessStage.check_completeness,
+            stop_reason=result.summary,
+            failed_http_stage=None,
+        )
 
     def _verify_adapter(self, ctx: AnalysisContext) -> VerificationResult:
         """P2-01 兼容适配器：解释守卫已在 BUILD_DRAFT 执行；系统校验见 P2-07。"""

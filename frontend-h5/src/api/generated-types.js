@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactSideValue", "FactStatus", "FieldStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactSideValue", "FactStatus", "FieldStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -18,6 +18,16 @@ export const AnalysisScope = Object.freeze({
   supported: "supported",
   out_of_scope: "out_of_scope",
   needs_confirmation: "needs_confirmation",
+})
+
+/**
+ * @typedef {"buttons"|"enum"|"free_text"} AnswerControlValue
+ */
+
+export const AnswerControl = Object.freeze({
+  buttons: "buttons",
+  enum: "enum",
+  free_text: "free_text",
 })
 
 /**
@@ -176,6 +186,18 @@ export const FindingSeverity = Object.freeze({
   high: "high",
   mid: "mid",
   low: "low",
+})
+
+/**
+ * @typedef {"field_missing"|"not_disclosed"|"ocr_unrecognized"|"value_conflict"|"user_unconfirmed"} GapKindValue
+ */
+
+export const GapKind = Object.freeze({
+  field_missing: "field_missing",
+  not_disclosed: "not_disclosed",
+  ocr_unrecognized: "ocr_unrecognized",
+  value_conflict: "value_conflict",
+  user_unconfirmed: "user_unconfirmed",
 })
 
 /**
@@ -638,7 +660,61 @@ export const TaskStatus = Object.freeze({
  */
 
 /**
+ * @typedef {Object} CompletenessCheckRequest
+ * @property {IntentTypeValue} intent
+ * @property {Array<SourceEnvelope>} [source_envelopes]
+ * @property {ProductHintValue} [product_hint]
+ * @property {CalculationKindValue} [calculation_kind]
+ * @property {string} [principal]
+ * @property {string} [annual_rate_percent]
+ * @property {string} [days]
+ * @property {DayCountBasisValue} [day_count_basis]
+ * @property {string} [fee_base]
+ * @property {string} [fee_rate_percent]
+ * @property {string} [return_amount]
+ * @property {string} [fee_amount]
+ * @property {boolean} [user_confirmed_calculation]
+ * @property {string} [follow_up_question]
+ * @property {string} [bound_source_id]
+ * @property {Array<string>} [document_file_names]
+ * @property {number} [document_bytes_total]
+ * @property {number} [document_page_count]
+ * @property {Array<ClarificationAnswer>} [clarification_answers]
+ */
+
+/**
+ * @typedef {Object} CompletenessResult
+ * @property {IntentTypeValue} intent
+ * @property {boolean} can_continue
+ * @property {Array<ClarifyingQuestion>} [questions]
+ * @property {string} [summary]
+ * @property {Array<ClarificationAnswer>} [answered]
+ */
+
+/**
+ * @typedef {Object} ClarifyingQuestion
+ * @property {string} question_id
+ * @property {string} prompt
+ * @property {GapKindValue} gap_kind
+ * @property {AnswerControlValue} [control]
+ * @property {Array<ClarifyingOption>} [options]
+ * @property {number} [blocking_priority]
+ */
+
+/**
  * @typedef {Object} Body_extract_document_api_v1_documents_extract_post
  * @property {Array<string>} files
+ */
+
+/**
+ * @typedef {Object} ClarificationAnswer
+ * @property {string} question_id
+ * @property {string} value
+ */
+
+/**
+ * @typedef {Object} ClarifyingOption
+ * @property {string} value
+ * @property {string} label
  */
 

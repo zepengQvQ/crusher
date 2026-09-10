@@ -72,8 +72,8 @@ class AnalysisHarnessTests(unittest.TestCase):
         )
         result = asyncio.run(h.run(ctx))
         self.assertEqual(result.outcome, OutcomeStatus.clarify)
-        self.assertEqual(result.stop_harness_stage, HarnessStage.resolve_product)
-        self.assertIn("需确认", result.stop_reason)
+        # P2-03：产品信号冲突在完整性阶段即停止，不再进入产品决议后抽取
+        self.assertEqual(result.stop_harness_stage, HarnessStage.check_completeness)
         self.assertIsNotNone(result.report)
         self.assertEqual(result.report.findings, [])
 

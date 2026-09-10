@@ -139,6 +139,7 @@
       >
         恢复上次任务 {{ lastTaskId }}
       </van-button>
+      <ClarificationCard :result="completenessResult" @answer="onClarificationAnswer" />
     </div>
     <IntentConfirmSheet v-model="showIntentSheet" :decision="intentDecision" @select="onIntentPick" />
   </div>
@@ -148,8 +149,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { createAnalysis, pickErrorMessage, resolveIntent } from '../api/client'
+import { checkCompleteness, createAnalysis, pickErrorMessage, resolveIntent } from '../api/client'
 import { MAX_INPUT_CHARS } from '../api/generated-types'
+import ClarificationCard from '../components/ClarificationCard.vue'
 import IntentConfirmSheet from '../components/IntentConfirmSheet.vue'
 import { EXAMPLES, PRODUCT_OPTIONS } from '../data/examples'
 import { useTaskStore } from '../stores/task'
@@ -165,6 +167,8 @@ const lastTaskId = ref('')
 const showProductPicker = ref(false)
 const showIntentSheet = ref(false)
 const intentDecision = ref(null)
+const completenessResult = ref(null)
+const clarificationAnswers = ref([])
 
 const productLabel = computed(() => {
   const hit = PRODUCT_OPTIONS.find((o) => o.value === productHint.value)
@@ -267,6 +271,34 @@ function onIntentPick(opt) {
   showToast('请从对应入口继续')
 }
 
+async function onClarificationAnswer({ question_id, value }) {
+  const next = [
+    ...clarificationAnswers.value.filter((a) => a.question_id !== question_id),
+    { question_id, value },
+  ]
+  clarificationAnswers.value = next
+  if (question_id === 'product_type_confirm' && (value === 'loan' || value === 'structured_deposit')) {
+    productHint.value = value
+  }
+  await runCompletenessGate()
+  if (completenessResult.value?.can_continue) {
+    completenessResult.value = null
+    await onSubmit()
+  }
+}
+
+async function runCompletenessGate() {
+  const value = text.value.trim()
+  const result = await checkCompleteness({
+    intent: 'single_analysis',
+    product_hint: productHint.value,
+    source_envelopes: value ? [{ source_id: 'home_paste', text: value }] : [],
+    clarification_answers: clarificationAnswers.value,
+  })
+  completenessResult.value = result
+  return result
+}
+
 async function onSubmit(demoError) {
   const value = text.value.trim()
   if (!value) {
@@ -276,12 +308,21 @@ async function onSubmit(demoError) {
   store.setDraft(value, productHint.value)
   loading.value = true
   try {
+    if (!demoError) {
+      const gate = await runCompletenessGate()
+      if (!gate.can_continue) {
+        showToast(gate.summary || '请先确认问题')
+        return
+      }
+    }
+    completenessResult.value = null
     const res = await createAnalysis(value, {
       demoError,
       productHint: productHint.value,
     })
     store.setTask(res.task_id, res.task_status)
     lastTaskId.value = res.task_id
+    clarificationAnswers.value = []
     router.push({ name: 'status', params: { taskId: res.task_id } })
   } catch (e) {
     const msg = pickErrorMessage(e)

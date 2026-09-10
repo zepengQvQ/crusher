@@ -102,6 +102,11 @@ export async function resolveIntent(payload) {
   return data
 }
 
+export async function checkCompleteness(payload) {
+  const { data } = await http.post('/api/v1/completeness/check', payload)
+  return data
+}
+
 export function pickErrorMessage(error) {
   if (!error?.response) {
     if (error?.code === 'ECONNABORTED') return '请求太慢超时了，请稍后重试'

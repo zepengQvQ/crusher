@@ -16,6 +16,7 @@ from app.application.analyze_dual_sources import AnalyzeDualSourcesUseCase
 from app.application.analyze_text import AnalyzeTextUseCase
 from app.application.answer_from_evidence import AnswerFromEvidenceUseCase
 from app.application.calculate_scenario import CalculateScenarioUseCase
+from app.application.check_input_completeness import CheckInputCompletenessUseCase
 from app.application.compare_products import CompareProductsUseCase
 from app.application.extract_document import ExtractDocumentUseCase
 from app.application.resolve_intent import ResolveIntentUseCase
@@ -24,6 +25,7 @@ from app.composition_root import (
     get_analyze_text_use_case,
     get_answer_from_evidence_use_case,
     get_calculate_scenario_use_case,
+    get_check_input_completeness_use_case,
     get_compare_products_use_case,
     get_extract_document_use_case,
     get_resolve_intent_use_case,
@@ -39,6 +41,7 @@ from app.domain.models import (
     StageInfo,
 )
 from app.domain.models.calculation import CalculateScenarioRequest, CalculationResult
+from app.domain.models.completeness import CompletenessCheckRequest, CompletenessResult
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
 from app.domain.models.evidence_answer import EvidenceAnswer, FollowUpRequest
 from app.domain.models.intent import IntentDecision, IntentResolveRequest
@@ -81,6 +84,9 @@ CompareUseCaseDep = Annotated[
     CompareProductsUseCase, Depends(get_compare_products_use_case)
 ]
 IntentUseCaseDep = Annotated[ResolveIntentUseCase, Depends(get_resolve_intent_use_case)]
+CompletenessUseCaseDep = Annotated[
+    CheckInputCompletenessUseCase, Depends(get_check_input_completeness_use_case)
+]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
 
@@ -432,4 +438,19 @@ def resolve_intent(
     use_case: IntentUseCaseDep,
 ) -> IntentDecision:
     """识别用户意图；显式页面意图优先，材料正文指令无效。"""
+    return use_case.execute(body)
+
+
+@router.post(
+    "/api/v1/completeness/check",
+    response_model=CompletenessResult,
+    responses={
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
+def check_completeness(
+    body: CompletenessCheckRequest,
+    use_case: CompletenessUseCaseDep,
+) -> CompletenessResult:
+    """按意图检查输入完整性；不足则返回最多 3 条业务追问。"""
     return use_case.execute(body)
