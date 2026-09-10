@@ -25,6 +25,7 @@ class ErrorCode(str, Enum):
     MODEL_TIMEOUT = "MODEL_TIMEOUT"
     RATE_LIMITED = "RATE_LIMITED"
     INVALID_MODEL_JSON = "INVALID_MODEL_JSON"
+    OUTPUT_VERIFICATION_FAILED = "OUTPUT_VERIFICATION_FAILED"
     RULE_FAILED = "RULE_FAILED"
     KNOWLEDGE_UNAVAILABLE = "KNOWLEDGE_UNAVAILABLE"
     TASK_NOT_FOUND = "TASK_NOT_FOUND"
@@ -41,6 +42,7 @@ ERROR_USER_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.MODEL_TIMEOUT: "模型调用失败：等待超时",
     ErrorCode.RATE_LIMITED: "模型调用失败：请求太频繁，请稍后再试",
     ErrorCode.INVALID_MODEL_JSON: "模型调用失败：返回内容格式不对",
+    ErrorCode.OUTPUT_VERIFICATION_FAILED: "模型解释未通过校验，已阻止发布",
     ErrorCode.RULE_FAILED: "规则检查失败，请稍后重试",
     ErrorCode.KNOWLEDGE_UNAVAILABLE: "知识库暂时不可用",
     ErrorCode.TASK_NOT_FOUND: "找不到这个任务（可能服务刚重启过，请重新分析）",

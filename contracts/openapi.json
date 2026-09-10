@@ -1491,6 +1491,7 @@
           "MODEL_TIMEOUT",
           "RATE_LIMITED",
           "INVALID_MODEL_JSON",
+          "OUTPUT_VERIFICATION_FAILED",
           "RULE_FAILED",
           "KNOWLEDGE_UNAVAILABLE",
           "TASK_NOT_FOUND",

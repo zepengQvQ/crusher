@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "backend-python"))
 from app.application.analyze_text import AnalyzeTextUseCase  # noqa: E402
 from app.config.settings import Settings  # noqa: E402
 from app.domain.models import AnalyzeTextRequest  # noqa: E402
-from app.domain.models.llm import LlmExplainRequest, LlmAnalysisDraft, make_simple_draft  # noqa: E402
+from app.domain.models.llm import LlmExplainRequest, LlmAnalysisDraft, draft_from_request  # noqa: E402
 from app.domain.models.enums import ProductTypeId  # noqa: E402
 from app.domain.rules.engine import RuleEngine  # noqa: E402
 from app.domain.rules.negation import is_negated_near  # noqa: E402
@@ -34,7 +34,7 @@ def _engine() -> RuleEngine:
 class FixedGw:
     async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
         _ = request
-        return make_simple_draft("（测试）通俗说明，不改写规则结论。", fact_ids=list(request.allowed_fact_ids[:1]), finding_ids=list(request.allowed_finding_ids[:1]), knowledge_ids=list(request.allowed_knowledge_ids[:1]))
+        return draft_from_request(request, "（测试）通俗说明，不改写规则结论。")
 
 
 class NegationBoundaryTests(unittest.TestCase):

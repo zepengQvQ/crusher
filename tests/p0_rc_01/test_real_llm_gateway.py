@@ -22,6 +22,7 @@ from app.domain.models import AnalyzeTextRequest  # noqa: E402
 from app.domain.models.llm import (  # noqa: E402
     LlmAnalysisDraft,
     LlmExplainRequest,
+    draft_from_request,
     make_simple_draft,
 )
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
@@ -74,7 +75,7 @@ def _json_content_for_http(request: httpx.Request, plain: str) -> str:
     draft = make_simple_draft(
         plain,
         fact_ids=fact_ids[:1],
-        finding_ids=finding_ids[:1] if not fact_ids else [],
+        finding_ids=finding_ids,
         knowledge_ids=knowledge_ids[:1] if not fact_ids and not finding_ids else [],
     )
     return json.dumps(draft.model_dump(mode="json"), ensure_ascii=False)
@@ -255,12 +256,7 @@ class ForcedFindingContradictionTests(unittest.TestCase):
     def test_contradiction_fails_when_findings_present(self):
         class FixedGw:
             async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
-                return make_simple_draft(
-                    "综合来看没有风险。",
-                    fact_ids=list(request.allowed_fact_ids[:1]),
-                    finding_ids=list(request.allowed_finding_ids[:1]),
-                    knowledge_ids=list(request.allowed_knowledge_ids[:1]),
-                )
+                return draft_from_request(request, "综合来看没有风险。")
 
         class SeededUc(AnalyzeTextUseCase):
             def _collect_risks(self, text, product_type_id):

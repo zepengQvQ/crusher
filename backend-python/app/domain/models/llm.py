@@ -52,8 +52,14 @@ class LlmAnalysisDraft(BaseModel):
         return list(self.overview_items) + list(self.warning_items) + list(self.unknown_items)
 
     def render_plain_language(self) -> str:
-        """拼成报告用白话（H5 仍读 plain_language.text）。"""
-        return "\n".join(item.text for item in self.all_items())
+        """拼成报告用白话（H5 仍读 plain_language.text）。
+
+        warning_items 仅参与发布门禁覆盖校验，不并入用户可见白话，
+        避免与程序 findings 重复堆叠。
+        """
+        parts = [item.text for item in self.overview_items]
+        parts.extend(item.text for item in self.unknown_items)
+        return "\n".join(parts)
 
 
 # 兼容旧名：网关/协议统一产出草稿
@@ -90,14 +96,38 @@ def make_simple_draft(
     kids = list(knowledge_ids or [])
     if not (fids or nids or kids):
         kids = ["knowledge:demo"]
-    return LlmAnalysisDraft(
-        overview_items=[
-            LlmDraftItem(
-                item_id=item_id,
-                text=text,
-                fact_ids=fids,
-                finding_ids=nids,
-                knowledge_ids=kids,
-            )
-        ]
+    overview = [
+        LlmDraftItem(
+            item_id=item_id,
+            text=text,
+            fact_ids=fids,
+            finding_ids=nids[:1] if nids and not fids else nids,
+            knowledge_ids=kids,
+        )
+    ]
+    warnings = [
+        LlmDraftItem(
+            item_id=f"warn_{fid}",
+            text=f"风险提醒：{fid}",
+            finding_ids=[fid],
+        )
+        for fid in nids
+    ]
+    return LlmAnalysisDraft(overview_items=overview, warning_items=warnings)
+
+
+def draft_from_request(request: LlmExplainRequest, text: str) -> LlmAnalysisDraft:
+    """按请求白名单构造合法草稿（测试 FixedGw / Mock 共用）。"""
+    fact_ids = list(request.allowed_fact_ids[:1])
+    finding_ids = list(request.allowed_finding_ids)
+    knowledge_ids = (
+        list(request.allowed_knowledge_ids[:1])
+        if not fact_ids and not finding_ids
+        else []
+    )
+    return make_simple_draft(
+        text,
+        fact_ids=fact_ids,
+        finding_ids=finding_ids,
+        knowledge_ids=knowledge_ids,
     )

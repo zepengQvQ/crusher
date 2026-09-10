@@ -24,6 +24,7 @@ from app.domain.models.enums import EvidenceSource, FindingSeverity  # noqa: E40
 from app.domain.models.llm import (  # noqa: E402
     LlmAnalysisDraft,
     LlmExplainRequest,
+    draft_from_request,
     make_simple_draft,
 )
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
@@ -132,12 +133,7 @@ class ExplainPipelineTests(unittest.TestCase):
 
             async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
                 FixedGw.last_request = request
-                return make_simple_draft(
-                    plain,
-                    fact_ids=list(request.allowed_fact_ids[:1]),
-                    finding_ids=list(request.allowed_finding_ids[:1]),
-                    knowledge_ids=list(request.allowed_knowledge_ids[:1]),
-                )
+                return draft_from_request(request, plain)
 
         store = InMemoryTaskStore()
         uc = AnalyzeTextUseCase(

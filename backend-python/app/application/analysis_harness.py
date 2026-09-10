@@ -21,11 +21,6 @@ from app.domain.llm_errors import (
     LlmTimeoutError,
     LlmUpstreamError,
 )
-from app.domain.llm_explanation_guard import (
-    allowed_numbers_from_program,
-    validate_draft_reference_whitelist,
-    validate_explanation_against_program,
-)
 from app.domain.models import (
     AnalysisReport,
     AnalysisScope,
@@ -56,7 +51,6 @@ from app.domain.models.intent import (
     SourceEnvelope,
 )
 from app.domain.models.llm import LlmExplainRequest
-from app.domain.models.verification import VerificationResult
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
 from app.domain.rules.completeness_checker import CompletenessChecker
 from app.domain.rules.engine import RiskHit, RuleEngine
@@ -70,6 +64,7 @@ from app.domain.rules.product_resolver import (
     ProductResolver,
 )
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
+from app.domain.validation.publication_gate import run_publication_gate
 from app.shared.enums import ErrorCode, StageStatus
 
 _SEVERITY = {
@@ -259,50 +254,25 @@ class AnalysisHarness:
                 )
 
             plain = explanation.render_plain_language()
-            try:
-                validate_draft_reference_whitelist(
-                    explanation,
-                    allowed_fact_ids=explain_req.allowed_fact_ids,
-                    allowed_finding_ids=explain_req.allowed_finding_ids,
-                    allowed_knowledge_ids=explain_req.allowed_knowledge_ids,
-                )
-            except LlmInvalidJsonError:
-                return await self._refuse(
-                    ctx,
-                    HarnessStage.build_draft,
-                    ErrorCode.INVALID_MODEL_JSON,
-                    "草稿引用未通过白名单校验",
-                    on_http_stage,
-                    failed_http_stage="explain",
-                )
-            allowed_nums = allowed_numbers_from_program(
-                findings=findings,
-                key_parameters=list(extracted.key_parameters),
-            )
-            try:
-                validate_explanation_against_program(
-                    plain,
-                    findings=findings,
-                    allowed_numbers=allowed_nums,
-                )
-            except LlmInvalidJsonError:
-                return await self._refuse(
-                    ctx,
-                    HarnessStage.build_draft,
-                    ErrorCode.INVALID_MODEL_JSON,
-                    "解释未通过程序校验",
-                    on_http_stage,
-                    failed_http_stage="explain",
-                )
-
             await self._emit_http(
-                ctx, on_http_stage, "explain", StageStatus.success, "解释完成"
+                ctx, on_http_stage, "explain", StageStatus.success, "模型草稿已解析"
             )
 
             await self._stage(ctx, HarnessStage.verify, on_http_stage)
-            verification = self._verify_adapter(ctx)
+            # P2-07：确定性发布门禁（证据/数值/条件/边界），不调用大模型
+            verification = run_publication_gate(
+                source_text=ctx.source_text,
+                draft=explanation,
+                plain=plain,
+                findings=findings,
+                key_parameters=list(extracted.key_parameters),
+                financial_facts=list(extracted.financial_facts),
+                allowed_fact_ids=list(explain_req.allowed_fact_ids),
+                allowed_finding_ids=list(explain_req.allowed_finding_ids),
+                allowed_knowledge_ids=list(explain_req.allowed_knowledge_ids),
+            )
             if not verification.can_publish:
-                code = verification.error_code or ErrorCode.INTERNAL_ERROR
+                code = verification.error_code or ErrorCode.OUTPUT_VERIFICATION_FAILED
                 return await self._refuse(
                     ctx,
                     HarnessStage.verify,
@@ -454,11 +424,6 @@ class AnalysisHarness:
             stop_reason=result.summary,
             failed_http_stage=None,
         )
-
-    def _verify_adapter(self, ctx: AnalysisContext) -> VerificationResult:
-        """P2-01 兼容适配器：解释守卫已在 BUILD_DRAFT 执行；系统校验见 P2-07。"""
-        _ = ctx
-        return VerificationResult(can_publish=True)
 
     async def _finish_scope_gate(
         self,
