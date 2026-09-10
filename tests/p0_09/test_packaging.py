@@ -53,10 +53,16 @@ class PackagingContractTests(unittest.TestCase):
         self.assertIn("开发地图-代码与请求链路.md", hub)
         self.assertIn("demo-支持范围与样例.md", hub)
         self.assertIn("agent-改代码约定.md", hub)
-        self.assertIn("整改实施清单-P0.md", hub)
-        self.assertIn("P0收口修复-Cursor执行清单.md", hub)
+        self.assertIn("archive/", hub)
         self.assertTrue((ROOT / "docs" / "开发地图-代码与请求链路.md").is_file())
         self.assertTrue((ROOT / "docs" / "demo-支持范围与样例.md").is_file())
+        self.assertTrue(
+            (ROOT / "docs" / "archive" / "整改实施清单-P0.md").is_file()
+        )
+        self.assertTrue(
+            (ROOT / "docs" / "archive" / "P0收口修复-Cursor执行清单.md").is_file()
+        )
+        self.assertFalse((ROOT / "docs" / "整改实施清单-P0.md").exists())
         self.assertFalse((ROOT / "docs" / "demo-samples.md").exists())
         self.assertFalse((ROOT / "docs" / "java-python-map.md").exists())
         self.assertFalse((ROOT / "docs" / "README.md").exists())
@@ -69,6 +75,7 @@ class PackagingContractTests(unittest.TestCase):
             "data/demo-样例条款.json",
             "docs/api/示例-创建分析请求.json",
             "docs/http/示例-分析接口.http",
+            "docs/archive/project.md",
             "tests/对照-期望输出样例.json",
             "tests/样例-结构性存款.json",
         ):

@@ -1,5 +1,17 @@
 {
-  "_comment": "AnalysisReport（与 Pydantic AnalysisReport 一致；product_risk_grade ≠ finding_severity）",
+  "_comment": "AnalysisReport（与 Pydantic AnalysisReport 一致；product_risk_grade ≠ finding_severity；完整 schema 见 contracts/openapi.json）",
+  "resolved_product_type": "structured_deposit",
+  "analysis_scope": "supported",
+  "publication": {
+    "outcome": "publish",
+    "reason_code": null,
+    "user_reason": "规则与证据校验通过，报告可展示。",
+    "next_steps": [],
+    "coverage": {
+      "checked": ["keyword_risks", "negation", "numeric_gates", "evidence_span"],
+      "not_checked": ["user_suitability"]
+    }
+  },
   "product_candidates": [
     {
       "product_type_id": "structured_deposit",
