@@ -71,7 +71,7 @@ function answer(questionId, value) {
 .card {
   margin-top: 12px;
   padding: 12px;
-  background: #fff7ed;
+  background: var(--crusher-warning-light);
   border-radius: 10px;
 }
 .title {

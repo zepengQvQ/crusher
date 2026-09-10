@@ -229,8 +229,8 @@ watch(messages, () => scrollBottom(), { deep: true })
 .context-card {
   margin: 10px 12px;
   padding: 12px 14px;
-  background: linear-gradient(135deg, #ecf5ff, #f5faff);
-  border: 1px solid #bfdbfe;
+  background: var(--crusher-primary-light);
+  border: 1px solid var(--crusher-border);
   border-radius: 12px;
 }
 .ctx-head {
@@ -240,13 +240,13 @@ watch(messages, () => scrollBottom(), { deep: true })
 }
 .ctx-ico {
   width: 36px; height: 36px; border-radius: 10px;
-  background: #fff;
+  background: var(--crusher-card-bg);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .ctx-info { flex: 1; min-width: 0; }
-.ctx-title { font-size: 13px; font-weight: 600; color: #1989fa; margin-bottom: 2px; }
-.ctx-preview { font-size: 12px; color: #6b7280; }
+.ctx-title { font-size: 13px; font-weight: 600; color: var(--crusher-primary); margin-bottom: 2px; }
+.ctx-preview { font-size: 12px; color: var(--crusher-ink-2); }
 .ctx-findings { margin-top: 8px; }
 
 .chat-list {
@@ -267,13 +267,13 @@ watch(messages, () => scrollBottom(), { deep: true })
 
 .avatar {
   width: 32px; height: 32px; border-radius: 50%;
-  background: linear-gradient(135deg, #1989fa, #4facfe);
+  background: var(--crusher-grad-primary);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .avatar.user {
-  background: linear-gradient(135deg, #ff976a, #f56723);
+  background: var(--crusher-grad-warning);
 }
 
 .chat-bubble {
@@ -286,21 +286,21 @@ watch(messages, () => scrollBottom(), { deep: true })
   position: relative;
 }
 .chat-bubble.user {
-  background: linear-gradient(135deg, #1989fa, #0d7ae8);
+  background: var(--crusher-grad-primary);
   color: #fff;
   border-bottom-right-radius: 4px;
   box-shadow: 0 4px 12px rgba(25,137,250,0.22);
 }
 .chat-bubble.ai {
-  background: #fff;
-  color: #1f2937;
-  border: 1px solid #ebedf0;
+  background: var(--crusher-card-bg);
+  color: var(--crusher-ink);
+  border: 1px solid var(--crusher-border);
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: var(--crusher-shadow-sm);
 }
 .bubble-time {
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--crusher-ink-3);
   text-align: right;
   margin-top: 4px;
   opacity: 0.7;
@@ -316,7 +316,7 @@ watch(messages, () => scrollBottom(), { deep: true })
 }
 .chat-bubble.ai.thinking .dot {
   width: 6px; height: 6px; border-radius: 50%;
-  background: #9ca3af;
+  background: var(--crusher-ink-3);
   animation: pulse 1.2s infinite;
 }
 .chat-bubble.ai.thinking .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -335,17 +335,17 @@ watch(messages, () => scrollBottom(), { deep: true })
 .chat-quick-btn {
   padding: 7px 14px;
   border-radius: 999px;
-  background: #ecf5ff;
-  color: #1989fa;
+  background: var(--crusher-primary-light);
+  color: var(--crusher-primary);
   font-size: 13px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--crusher-border);
   min-height: 32px !important;
   cursor: pointer;
   transition: all 0.15s;
   font-weight: 500;
 }
 .chat-quick-btn:active {
-  background: #dbeafe;
+  background: var(--crusher-surface-2);
   transform: scale(0.96);
 }
 
@@ -354,7 +354,7 @@ watch(messages, () => scrollBottom(), { deep: true })
   bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  background: linear-gradient(180deg, transparent, #fff 30%);
+  background: linear-gradient(180deg, transparent, var(--crusher-card-bg) 30%);
   padding: 10px 12px;
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
   z-index: 100;
@@ -364,15 +364,15 @@ watch(messages, () => scrollBottom(), { deep: true })
   align-items: flex-end;
   gap: 8px;
   padding: 8px;
-  background: #fff;
+  background: var(--crusher-card-bg);
   border-radius: 16px;
-  border: 1px solid #ebedf0;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  border: 1px solid var(--crusher-border);
+  box-shadow: var(--crusher-shadow-sm);
 }
 .chat-input {
   flex: 1;
   min-width: 0;
-  background: #f7f8fa !important;
+  background: var(--crusher-bg-gray) !important;
 }
 .chat-input :deep(.van-field__control) {
   padding: 6px 4px !important;

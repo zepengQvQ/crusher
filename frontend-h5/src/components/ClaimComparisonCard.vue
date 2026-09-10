@@ -64,8 +64,8 @@ const tagType = computed(() => {
   margin: 0 0 12px;
   padding: 12px;
   border-radius: 10px;
-  background: #f8fafc;
-  border-left: 4px solid #94a3b8;
+  background: var(--crusher-surface);
+  border-left: 4px solid var(--crusher-ink-3);
 }
 .st-confirmed {
   border-left-color: #16a34a;
@@ -96,7 +96,7 @@ const tagType = computed(() => {
   margin: 8px 0;
   font-size: 14px;
   line-height: 1.5;
-  color: #334155;
+  color: var(--crusher-ink-2);
 }
 .follow {
   margin: 0 0 8px;
@@ -117,7 +117,7 @@ const tagType = computed(() => {
 .ev-quote {
   margin: 0;
   padding: 8px;
-  background: #fff;
+  background: var(--crusher-card-bg);
   border-radius: 6px;
   font-size: 13px;
   line-height: 1.45;

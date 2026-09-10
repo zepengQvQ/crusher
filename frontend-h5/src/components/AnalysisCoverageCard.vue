@@ -33,9 +33,9 @@ const notChecked = computed(() => props.coverage?.not_checked || [])
 <style scoped>
 .card {
   padding: 12px;
-  background: #f8fafc;
+  background: var(--crusher-surface);
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--crusher-border);
 }
 .title {
   font-weight: 600;
@@ -52,7 +52,7 @@ const notChecked = computed(() => props.coverage?.not_checked || [])
 }
 .label {
   font-size: 13px;
-  color: #334155;
+  color: var(--crusher-ink-2);
   margin-bottom: 4px;
 }
 ul {

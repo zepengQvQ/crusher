@@ -86,7 +86,7 @@ async function ask(q) {
 .panel {
   margin: 12px 0;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--crusher-surface);
   border-radius: 10px;
 }
 .title {
@@ -100,7 +100,7 @@ async function ask(q) {
 .answer {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--crusher-border);
   font-size: 13px;
 }
 .q {
@@ -111,7 +111,7 @@ async function ask(q) {
   margin: 4px 0;
 }
 .ev {
-  background: #fff;
+  background: var(--crusher-card-bg);
   padding: 6px;
   border-radius: 6px;
 }

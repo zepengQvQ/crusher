@@ -151,7 +151,7 @@ async function retryWithDraft() {
 .draft {
   margin: 0 0 16px;
   padding: 12px;
-  background: #f3f4f6;
+  background: var(--crusher-bg-gray);
   border-radius: 8px;
 }
 .draft-title {

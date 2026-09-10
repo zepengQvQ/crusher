@@ -216,7 +216,7 @@ h3 {
 .result {
   margin-top: 16px;
   padding: 12px;
-  background: #f7f8fa;
+  background: var(--crusher-surface);
   border-radius: 8px;
 }
 .row {

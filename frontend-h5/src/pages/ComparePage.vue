@@ -318,8 +318,8 @@ const FindingCard = {
   text-align: center;
   margin-bottom: 8px;
 }
-.compare-col-title.a { background: #ecf5ff; color: #1989fa; }
-.compare-col-title.b { background: #fdf6ec; color: #ff976a; }
+.compare-col-title.a { background: var(--crusher-primary-light); color: var(--crusher-primary); }
+.compare-col-title.b { background: var(--crusher-warning-light); color: var(--crusher-warning); }
 
 .col-actions {
   display: flex;
@@ -353,12 +353,12 @@ const FindingCard = {
 .result-card {
   padding: 18px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #ffffff, #f8fbff);
-  border: 2px solid #e5e7eb;
+  background: var(--crusher-card-bg);
+  border: 2px solid var(--crusher-border);
 }
-.result-card.A { border-color: #bfdbfe; background: linear-gradient(135deg, #eff6ff, #ffffff); }
-.result-card.B { border-color: #fed7aa; background: linear-gradient(135deg, #fff7ed, #ffffff); }
-.result-card.tie { border-color: #d1d5db; }
+.result-card.A { border-color: var(--crusher-primary); background: var(--crusher-primary-light); }
+.result-card.B { border-color: var(--crusher-warning); background: var(--crusher-warning-light); }
+.result-card.tie { border-color: var(--crusher-ink-3); }
 
 .result-head {
   display: flex;
@@ -366,21 +366,21 @@ const FindingCard = {
   align-items: flex-start;
   margin-bottom: 16px;
 }
-.result-head .van-icon { color: #1989fa; }
-.result-card.B .result-head .van-icon { color: #ff976a; }
-.result-card.tie .result-head .van-icon { color: #6b7280; }
+.result-head .van-icon { color: var(--crusher-primary); }
+.result-card.B .result-head .van-icon { color: var(--crusher-warning); }
+.result-card.tie .result-head .van-icon { color: var(--crusher-ink-2); }
 .result-text { flex: 1; min-width: 0; }
-.result-title { font-size: 17px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
-.result-desc { font-size: 13px; color: #4b5563; line-height: 1.5; }
+.result-title { font-size: 17px; font-weight: 700; color: var(--crusher-ink); margin-bottom: 4px; }
+.result-desc { font-size: 13px; color: var(--crusher-ink-2); line-height: 1.5; }
 
 .result-grid {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 14px;
-  background: #fff;
+  background: var(--crusher-surface);
   border-radius: 12px;
-  border: 1px solid #ebedf0;
+  border: 1px solid var(--crusher-border);
 }
 .result-cell {
   flex: 1;
@@ -388,16 +388,16 @@ const FindingCard = {
   padding: 6px;
   border-radius: 10px;
 }
-.result-cell.a { background: #ecf5ff; }
-.result-cell.b { background: #fdf6ec; }
-.cell-label { font-size: 12px; font-weight: 600; color: #4b5563; margin-bottom: 4px; }
-.cell-score { font-size: 28px; color: #1f2937; }
-.result-cell.a .cell-score { color: #1989fa; }
-.result-cell.b .cell-score { color: #ff976a; }
-.cell-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.result-cell.a { background: var(--crusher-primary-light); }
+.result-cell.b { background: var(--crusher-warning-light); }
+.cell-label { font-size: 12px; font-weight: 600; color: var(--crusher-ink-2); margin-bottom: 4px; }
+.cell-score { font-size: 28px; color: var(--crusher-ink); }
+.result-cell.a .cell-score { color: var(--crusher-primary); }
+.result-cell.b .cell-score { color: var(--crusher-warning); }
+.cell-meta { font-size: 11px; color: var(--crusher-ink-2); margin-top: 2px; }
 .cell-vs {
   width: 36px; height: 36px; border-radius: 50%;
-  background: #f3f4f6;
+  background: var(--crusher-surface-2);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -412,12 +412,12 @@ const FindingCard = {
 .finding-item {
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #ebedf0;
-  background: #fff;
+  border: 1px solid var(--crusher-border);
+  background: var(--crusher-card-bg);
 }
-.finding-item.sev-high { border-color: #fecaca; background: #fff8f8; }
-.finding-item.sev-mid { border-color: #fed7aa; background: #fffaf5; }
-.finding-item.sev-low { border-color: #bfdbfe; background: #f5faff; }
+.finding-item.sev-high { border-color: var(--crusher-danger); background: var(--crusher-danger-light); }
+.finding-item.sev-mid { border-color: var(--crusher-warning); background: var(--crusher-warning-light); }
+.finding-item.sev-low { border-color: var(--crusher-primary); background: var(--crusher-primary-light); }
 .fi-head {
   display: flex;
   align-items: center;
@@ -432,21 +432,21 @@ const FindingCard = {
   font-weight: 700;
   color: #fff;
 }
-.sev-tag.sev-high { background: #ee0a24; }
-.sev-tag.sev-mid { background: #ff976a; }
-.sev-tag.sev-low { background: #1989fa; }
+.sev-tag.sev-high { background: var(--crusher-danger); }
+.sev-tag.sev-mid { background: var(--crusher-warning); }
+.sev-tag.sev-low { background: var(--crusher-primary); }
 .side-tag {
   padding: 2px 6px;
   border-radius: 5px;
   font-size: 11px;
   font-weight: 600;
 }
-.side-tag.side-a { background: #ecf5ff; color: #1989fa; }
-.side-tag.side-b { background: #fdf6ec; color: #ff976a; }
-.fi-title { font-size: 14px; font-weight: 600; color: #1f2937; }
+.side-tag.side-a { background: var(--crusher-primary-light); color: var(--crusher-primary); }
+.side-tag.side-b { background: var(--crusher-warning-light); color: var(--crusher-warning); }
+.fi-title { font-size: 14px; font-weight: 600; color: var(--crusher-ink); }
 .fi-desc {
   font-size: 12px;
-  color: #4b5563;
+  color: var(--crusher-ink-2);
   line-height: 1.5;
   padding-left: 2px;
 }

@@ -189,16 +189,16 @@ h3 {
 .diff-box {
   margin: 12px 0;
   padding: 10px;
-  background: #f8fafc;
+  background: var(--crusher-surface);
   border-radius: 8px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--crusher-ink-2);
   line-height: 1.5;
 }
 .diff-title {
   font-weight: 600;
   margin-bottom: 4px;
-  color: #334155;
+  color: var(--crusher-ink-2);
 }
 .touch-btn {
   min-height: 44px;

@@ -1,13 +1,31 @@
 :root {
+  color-scheme: light;
+
+  /* 品牌主色 */
   --crusher-primary: #1989fa;
   --crusher-primary-dark: #0d7ae8;
+  --crusher-primary-deep: #0b5bd3;
   --crusher-primary-light: #ecf5ff;
+
+  /* 功能色 */
   --crusher-success: #07c160;
+  --crusher-success-light: #e8f7ee;
   --crusher-warning: #ff976a;
+  --crusher-warning-light: #fdf6ec;
   --crusher-danger: #ee0a24;
   --crusher-danger-light: #fef0f0;
-  --crusher-warning-light: #fdf6ec;
-  --crusher-success-light: #e8f7ee;
+
+  /* 辅助强调色 */
+  --crusher-purple: #7232dd;
+  --crusher-purple-light: #f1ebfd;
+  --crusher-cyan: #00b8d9;
+  --crusher-cyan-light: #e3f8fd;
+  --crusher-pink: #ee0a6f;
+  --crusher-pink-light: #fdeaf3;
+  --crusher-gold: #f5a623;
+  --crusher-gold-light: #fdf3e2;
+
+  /* 中性色 */
   --crusher-bg: #f5f6f8;
   --crusher-bg-gray: #f2f3f5;
   --crusher-card-bg: #ffffff;
@@ -17,7 +35,24 @@
   --crusher-ink-2: #4b5563;
   --crusher-ink-3: #9ca3af;
   --crusher-border: #ebedf0;
-  --crusher-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  /* 渐变令牌 */
+  --crusher-grad-primary: linear-gradient(135deg, #1989fa 0%, #4facfe 100%);
+  --crusher-grad-success: linear-gradient(135deg, #07c160 0%, #5ce6a0 100%);
+  --crusher-grad-warning: linear-gradient(135deg, #ff976a 0%, #f56723 100%);
+  --crusher-grad-danger: linear-gradient(135deg, #ee0a24 0%, #ff6a6a 100%);
+  --crusher-grad-purple: linear-gradient(135deg, #7232dd 0%, #b28cff 100%);
+  --crusher-grad-cyan: linear-gradient(135deg, #00b8d9 0%, #6de4ff 100%);
+  --crusher-grad-pink: linear-gradient(135deg, #ee0a6f 0%, #ff8fb8 100%);
+  --crusher-grad-gold: linear-gradient(135deg, #f5a623 0%, #ffd479 100%);
+
+  /* 阴影令牌 */
+  --crusher-shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.06);
+  --crusher-shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --crusher-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --crusher-card-shadow: var(--crusher-shadow-md);
+  --crusher-shadow-primary: 0 8px 24px rgba(25, 137, 250, 0.32);
+
   --crusher-radius-lg: 16px;
   --crusher-radius-md: 12px;
   --crusher-radius-sm: 8px;
@@ -25,20 +60,31 @@
 
 /* 深色模式：与 Vant .van-theme-dark 变量保持一致 */
 .van-theme-dark {
-  --crusher-bg: #000000;
-  --crusher-bg-gray: #1c1c1e;
-  --crusher-card-bg: #1c1c1e;
-  --crusher-surface: #2c2c2e;
-  --crusher-surface-2: #3a3a3c;
-  --crusher-ink: #f5f5f5;
-  --crusher-ink-2: #b0b0b0;
-  --crusher-ink-3: #707070;
-  --crusher-border: #3a3a3c;
-  --crusher-primary-light: #1a2a3a;
-  --crusher-danger-light: #3a1a1a;
-  --crusher-warning-light: #3a2a1a;
-  --crusher-success-light: #1a3a2a;
-  --crusher-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+
+  --crusher-bg: #0a0a0c;
+  --crusher-bg-gray: #17171a;
+  --crusher-card-bg: #1c1c20;
+  --crusher-surface: #232327;
+  --crusher-surface-2: #2e2e33;
+  --crusher-ink: #f5f5f7;
+  --crusher-ink-2: #b8b8c0;
+  --crusher-ink-3: #7a7a85;
+  --crusher-border: #2e2e33;
+
+  --crusher-primary-light: #16263d;
+  --crusher-danger-light: #3a1720;
+  --crusher-warning-light: #33221a;
+  --crusher-success-light: #16302a;
+  --crusher-purple-light: #241c3d;
+  --crusher-cyan-light: #162c33;
+  --crusher-pink-light: #331a28;
+  --crusher-gold-light: #332614;
+
+  --crusher-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.5);
+  --crusher-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --crusher-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  --crusher-card-shadow: var(--crusher-shadow-md);
 }
 
 * {
@@ -297,25 +343,25 @@ button,
 }
 
 .gradient-card {
-  background: linear-gradient(135deg, var(--crusher-primary) 0%, #4facfe 100%);
+  background: var(--crusher-grad-primary);
   color: #fff;
   border-radius: var(--crusher-radius-lg);
   padding: 20px;
-  box-shadow: 0 8px 24px rgba(25, 137, 250, 0.32);
+  box-shadow: var(--crusher-shadow-primary);
 }
 
 .gradient-card.warning {
-  background: linear-gradient(135deg, #ff976a 0%, #f56723 100%);
+  background: var(--crusher-grad-warning);
   box-shadow: 0 8px 24px rgba(255, 151, 106, 0.32);
 }
 
 .gradient-card.danger {
-  background: linear-gradient(135deg, #ee0a24 0%, #ff6a6a 100%);
+  background: var(--crusher-grad-danger);
   box-shadow: 0 8px 24px rgba(238, 10, 36, 0.32);
 }
 
 .gradient-card.success {
-  background: linear-gradient(135deg, #07c160 0%, #5ce6a0 100%);
+  background: var(--crusher-grad-success);
   box-shadow: 0 8px 24px rgba(7, 193, 96, 0.32);
 }
 
@@ -347,12 +393,12 @@ button,
   margin-bottom: 8px;
 }
 
-.grid-entry-icon.blue { background: linear-gradient(135deg, #1989fa, #4facfe); }
-.grid-entry-icon.green { background: linear-gradient(135deg, #07c160, #5ce6a0); }
-.grid-entry-icon.orange { background: linear-gradient(135deg, #ff976a, #f56723); }
-.grid-entry-icon.purple { background: linear-gradient(135deg, #7232dd, #b28cff); }
-.grid-entry-icon.pink { background: linear-gradient(135deg, #ee0a24, #ff97b5); }
-.grid-entry-icon.cyan { background: linear-gradient(135deg, #00b8d9, #6de4ff); }
+.grid-entry-icon.blue { background: var(--crusher-grad-primary); }
+.grid-entry-icon.green { background: var(--crusher-grad-success); }
+.grid-entry-icon.orange { background: var(--crusher-grad-warning); }
+.grid-entry-icon.purple { background: var(--crusher-grad-purple); }
+.grid-entry-icon.pink { background: var(--crusher-grad-pink); }
+.grid-entry-icon.cyan { background: var(--crusher-grad-cyan); }
 
 .grid-entry-text {
   font-size: 13px;
@@ -360,9 +406,9 @@ button,
   font-weight: 500;
 }
 
-.highlight-high { background: #fee2e2; color: #991b1b; border-radius: 3px; padding: 0 2px; }
-.highlight-mid { background: #fef3c7; color: #92400e; border-radius: 3px; padding: 0 2px; }
-.highlight-low { background: #dbeafe; color: #1e40af; border-radius: 3px; padding: 0 2px; }
+.highlight-high { background: var(--crusher-danger-light); color: var(--crusher-danger); border-radius: 3px; padding: 0 2px; }
+.highlight-mid { background: var(--crusher-gold-light); color: var(--crusher-gold); border-radius: 3px; padding: 0 2px; }
+.highlight-low { background: var(--crusher-primary-light); color: var(--crusher-primary); border-radius: 3px; padding: 0 2px; }
 
 .chat-list {
   padding: 12px;
@@ -480,5 +526,6 @@ button,
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }

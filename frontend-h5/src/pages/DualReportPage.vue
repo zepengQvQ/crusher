@@ -73,7 +73,7 @@ onMounted(() => {
 .pending {
   margin: 8px 0 16px;
   padding: 10px;
-  background: #fff7ed;
+  background: var(--crusher-warning-light);
   border-radius: 8px;
 }
 .pending-title {

@@ -739,7 +739,7 @@ onUnmounted(() => {
   white-space: pre-wrap; word-break: break-word;
 }
 .source-wrap.clamped {
-  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 5; line-clamp: 5; -webkit-box-orient: vertical;
   overflow: hidden; position: relative;
 }
 .source-wrap.clamped::after {
@@ -752,9 +752,9 @@ onUnmounted(() => {
   display: flex; align-items: center; gap: 4px;
 }
 .legend-item .dot { width: 10px; height: 10px; border-radius: 3px; }
-.legend-item .dot.high { background: #fee2e2; border: 1px solid #fecaca; }
-.legend-item .dot.mid { background: #fef3c7; border: 1px solid #fde68a; }
-.legend-item .dot.low { background: #dbeafe; border: 1px solid #bfdbfe; }
+.legend-item .dot.high { background: var(--crusher-danger-light); border: 1px solid var(--crusher-danger); }
+.legend-item .dot.mid { background: var(--crusher-gold-light); border: 1px solid var(--crusher-gold); }
+.legend-item .dot.low { background: var(--crusher-primary-light); border: 1px solid var(--crusher-primary); }
 
 .next-steps {
   margin: 10px 0 0;

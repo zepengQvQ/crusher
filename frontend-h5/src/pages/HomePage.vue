@@ -291,7 +291,9 @@ onMounted(() => {
 
 <style scoped>
 .hero-header {
-  background: linear-gradient(180deg, #1989fa 0%, #4facfe 60%, var(--crusher-bg) 100%);
+  background:
+    url('../assets/hero-bg.png') center top / cover no-repeat,
+    linear-gradient(180deg, #0b3d91 0%, #0d7ae8 32%, #1989fa 62%, #4facfe 88%, var(--crusher-bg) 100%);
   padding: 16px 16px 24px;
   margin-bottom: 12px;
 }
@@ -340,9 +342,21 @@ onMounted(() => {
   color: #fff;
   border-radius: 16px;
 }
-.banner-inner.primary { background: linear-gradient(135deg, #0d7ae8 0%, #4facfe 100%); }
-.banner-inner.warning { background: linear-gradient(135deg, #f56723 0%, #ffb77a 100%); }
-.banner-inner.success { background: linear-gradient(135deg, #06a552 0%, #5ce6a0 100%); }
+.banner-inner.primary {
+  background:
+    url('../assets/banner-bg-primary.png') center / cover no-repeat,
+    linear-gradient(135deg, #0b3d91 0%, #0d7ae8 45%, #1989fa 78%, #4facfe 100%);
+}
+.banner-inner.warning {
+  background:
+    url('../assets/banner-bg-warning.png') center / cover no-repeat,
+    linear-gradient(135deg, #c2410c 0%, #ea580c 45%, #f56723 78%, #ff976a 100%);
+}
+.banner-inner.success {
+  background:
+    url('../assets/banner-bg-success.png') center / cover no-repeat,
+    linear-gradient(135deg, #047857 0%, #059669 45%, #07c160 78%, #3dd68c 100%);
+}
 .banner-text { flex: 1; min-width: 0; }
 .banner-tag {
   display: inline-block;
@@ -363,20 +377,21 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #fafbfc;
+  background: var(--crusher-surface);
   border-radius: 12px;
   border: 1px solid var(--crusher-border);
+  box-shadow: var(--crusher-shadow-sm);
   transition: all 0.15s;
 }
-.demo-card:active { background: #f2f3f5; transform: scale(0.985); }
+.demo-card:active { background: var(--crusher-surface-2); transform: scale(0.985); }
 .demo-card-ico {
   width: 42px; height: 42px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   color: #fff; flex-shrink: 0;
 }
-.demo-card-ico.blue { background: linear-gradient(135deg, #1989fa, #4facfe); }
-.demo-card-ico.orange { background: linear-gradient(135deg, #ff976a, #f56723); }
-.demo-card-ico.green { background: linear-gradient(135deg, #07c160, #5ce6a0); }
+.demo-card-ico.blue { background: var(--crusher-grad-primary); }
+.demo-card-ico.orange { background: var(--crusher-grad-warning); }
+.demo-card-ico.green { background: var(--crusher-grad-success); }
 .demo-card-body { flex: 1; min-width: 0; }
 .demo-card-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .demo-card-preview {
@@ -393,13 +408,13 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   padding: 12px;
-  background: #fffbe6;
+  background: var(--crusher-gold-light);
   border-radius: 12px;
-  border: 1px solid #ffe58f;
+  border: 1px solid var(--crusher-border);
 }
 .tip-num {
   width: 24px; height: 24px; border-radius: 50%;
-  background: linear-gradient(135deg, #ff976a, #f56723);
+  background: var(--crusher-grad-warning);
   color: #fff; font-weight: 700; font-size: 12px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;

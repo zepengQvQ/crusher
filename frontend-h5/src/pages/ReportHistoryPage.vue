@@ -122,7 +122,7 @@ onMounted(refresh)
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 12px;
-  background: #f8fafc;
+  background: var(--crusher-surface);
   padding: 12px;
   border-radius: 8px;
   max-height: 60vh;
