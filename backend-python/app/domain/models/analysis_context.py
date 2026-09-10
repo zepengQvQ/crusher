@@ -23,6 +23,7 @@ from app.domain.models.report import (
     ProductResolution,
     StrictModel,
 )
+from app.domain.models.verification import PublicationDecision
 from app.shared.enums import ErrorCode, StageStatus
 
 
@@ -94,6 +95,7 @@ class HarnessResult(StrictModel):
     stop_harness_stage: HarnessStage
     stop_reason: str = ""
     failed_http_stage: str | None = None
+    publication: PublicationDecision | None = None
 
 
 # Harness 阶段 → 现有 HTTP 轮询阶段名

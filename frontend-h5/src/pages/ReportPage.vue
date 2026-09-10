@@ -12,6 +12,18 @@
       </van-button>
     </div>
     <template v-else-if="report">
+      <div v-if="outcomeBanner" class="block">
+        <van-notice-bar
+          left-icon="warning-o"
+          :text="outcomeBanner"
+          color="#9a3412"
+          background="#fff7ed"
+        />
+        <ul v-if="nextSteps.length" class="next-steps">
+          <li v-for="(s, i) in nextSteps" :key="'ns' + i">{{ s }}</li>
+        </ul>
+      </div>
+
       <div class="block">
         <h3>一句结论</h3>
         <p class="conclusion">{{ conclusion }}</p>
@@ -20,6 +32,10 @@
           <span class="sep">｜</span>
           字段来源：{{ report.product_risk_grade?.status || '-' }}
         </p>
+      </div>
+
+      <div v-if="publication?.coverage" class="block">
+        <AnalysisCoverageCard :coverage="publication.coverage" />
       </div>
 
       <div class="block">
@@ -161,6 +177,7 @@ import { showToast } from 'vant'
 import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
 import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
+import AnalysisCoverageCard from '../components/AnalysisCoverageCard.vue'
 import ReportActions from '../components/ReportActions.vue'
 import ScenarioCalculator from '../components/ScenarioCalculator.vue'
 import { useTaskStore } from '../stores/task'
@@ -174,6 +191,7 @@ const store = useTaskStore()
 const loading = ref(true)
 const loadError = ref('')
 const report = ref(null)
+const publication = ref(null)
 const activeFindings = ref([])
 const sourceExpanded = ref(false)
 const sourceText = ref('')
@@ -185,7 +203,42 @@ const productGradeText = computed(() => {
   return g.value
 })
 
+const outcome = computed(
+  () => publication.value?.outcome || report.value?.publication?.outcome || 'publish',
+)
+
+const nextSteps = computed(
+  () => publication.value?.next_steps || report.value?.publication?.next_steps || [],
+)
+
+const outcomeBanner = computed(() => {
+  const o = outcome.value
+  const reason =
+    publication.value?.user_reason || report.value?.publication?.user_reason || ''
+  if (o === 'publish_partial') {
+    return reason || '部分结果：仅展示程序已确认内容，请勿当作完整模型说明'
+  }
+  if (o === 'clarify') {
+    return reason || '还需确认信息后才能继续完整分析'
+  }
+  return ''
+})
+
 const conclusion = computed(() => {
+  const o = outcome.value
+  if (o === 'clarify') {
+    return publication.value?.user_reason || '请先确认下方问题后再继续'
+  }
+  if (o === 'publish_partial') {
+    const scope = report.value?.analysis_scope || 'supported'
+    if (scope === 'out_of_scope') {
+      return '当前 Demo 未分析该产品，请选择结构性存款或贷款'
+    }
+    return (
+      publication.value?.user_reason ||
+      '部分结果已确认；通俗解释未通过校验或不适用'
+    )
+  }
   const scope = report.value?.analysis_scope || 'supported'
   if (scope === 'out_of_scope') {
     return '当前 Demo 未分析该产品，请选择结构性存款或贷款'
@@ -278,6 +331,7 @@ onMounted(async () => {
       return
     }
     report.value = data.report
+    publication.value = data.publication || data.report.publication || null
     sourceText.value = data.source_text || ''
   } catch (e) {
     if (!active) return
@@ -308,6 +362,13 @@ h3 {
   font-size: 16px;
   line-height: 1.6;
   font-weight: 600;
+}
+.next-steps {
+  margin: 10px 0 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+  color: #9a3412;
+  line-height: 1.5;
 }
 .meta {
   margin: 8px 0 0;

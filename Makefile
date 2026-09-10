@@ -131,3 +131,6 @@ test-p2-06:
 
 test-p2-07:
 	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_07 -v
+
+test-p2-08:
+	MOCK_MODE=true backend-python/.venv/bin/python -m unittest discover -s tests/p2_08 -v

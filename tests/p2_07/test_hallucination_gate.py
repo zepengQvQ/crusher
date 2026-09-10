@@ -201,9 +201,13 @@ class HallucinationGateTests(unittest.TestCase):
             return store.get(task.task_id)
 
         task = asyncio.run(go())
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.OUTPUT_VERIFICATION_FAILED)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(
+            task.publication.reason_code, ErrorCode.OUTPUT_VERIFICATION_FAILED
+        )
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
 
     def test_prompt_injection_still_keeps_findings_path(self) -> None:
         """材料注入不得绕过门禁；合法解释仍可完成。"""

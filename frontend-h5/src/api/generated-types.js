@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "ExtractorSource", "FactEvidenceRef", "FactPolarity", "FactSideValue", "FactStatus", "FieldStatus", "FinancialFact", "FinancialFactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValueKind"]
+export const SCHEMA_NAMES = ["AnalysisCoverage", "AnalysisReport", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "ExtractorSource", "FactEvidenceRef", "FactPolarity", "FactSideValue", "FactStatus", "FieldStatus", "FinancialFact", "FinancialFactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "PublicationDecision", "PublicationOutcome", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValueKind"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -128,7 +128,7 @@ export const DiffStatus = Object.freeze({
 })
 
 /**
- * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"OUTPUT_VERIFICATION_FAILED"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"CALCULATION_INVALID"|"INTERNAL_ERROR"} ErrorCodeValue
+ * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"MODEL_OUTPUT_INVALID"|"OUTPUT_VERIFICATION_FAILED"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"CALCULATION_INVALID"|"INTENT_AMBIGUOUS"|"INPUT_INCOMPLETE"|"PRODUCT_CONFLICT"|"INSUFFICIENT_EVIDENCE"|"UNSUPPORTED_REQUEST"|"INTERNAL_ERROR"} ErrorCodeValue
  */
 
 export const ErrorCode = Object.freeze({
@@ -136,6 +136,7 @@ export const ErrorCode = Object.freeze({
   MODEL_TIMEOUT: "MODEL_TIMEOUT",
   RATE_LIMITED: "RATE_LIMITED",
   INVALID_MODEL_JSON: "INVALID_MODEL_JSON",
+  MODEL_OUTPUT_INVALID: "MODEL_OUTPUT_INVALID",
   OUTPUT_VERIFICATION_FAILED: "OUTPUT_VERIFICATION_FAILED",
   RULE_FAILED: "RULE_FAILED",
   KNOWLEDGE_UNAVAILABLE: "KNOWLEDGE_UNAVAILABLE",
@@ -144,6 +145,11 @@ export const ErrorCode = Object.freeze({
   OCR_UNAVAILABLE: "OCR_UNAVAILABLE",
   DOCUMENT_PARSE_FAILED: "DOCUMENT_PARSE_FAILED",
   CALCULATION_INVALID: "CALCULATION_INVALID",
+  INTENT_AMBIGUOUS: "INTENT_AMBIGUOUS",
+  INPUT_INCOMPLETE: "INPUT_INCOMPLETE",
+  PRODUCT_CONFLICT: "PRODUCT_CONFLICT",
+  INSUFFICIENT_EVIDENCE: "INSUFFICIENT_EVIDENCE",
+  UNSUPPORTED_REQUEST: "UNSUPPORTED_REQUEST",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 })
 
@@ -314,6 +320,17 @@ export const ProductTypeId = Object.freeze({
 })
 
 /**
+ * @typedef {"publish"|"publish_partial"|"clarify"|"refuse"} PublicationOutcomeValue
+ */
+
+export const PublicationOutcome = Object.freeze({
+  publish: "publish",
+  publish_partial: "publish_partial",
+  clarify: "clarify",
+  refuse: "refuse",
+})
+
+/**
  * @typedef {"sales_pitch"|"official_document"|"user_supplement"|"unknown"} SourceRoleValue
  */
 
@@ -397,6 +414,7 @@ export const ValueKind = Object.freeze({
  * @property {ProductHintValue} [product_hint]
  * @property {ProductTypeIdValue} [resolved_product_type]
  * @property {AnalysisScopeValue} [analysis_scope]
+ * @property {PublicationDecision} [publication]
  */
 
 /**
@@ -413,6 +431,7 @@ export const ValueKind = Object.freeze({
  * @property {Array<GeneralReference>} [general_references]
  * @property {Array<string>} [pending_questions]
  * @property {string} [disclaimer]
+ * @property {PublicationDecision} [publication]
  */
 
 /**
@@ -747,6 +766,12 @@ export const ValueKind = Object.freeze({
  */
 
 /**
+ * @typedef {Object} AnalysisCoverage
+ * @property {Array<string>} [checked]
+ * @property {Array<string>} [not_checked]
+ */
+
+/**
  * @typedef {Object} Body_extract_document_api_v1_documents_extract_post
  * @property {Array<string>} files
  */
@@ -786,5 +811,14 @@ export const ValueKind = Object.freeze({
  * @property {Array<FactEvidenceRef>} [evidence_refs]
  * @property {ExtractorSourceValue} [extractor_source]
  * @property {string} [negated_raw_value]
+ */
+
+/**
+ * @typedef {Object} PublicationDecision
+ * @property {PublicationOutcomeValue} outcome
+ * @property {ErrorCodeValue} [reason_code]
+ * @property {string} user_reason
+ * @property {Array<string>} [next_steps]
+ * @property {AnalysisCoverage} [coverage]
  */
 

@@ -47,6 +47,7 @@ from app.domain.models.evidence_answer import EvidenceAnswer, FollowUpRequest
 from app.domain.models.intent import IntentDecision, IntentResolveRequest
 from app.domain.models.product_facts import ProductCompareRequest, ProductComparisonReport
 from app.domain.models.source_document import ExtractedDocument
+from app.domain.models.verification import PublicationDecision
 from app.infrastructure.task_store.memory import InMemoryTaskStore
 from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, TaskStatus, user_message_for
@@ -117,7 +118,7 @@ class TaskResponse(BaseModel):
     product_hint: ProductHint = ProductHint.auto
     resolved_product_type: ProductTypeId | None = None
     analysis_scope: AnalysisScope | None = None
-
+    publication: PublicationDecision | None = None
 
 def _forbidden_fields_from_validation(
     errors: list[dict[str, object]],
@@ -268,6 +269,9 @@ def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
             },
         )
     failed = task.task_status == TaskStatus.failed
+    publication = task.publication
+    if publication is None and task.report is not None:
+        publication = task.report.publication
     return TaskResponse(
         task_id=task.task_id,
         task_status=task.task_status,
@@ -282,6 +286,7 @@ def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
         product_hint=task.product_hint,
         resolved_product_type=task.resolved_product_type,
         analysis_scope=task.analysis_scope,
+        publication=publication,
     )
 
 

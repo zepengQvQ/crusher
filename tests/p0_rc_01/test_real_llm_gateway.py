@@ -189,17 +189,18 @@ class RealGatewayPipelineTests(unittest.TestCase):
             gw,
             "提前还款需支付剩余本金3%的违约金。",
         )
-        # 若规则未命中 Finding，矛盾检测不触发；有 Finding 才必须失败
-        if task.report and task.report.findings:
-            self.fail("有 Finding 时不得完成报告")
-        if task.task_status == TaskStatus.completed:
-            # 规则未命中时允许完成；跳过本断言场景
+        # 若规则未命中 Finding，矛盾检测不触发；有 Finding 则部分发布程序事实
+        if task.task_status == TaskStatus.completed and not (
+            task.report and task.report.findings
+        ):
             self.skipTest("当前样例未命中 Finding，矛盾用例不适用")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
         explain = next(s for s in task.stages if s.name == "explain")
-        self.assertEqual(explain.status.value, "failed")
+        self.assertEqual(explain.status.value, "partial")
 
     def test_rate_limited(self):
         def handler(request: httpx.Request) -> httpx.Response:
@@ -286,9 +287,11 @@ class ForcedFindingContradictionTests(unittest.TestCase):
             return store.get(task.task_id)
 
         task = asyncio.run(go())
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
 
 if __name__ == "__main__":

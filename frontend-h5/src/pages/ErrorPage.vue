@@ -6,6 +6,10 @@
       <p v-if="code" class="code">错误码：{{ code }}</p>
       <p class="hint">{{ retainHint }}</p>
 
+      <ul v-if="nextSteps.length" class="next-steps">
+        <li v-for="(s, i) in nextSteps" :key="'ns' + i">{{ s }}</li>
+      </ul>
+
       <div v-if="draftText" class="draft">
         <div class="draft-title">保留输入</div>
         <p class="draft-text">{{ draftText }}</p>
@@ -46,6 +50,7 @@ const store = useTaskStore()
 const draftText = ref('')
 const productHint = ref('auto')
 const retrying = ref(false)
+const nextSteps = ref([])
 let active = true
 
 const message = computed(() => {
@@ -72,8 +77,12 @@ onMounted(async () => {
       if (!active) return
       draftText.value = data.source_text || ''
       productHint.value = data.product_hint || 'auto'
+      nextSteps.value = data.publication?.next_steps || []
       if (data.error_message) {
         store.setError(data.error_message, data.error_code || '')
+      }
+      if (data.publication?.user_reason && !data.error_message) {
+        store.setError(data.publication.user_reason, data.publication.reason_code || '')
       }
     } catch (e) {
       if (!active) return
@@ -131,6 +140,13 @@ async function retryWithDraft() {
   color: #9ca3af;
   font-size: 12px;
   margin: 8px 12px 16px;
+}
+.next-steps {
+  margin: 0 16px 16px;
+  padding-left: 1.2em;
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.5;
 }
 .draft {
   margin: 0 0 16px;

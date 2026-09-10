@@ -153,14 +153,17 @@ class ExplainPipelineTests(unittest.TestCase):
 
     def test_pipeline_rejects_denial(self):
         task, _ = self._run_with_plain("提前还款不会产生违约金，可以放心提前还款。")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
     def test_pipeline_rejects_blanket(self):
         task, _ = self._run_with_plain("经核对，未发现明显风险，可以放心办理。")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
     def test_pipeline_allows_double_negation(self):
         task, req = self._run_with_plain(
@@ -176,8 +179,9 @@ class ExplainPipelineTests(unittest.TestCase):
 
     def test_pipeline_rejects_wrong_percent(self):
         task, _ = self._run_with_plain("提前还款需支付5%的违约金。")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
     def test_prompt_injection_does_not_drop_findings(self):
         text = (
