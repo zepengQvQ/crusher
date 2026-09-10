@@ -1,9 +1,9 @@
-"""P2-09：基于用户纠错创建新修订任务并重跑分析。
+"""P2-09 / P2-RC-04：基于用户纠错创建新修订任务并重跑分析。
 
 用途：在不覆盖父任务报告的前提下提交修正并异步重分析。
 输入：父 task_id + CorrectionRequest。
-输出：新 AnalysisTask（带 parent_task_id / revision）。
-不变量：伪造 parameter_key 拒绝；USER_ASSERTED 不伪装 DOCUMENT_FACT；不复用旧模型草稿。
+输出：新 AnalysisTask（带 parent_task_id / revision / effective_corrections）。
+不变量：伪造 fact_id / parameter_key 拒绝；USER_ASSERTED 不伪装 DOCUMENT_FACT；不复用旧模型草稿。
 """
 from __future__ import annotations
 
@@ -18,8 +18,24 @@ from app.domain.models.correction import (
 from app.domain.models.enums import ParameterKey, ProductHint
 from app.domain.models.report import AnalysisTask, AnalyzeTextRequest, StageInfo
 from app.domain.ports.protocols import TaskStore
+from app.domain.rules.apply_fact_corrections import (
+    parameter_key_for_field,
+)
+from app.domain.rules.merge_effective_corrections import merge_effective_corrections
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus, user_message_for
 from app.shared.logging_utils import log_task
+
+_LOAN_ONLY = {
+    ParameterKey.annual_interest_rate,
+    ParameterKey.penalty_interest,
+    ParameterKey.repayment_method,
+    ParameterKey.prepayment_fee,
+}
+_DEPOSIT_ONLY = {
+    ParameterKey.expected_return,
+    ParameterKey.early_redemption,
+    ParameterKey.principal_protection,
+}
 
 
 class CorrectionRejectedError(Exception):
@@ -56,8 +72,9 @@ class ReanalyzeWithCorrectionUseCase:
             )
 
         parent_param_keys = {p.key for p in parent.report.key_parameters}
+        parent_fact_ids = {f.fact_id for f in parent.report.financial_facts}
         records = [
-            self._to_record(item, parent, parent_param_keys)
+            self._to_record(item, parent, parent_param_keys, parent_fact_ids)
             for item in request.corrections
         ]
 
@@ -69,6 +86,17 @@ class ReanalyzeWithCorrectionUseCase:
             elif rec.kind == CorrectionKind.product_type:
                 new_hint = ProductHint(rec.new_value)
 
+        effective = merge_effective_corrections(
+            parent=parent, new_records=records, task_store=self._tasks
+        )
+        self._reject_stale_fact_corrections(
+            effective=effective,
+            new_text=new_text,
+            new_hint=new_hint,
+            parent=parent,
+            this_round=records,
+        )
+
         revision_no = 1
         if parent.revision is not None:
             revision_no = parent.revision.revision_no + 1
@@ -76,6 +104,7 @@ class ReanalyzeWithCorrectionUseCase:
             revision_no=revision_no,
             parent_task_id=parent.task_id,
             corrections=records,
+            effective_corrections=effective,
             note=request.note or "",
         )
 
@@ -120,6 +149,7 @@ class ReanalyzeWithCorrectionUseCase:
         item: CorrectionItem,
         parent: AnalysisTask,
         parent_param_keys: set[ParameterKey],
+        parent_fact_ids: set[str],
     ) -> CorrectionRecord:
         if item.kind == CorrectionKind.source_text:
             assert item.corrected_text is not None
@@ -140,22 +170,101 @@ class ReanalyzeWithCorrectionUseCase:
                 previous_value=prev,
                 new_value=item.product_type.value,
             )
-        assert item.parameter_key is not None
         assert item.corrected_value is not None
-        if item.parameter_key not in parent_param_keys:
+        fact_id = (item.fact_id or "").strip() or None
+        param_key = item.parameter_key
+        if fact_id is not None:
+            if fact_id not in parent_fact_ids:
+                raise CorrectionRejectedError(
+                    "CORRECTION_UNKNOWN_FACT",
+                    f"fact_id {fact_id} 不属于父任务报告，无法修正",
+                )
+            assert parent.report is not None
+            matched = next(
+                f for f in parent.report.financial_facts if f.fact_id == fact_id
+            )
+            mapped = parameter_key_for_field(matched.field_key)
+            if param_key is None:
+                param_key = mapped
+            elif mapped is not None and param_key != mapped:
+                raise CorrectionRejectedError(
+                    "CORRECTION_FACT_MISMATCH",
+                    "fact_id 与 parameter_key 不匹配",
+                )
+        if param_key is None:
             raise CorrectionRejectedError(
                 "CORRECTION_UNKNOWN_FACT",
-                f"参数 {item.parameter_key.value} 不在父任务报告中，无法修正",
+                "无法解析要修正的事实键",
+            )
+        if param_key not in parent_param_keys and fact_id is None:
+            raise CorrectionRejectedError(
+                "CORRECTION_UNKNOWN_FACT",
+                f"参数 {param_key.value} 不在父任务报告中，无法修正",
             )
         prev_val = item.previous_value
         if prev_val is None and parent.report is not None:
             for p in parent.report.key_parameters:
-                if p.key == item.parameter_key:
+                if p.key == param_key:
                     prev_val = p.value
                     break
         return CorrectionRecord(
             kind=CorrectionKind.fact_value,
             previous_value=prev_val,
             new_value=item.corrected_value,
-            parameter_key=item.parameter_key,
+            parameter_key=param_key,
+            fact_id=fact_id,
+            supersedes_fact_id=fact_id,
         )
+
+    def _reject_stale_fact_corrections(
+        self,
+        *,
+        effective: list[CorrectionRecord],
+        new_text: str,
+        new_hint: ProductHint,
+        parent: AnalysisTask,
+        this_round: list[CorrectionRecord],
+    ) -> None:
+        """原文或产品类型变化后，祖先 fact_id 纠错若已不适用则明确拒绝。"""
+        text_changed = any(r.kind == CorrectionKind.source_text for r in this_round)
+        type_changed = any(r.kind == CorrectionKind.product_type for r in this_round)
+        if not text_changed and not type_changed:
+            # 仍校验产品类型与字段兼容性（hint 可能来自祖先）
+            pass
+
+        resolved_type = new_hint
+        for r in effective:
+            if r.kind == CorrectionKind.product_type:
+                try:
+                    resolved_type = ProductHint(r.new_value)
+                except ValueError:
+                    continue
+
+        parent_ids = {
+            f.fact_id for f in (parent.report.financial_facts if parent.report else [])
+        }
+        this_ids = {r.correction_id for r in this_round}
+        for rec in effective:
+            if rec.kind != CorrectionKind.fact_value:
+                continue
+            if rec.parameter_key is not None:
+                if resolved_type == ProductHint.loan and rec.parameter_key in _DEPOSIT_ONLY:
+                    raise CorrectionRejectedError(
+                        "CORRECTION_STALE",
+                        f"产品类型变为贷款后，字段 {rec.parameter_key.value} 已不适用，请重新确认",
+                    )
+                if (
+                    resolved_type == ProductHint.structured_deposit
+                    and rec.parameter_key in _LOAN_ONLY
+                ):
+                    raise CorrectionRejectedError(
+                        "CORRECTION_STALE",
+                        f"产品类型变为结构性存款后，字段 {rec.parameter_key.value} 已不适用，请重新确认",
+                    )
+            if text_changed and rec.correction_id not in this_ids:
+                raise CorrectionRejectedError(
+                    "CORRECTION_STALE",
+                    "原文已修改，旧事实纠错已失效，请对最新抽取结果重新确认",
+                )
+        _ = new_text
+        _ = parent_ids

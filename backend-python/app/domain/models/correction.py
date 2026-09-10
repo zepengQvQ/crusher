@@ -1,4 +1,4 @@
-"""P2-09：用户纠错与修订模型。
+"""P2-09 / P2-RC-04：用户纠错与修订模型。
 
 用途：记录对父任务的修正，驱动新任务重跑；不覆盖旧报告。
 不变量：用户声明值只能是 user_asserted，不能伪装成 document_fact。
@@ -43,6 +43,11 @@ class CorrectionItem(_Strict):
         default=None, description="产品类型确认（不得为 auto）"
     )
     parameter_key: ParameterKey | None = None
+    fact_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="绑定父任务 FinancialFact.fact_id（优先于 parameter_key）",
+    )
     corrected_value: str | None = Field(default=None, max_length=500)
     previous_value: str | None = Field(
         default=None, max_length=500, description="可选，前端展示差异用"
@@ -59,12 +64,14 @@ class CorrectionItem(_Strict):
             if self.product_type is None or self.product_type == ProductHint.auto:
                 raise ValueError("product_type 修正必须指定 structured_deposit 或 loan")
         elif self.kind == CorrectionKind.fact_value:
-            if self.parameter_key is None:
-                raise ValueError("fact_value 修正必须提供 parameter_key")
+            if self.parameter_key is None and not (self.fact_id or "").strip():
+                raise ValueError("fact_value 修正必须提供 fact_id 或 parameter_key")
             value = (self.corrected_value or "").strip()
             if not value:
                 raise ValueError("fact_value 修正必须提供 corrected_value")
             object.__setattr__(self, "corrected_value", value)
+            if self.fact_id is not None:
+                object.__setattr__(self, "fact_id", self.fact_id.strip() or None)
         return self
 
 
@@ -83,6 +90,8 @@ class CorrectionRecord(_Strict):
     previous_value: str | None = None
     new_value: str = Field(..., min_length=1)
     parameter_key: ParameterKey | None = None
+    fact_id: str | None = None
+    supersedes_fact_id: str | None = None
     created_at: datetime = Field(default_factory=_utc_now)
 
 
@@ -91,6 +100,12 @@ class AnalysisRevision(_Strict):
 
     revision_no: int = Field(..., ge=1)
     parent_task_id: str = Field(..., min_length=1)
-    corrections: list[CorrectionRecord] = Field(..., min_length=1)
+    corrections: list[CorrectionRecord] = Field(
+        ..., min_length=1, description="本次提交的差量"
+    )
+    effective_corrections: list[CorrectionRecord] = Field(
+        default_factory=list,
+        description="自祖先合并后的当前有效修正快照（last-write-wins）",
+    )
     created_at: datetime = Field(default_factory=_utc_now)
     note: str = ""

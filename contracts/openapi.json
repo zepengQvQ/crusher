@@ -665,7 +665,16 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Corrections"
+            "title": "Corrections",
+            "description": "本次提交的差量"
+          },
+          "effective_corrections": {
+            "items": {
+              "$ref": "#/components/schemas/CorrectionRecord"
+            },
+            "type": "array",
+            "title": "Effective Corrections",
+            "description": "自祖先合并后的当前有效修正快照（last-write-wins）"
           },
           "created_at": {
             "type": "string",
@@ -1457,6 +1466,19 @@
               }
             ]
           },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id",
+            "description": "绑定父任务 FinancialFact.fact_id（优先于 parameter_key）"
+          },
           "corrected_value": {
             "anyOf": [
               {
@@ -1535,6 +1557,28 @@
                 "type": "null"
               }
             ]
+          },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "supersedes_fact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Fact Id"
           },
           "created_at": {
             "type": "string",
@@ -2255,6 +2299,18 @@
               }
             ],
             "title": "Negated Raw Value"
+          },
+          "supersedes_fact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Fact Id",
+            "description": "用户声明事实所替代的原文事实 ID（不删除原文记录）"
           }
         },
         "additionalProperties": false,
@@ -2274,7 +2330,8 @@
         "enum": [
           "CONFIRMED",
           "UNCERTAIN",
-          "NOT_DISCLOSED"
+          "NOT_DISCLOSED",
+          "USER_ASSERTED"
         ],
         "title": "FinancialFactStatus"
       },

@@ -52,7 +52,10 @@ from app.domain.models.intent import (
 )
 from app.domain.models.llm import LlmExplainRequest
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
-from app.domain.rules.apply_fact_corrections import apply_fact_corrections_to_parameters
+from app.domain.rules.apply_fact_corrections import (
+    active_financial_facts,
+    apply_corrections_to_ledger,
+)
 from app.domain.rules.completeness_checker import CompletenessChecker
 from app.domain.rules.engine import RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
@@ -168,15 +171,20 @@ class AnalysisHarness:
             extracted = self._extractor.extract(
                 ctx.source_text, product_type_id=product_type_id
             )
-            # P2-09：用户事实纠错 → user_asserted，不复用旧草稿、不伪装 document_fact
+            # P2-09 / P2-RC-04：有效纠错同步 KP + FF；USER_ASSERTED 不伪造原文证据
             if ctx.corrections:
                 from dataclasses import replace
 
-                patched = apply_fact_corrections_to_parameters(
-                    list(extracted.key_parameters), list(ctx.corrections)
+                patched_params, patched_facts = apply_corrections_to_ledger(
+                    list(extracted.key_parameters),
+                    list(extracted.financial_facts),
+                    list(ctx.corrections),
                 )
-                extracted = replace(extracted, key_parameters=patched)
-                # 用户已声明的键从 missing 中移除
+                extracted = replace(
+                    extracted,
+                    key_parameters=patched_params,
+                    financial_facts=patched_facts,
+                )
                 asserted = {
                     c.parameter_key
                     for c in ctx.corrections
@@ -307,7 +315,7 @@ class AnalysisHarness:
                 plain=plain,
                 findings=findings,
                 key_parameters=list(extracted.key_parameters),
-                financial_facts=list(extracted.financial_facts),
+                financial_facts=list(active_financial_facts(extracted.financial_facts)),
                 allowed_fact_ids=list(explain_req.allowed_fact_ids),
                 allowed_finding_ids=list(explain_req.allowed_finding_ids),
                 allowed_knowledge_ids=list(explain_req.allowed_knowledge_ids),
@@ -760,7 +768,7 @@ class AnalysisHarness:
                     "amount": str(p.amount) if p.amount is not None else None,
                 }
             )
-        for ff in extracted.financial_facts:
+        for ff in active_financial_facts(extracted.financial_facts):
             fact_ids.append(ff.fact_id)
             facts_payload.append(
                 {

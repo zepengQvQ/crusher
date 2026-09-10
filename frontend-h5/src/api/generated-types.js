@@ -218,13 +218,14 @@ export const FieldStatus = Object.freeze({
 })
 
 /**
- * @typedef {"CONFIRMED"|"UNCERTAIN"|"NOT_DISCLOSED"} FinancialFactStatusValue
+ * @typedef {"CONFIRMED"|"UNCERTAIN"|"NOT_DISCLOSED"|"USER_ASSERTED"} FinancialFactStatusValue
  */
 
 export const FinancialFactStatus = Object.freeze({
   CONFIRMED: "CONFIRMED",
   UNCERTAIN: "UNCERTAIN",
   NOT_DISCLOSED: "NOT_DISCLOSED",
+  USER_ASSERTED: "USER_ASSERTED",
 })
 
 /**
@@ -792,6 +793,7 @@ export const ValueKind = Object.freeze({
  * @property {number} revision_no
  * @property {string} parent_task_id
  * @property {Array<CorrectionRecord>} corrections
+ * @property {Array<CorrectionRecord>} [effective_corrections]
  * @property {string} [created_at]
  * @property {string} [note]
  */
@@ -819,6 +821,7 @@ export const ValueKind = Object.freeze({
  * @property {string} [corrected_text]
  * @property {ProductHintValue} [product_type]
  * @property {ParameterKeyValue} [parameter_key]
+ * @property {string} [fact_id]
  * @property {string} [corrected_value]
  * @property {string} [previous_value]
  */
@@ -830,6 +833,8 @@ export const ValueKind = Object.freeze({
  * @property {string} [previous_value]
  * @property {string} new_value
  * @property {ParameterKeyValue} [parameter_key]
+ * @property {string} [fact_id]
+ * @property {string} [supersedes_fact_id]
  * @property {string} [created_at]
  */
 
@@ -863,6 +868,7 @@ export const ValueKind = Object.freeze({
  * @property {Array<FactEvidenceRef>} [evidence_refs]
  * @property {ExtractorSourceValue} [extractor_source]
  * @property {string} [negated_raw_value]
+ * @property {string} [supersedes_fact_id]
  */
 
 /**

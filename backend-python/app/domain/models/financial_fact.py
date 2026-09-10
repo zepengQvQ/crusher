@@ -38,6 +38,7 @@ class FinancialFactStatus(str, Enum):
     CONFIRMED = "CONFIRMED"
     UNCERTAIN = "UNCERTAIN"
     NOT_DISCLOSED = "NOT_DISCLOSED"
+    USER_ASSERTED = "USER_ASSERTED"
 
 
 class FactEvidenceRef(StrictModel):
@@ -75,11 +76,19 @@ class FinancialFact(StrictModel):
     evidence_refs: list[FactEvidenceRef] = Field(default_factory=list)
     extractor_source: ExtractorSource = ExtractorSource.RULE
     negated_raw_value: str | None = None
+    supersedes_fact_id: str | None = Field(
+        default=None,
+        description="用户声明事实所替代的原文事实 ID（不删除原文记录）",
+    )
 
     @model_validator(mode="after")
     def _confirmed_needs_evidence(self) -> FinancialFact:
         if self.status == FinancialFactStatus.CONFIRMED and not self.evidence_refs:
             raise ValueError(f"确认事实必须有证据: {self.fact_id}")
+        if self.status == FinancialFactStatus.USER_ASSERTED and self.evidence_refs:
+            raise ValueError(
+                f"用户声明事实不得伪造原文证据: {self.fact_id}"
+            )
         return self
 
 

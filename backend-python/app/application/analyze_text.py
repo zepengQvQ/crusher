@@ -113,7 +113,11 @@ class AnalyzeTextUseCase:
             source_text=request.text,
             product_hint=request.product_hint,
             demo_error=request.demo_error,
-            corrections=list(task.revision.corrections) if task.revision else [],
+            corrections=(
+                list(task.revision.effective_corrections)
+                if task.revision and task.revision.effective_corrections
+                else (list(task.revision.corrections) if task.revision else [])
+            ),
         )
 
         async def on_http_stage(name: str, status: StageStatus, message: str) -> None:
