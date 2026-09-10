@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     llm_model: str = ""
 
     llm_base_url: str = ""
-    llm_temperature: float = 0.3
+    llm_temperature: float = 0.2
     llm_max_tokens: int = 2048
 
     # 输入上限：契约固定为 MAX_INPUT_CHARS

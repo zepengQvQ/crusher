@@ -12,6 +12,7 @@ from uuid import uuid4
 from pydantic import Field, field_validator, model_validator
 
 from app.domain.models.enums import ProductHint
+from app.domain.models.financial_fact import FinancialFact
 from app.domain.models.p1_enums import ClaimStatus, ClaimSubject, SourceType
 from app.domain.models.report import StrictModel
 from app.shared.constants import MAX_INPUT_CHARS
@@ -112,6 +113,14 @@ class DualAnalysisReport(StrictModel):
     official_source: SourceDocument
     comparisons: list[ClaimComparison] = Field(default_factory=list)
     pending_questions: list[str] = Field(default_factory=list)
+    sales_financial_facts: list[FinancialFact] = Field(
+        default_factory=list,
+        description="销售材料侧同源 FinancialFact 账本",
+    )
+    official_financial_facts: list[FinancialFact] = Field(
+        default_factory=list,
+        description="正式材料侧同源 FinancialFact 账本",
+    )
     disclaimer: str = (
         "本对照仅比较已提交材料中的表述，不判断合同法律效力，不对销售人员打分。"
     )

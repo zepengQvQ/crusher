@@ -1,5 +1,5 @@
 {
-  "_comment": "GET /api/v1/analyses/{task_id} 响应（与 TaskResponse 一致）",
+  "_comment": "GET /api/v1/analyses/{task_id} 响应（与 TaskResponse 一致；完整 schema 见 contracts/openapi.json）",
   "task_id": "tsk_demo_001",
   "task_status": "completed",
   "created_at": "2026-09-08T12:00:00+08:00",
@@ -34,6 +34,22 @@
   "error_code": null,
   "error_message": null,
   "is_failure": false,
+  "source_text": "本产品为结构性存款，期限90天……",
+  "product_hint": "structured_deposit",
+  "resolved_product_type": "structured_deposit",
+  "analysis_scope": "supported",
+  "publication": {
+    "outcome": "publish",
+    "reason_code": null,
+    "user_reason": "规则与证据校验通过，报告可展示。",
+    "next_steps": [],
+    "coverage": {
+      "checked": ["keyword_risks", "negation", "numeric_gates", "evidence_span"],
+      "not_checked": ["user_suitability"]
+    }
+  },
+  "parent_task_id": null,
+  "revision": null,
   "report": {
     "_ref": "见 示例-分析报告.json"
   }

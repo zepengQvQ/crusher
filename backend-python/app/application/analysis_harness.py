@@ -21,10 +21,6 @@ from app.domain.llm_errors import (
     LlmTimeoutError,
     LlmUpstreamError,
 )
-from app.domain.llm_explanation_guard import (
-    allowed_numbers_from_program,
-    validate_explanation_against_program,
-)
 from app.domain.models import (
     AnalysisReport,
     AnalysisScope,
@@ -55,8 +51,8 @@ from app.domain.models.intent import (
     SourceEnvelope,
 )
 from app.domain.models.llm import LlmExplainRequest
-from app.domain.models.verification import VerificationResult
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway
+from app.domain.rules.apply_fact_corrections import apply_fact_corrections_to_parameters
 from app.domain.rules.completeness_checker import CompletenessChecker
 from app.domain.rules.engine import RiskHit, RuleEngine
 from app.domain.rules.evidence import validate_and_fix_findings
@@ -69,7 +65,15 @@ from app.domain.rules.product_resolver import (
     ProductResolver,
 )
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
-from app.shared.enums import ErrorCode, StageStatus
+from app.domain.validation.publication_gate import (
+    decide_clarify,
+    decide_from_verification,
+    decide_publish,
+    decide_publish_partial,
+    decide_refuse,
+    run_publication_gate,
+)
+from app.shared.enums import ErrorCode, StageStatus, user_message_for
 
 _SEVERITY = {
     "高": FindingSeverity.high,
@@ -163,21 +167,50 @@ class AnalysisHarness:
             extracted = self._extractor.extract(
                 ctx.source_text, product_type_id=product_type_id
             )
+            # P2-09：用户事实纠错 → user_asserted，不复用旧草稿、不伪装 document_fact
+            if ctx.corrections:
+                from dataclasses import replace
+
+                patched = apply_fact_corrections_to_parameters(
+                    list(extracted.key_parameters), list(ctx.corrections)
+                )
+                extracted = replace(extracted, key_parameters=patched)
+                # 用户已声明的键从 missing 中移除
+                asserted = {
+                    c.parameter_key
+                    for c in ctx.corrections
+                    if c.parameter_key is not None
+                }
+                if asserted:
+                    extracted = replace(
+                        extracted,
+                        missing_disclosures=[
+                            m
+                            for m in extracted.missing_disclosures
+                            if m.key not in asserted
+                        ],
+                    )
             disclosed_n = sum(
                 1 for p in extracted.key_parameters if p.status == FactStatus.document_fact
             )
             missing_n = sum(
                 1 for p in extracted.key_parameters if p.status == FactStatus.not_disclosed
             )
+            user_n = sum(
+                1 for p in extracted.key_parameters if p.status == FactStatus.user_asserted
+            )
             extract_status = (
                 StageStatus.partial if disclosed_n and missing_n else StageStatus.success
             )
+            extract_msg = f"抽取完成：原文事实 {disclosed_n}，未说明 {missing_n}"
+            if user_n:
+                extract_msg += f"，用户声明 {user_n}"
             await self._emit_http(
                 ctx,
                 on_http_stage,
                 "extract",
                 extract_status,
-                f"抽取完成：原文事实 {disclosed_n}，未说明 {missing_n}",
+                extract_msg,
             )
 
             await self._stage(ctx, HarnessStage.apply_rules, on_http_stage)
@@ -257,46 +290,67 @@ class AnalysisHarness:
                     failed_http_stage="explain",
                 )
 
-            plain = explanation.plain_language
-            allowed_nums = allowed_numbers_from_program(
-                findings=findings,
-                key_parameters=list(extracted.key_parameters),
-            )
-            try:
-                validate_explanation_against_program(
-                    plain,
-                    findings=findings,
-                    allowed_numbers=allowed_nums,
-                )
-            except LlmInvalidJsonError:
-                return await self._refuse(
-                    ctx,
-                    HarnessStage.build_draft,
-                    ErrorCode.INVALID_MODEL_JSON,
-                    "解释未通过程序校验",
-                    on_http_stage,
-                    failed_http_stage="explain",
-                )
-
+            plain = explanation.render_plain_language()
             await self._emit_http(
-                ctx, on_http_stage, "explain", StageStatus.success, "解释完成"
+                ctx, on_http_stage, "explain", StageStatus.success, "模型草稿已解析"
             )
 
             await self._stage(ctx, HarnessStage.verify, on_http_stage)
-            verification = self._verify_adapter(ctx)
+            # P2-07：确定性发布门禁（证据/数值/条件/边界），不调用大模型
+            verification = run_publication_gate(
+                source_text=ctx.source_text,
+                draft=explanation,
+                plain=plain,
+                findings=findings,
+                key_parameters=list(extracted.key_parameters),
+                financial_facts=list(extracted.financial_facts),
+                allowed_fact_ids=list(explain_req.allowed_fact_ids),
+                allowed_finding_ids=list(explain_req.allowed_finding_ids),
+                allowed_knowledge_ids=list(explain_req.allowed_knowledge_ids),
+            )
             if not verification.can_publish:
-                code = verification.error_code or ErrorCode.INTERNAL_ERROR
-                return await self._refuse(
+                decision = decide_from_verification(verification)
+                plain_partial = (
+                    f"【部分结果】{decision.user_reason}\n"
+                    "以下仅包含程序已确认的事实与风险；"
+                    "模型通俗解释未通过校验，未作为确定说明发布。"
+                )
+                await self._emit_http(
                     ctx,
-                    HarnessStage.verify,
-                    code,
-                    "; ".join(verification.issues) or "校验未通过",
                     on_http_stage,
-                    failed_http_stage="explain",
+                    "explain",
+                    StageStatus.partial,
+                    decision.user_reason,
+                )
+                await self._stage(ctx, HarnessStage.decide_outcome, on_http_stage)
+                report = self._build_report(
+                    resolution,
+                    extracted,
+                    findings,
+                    plain_partial,
+                    plain_status=StageStatus.partial,
+                    publication=decision,
+                )
+                ctx.report = report
+                ctx.outcome = OutcomeStatus.publish_partial
+                ctx.error_code = decision.reason_code
+                ctx.stop_reason = decision.user_reason
+                return HarnessResult(
+                    context=ctx,
+                    outcome=OutcomeStatus.publish_partial,
+                    report=report,
+                    error_code=decision.reason_code,
+                    stop_harness_stage=HarnessStage.decide_outcome,
+                    stop_reason=decision.user_reason,
+                    failed_http_stage=None,
+                    publication=decision,
                 )
 
             await self._stage(ctx, HarnessStage.decide_outcome, on_http_stage)
-            report = self._build_report(resolution, extracted, findings, plain)
+            decision = decide_publish()
+            report = self._build_report(
+                resolution, extracted, findings, plain, publication=decision
+            )
             ctx.report = report
             outcome = OutcomeStatus.publish
             ctx.outcome = outcome
@@ -308,6 +362,7 @@ class AnalysisHarness:
                 stop_harness_stage=HarnessStage.decide_outcome,
                 stop_reason="分析完成",
                 failed_http_stage=None,
+                publication=decision,
             )
         except Exception as exc:  # noqa: BLE001
             stage = ctx.current_stage
@@ -352,33 +407,72 @@ class AnalysisHarness:
             return None
 
         if decision.status == DecisionStatus.needs_clarification:
+            prompts = [o.label for o in decision.clarifying_options][:3]
+            if not prompts and decision.rationale:
+                prompts = list(decision.rationale)[:3]
+            reason = "; ".join(decision.rationale) or "意图需澄清"
+            decision_pub = decide_clarify(
+                reason_code=ErrorCode.INTENT_AMBIGUOUS,
+                user_reason=reason,
+            )
+            report = AnalysisReport(
+                product_candidates=[],
+                resolved_product_type=None,
+                analysis_scope=AnalysisScope.needs_confirmation,
+                scope_reason=reason,
+                product_risk_grade=ProductRiskGrade(
+                    value=None,
+                    status=FactStatus.not_disclosed,
+                    note="原文未明确风险等级",
+                ),
+                plain_language=PlainLanguage(text=reason, status=StageStatus.partial),
+                key_parameters=[],
+                findings=[],
+                missing_disclosures=[],
+                general_references=[],
+                pending_questions=prompts,
+                disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+                publication=decision_pub,
+            )
+            ctx.report = report
             ctx.outcome = OutcomeStatus.clarify
-            ctx.stop_reason = "; ".join(decision.rationale) or "意图需澄清"
+            ctx.stop_reason = reason
             return HarnessResult(
                 context=ctx,
                 outcome=OutcomeStatus.clarify,
-                report=None,
-                error_code=None,
+                report=report,
+                error_code=ErrorCode.INTENT_AMBIGUOUS,
                 stop_harness_stage=HarnessStage.resolve_intent,
-                stop_reason=ctx.stop_reason,
+                stop_reason=reason,
                 failed_http_stage=None,
+                publication=decision_pub,
             )
 
         # 其他意图或 rejected：本 Harness 只跑单材料分析，显式拒绝不继续抽取
-        ctx.outcome = OutcomeStatus.refuse
-        ctx.error_code = ErrorCode.INTERNAL_ERROR
-        ctx.stop_reason = (
-            f"AnalyzeText Harness 不执行意图 {decision.intent.value}，请走对应入口"
+        refuse_pub = decide_refuse(
+            reason_code=ErrorCode.UNSUPPORTED_REQUEST,
+            user_reason=(
+                f"当前入口不支持意图「{decision.intent.value}」，"
+                "请从对应页面发起（双材料对照 / 计算 / 追问等）。"
+            ),
+            next_steps=[
+                "返回首页选择正确的分析入口",
+                "单材料分析请保持当前入口",
+            ],
         )
+        ctx.outcome = OutcomeStatus.refuse
+        ctx.error_code = ErrorCode.UNSUPPORTED_REQUEST
+        ctx.stop_reason = refuse_pub.user_reason
         ctx.report = None
         return HarnessResult(
             context=ctx,
             outcome=OutcomeStatus.refuse,
             report=None,
-            error_code=ErrorCode.INTERNAL_ERROR,
+            error_code=ErrorCode.UNSUPPORTED_REQUEST,
             stop_harness_stage=HarnessStage.resolve_intent,
-            stop_reason=ctx.stop_reason,
+            stop_reason=refuse_pub.user_reason,
             failed_http_stage="preprocess",
+            publication=refuse_pub,
         )
 
     def _check_completeness(self, ctx: AnalysisContext) -> HarnessResult | None:
@@ -407,6 +501,14 @@ class AnalysisHarness:
 
         prompts = [q.prompt for q in result.questions]
         plain = result.summary or "请先确认以下问题后再分析。"
+        decision_pub = decide_clarify(
+            reason_code=ErrorCode.INPUT_INCOMPLETE,
+            user_reason=plain,
+            next_steps=[
+                "请回答页面上的追问后继续",
+                "或返回首页重新粘贴更完整的材料",
+            ],
+        )
         report = AnalysisReport(
             product_candidates=[],
             resolved_product_type=None,
@@ -417,31 +519,29 @@ class AnalysisHarness:
                 status=FactStatus.not_disclosed,
                 note="原文未明确风险等级",
             ),
-            plain_language=PlainLanguage(text=plain, status=StageStatus.success),
+            plain_language=PlainLanguage(text=plain, status=StageStatus.partial),
             key_parameters=[],
             findings=[],
             missing_disclosures=[],
             general_references=[],
             pending_questions=prompts,
             disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+            publication=decision_pub,
         )
         ctx.report = report
         ctx.outcome = OutcomeStatus.clarify
+        ctx.error_code = ErrorCode.INPUT_INCOMPLETE
         ctx.stop_reason = result.summary
         return HarnessResult(
             context=ctx,
             outcome=OutcomeStatus.clarify,
             report=report,
-            error_code=None,
+            error_code=ErrorCode.INPUT_INCOMPLETE,
             stop_harness_stage=HarnessStage.check_completeness,
             stop_reason=result.summary,
             failed_http_stage=None,
+            publication=decision_pub,
         )
-
-    def _verify_adapter(self, ctx: AnalysisContext) -> VerificationResult:
-        """P2-01 兼容适配器：解释守卫已在 BUILD_DRAFT 执行；系统校验见 P2-07。"""
-        _ = ctx
-        return VerificationResult(can_publish=True)
 
     async def _finish_scope_gate(
         self,
@@ -468,21 +568,36 @@ class AnalysisHarness:
         await self._emit_http(
             ctx, on_http_stage, "explain", StageStatus.success, "范围说明完成"
         )
-        report = self._build_scope_gate_report(resolution)
-        ctx.report = report
         if resolution.analysis_scope == AnalysisScope.needs_confirmation:
+            decision = decide_clarify(
+                reason_code=ErrorCode.PRODUCT_CONFLICT,
+                user_reason=resolution.reason or "产品类型存在冲突，请确认后继续",
+            )
             outcome = OutcomeStatus.clarify
         else:
+            decision = decide_publish_partial(
+                reason_code=ErrorCode.UNSUPPORTED_REQUEST,
+                user_reason=resolution.reason
+                or "当前 Demo 未分析该产品，请选择结构性存款或贷款",
+                next_steps=[
+                    "请选择结构性存款或贷款后重新分析",
+                    "系统未进入完整风险分析，不等于产品安全",
+                ],
+            )
             outcome = OutcomeStatus.publish_partial
+        report = self._build_scope_gate_report(resolution, publication=decision)
+        ctx.report = report
         ctx.outcome = outcome
+        ctx.error_code = decision.reason_code
         return HarnessResult(
             context=ctx,
             outcome=outcome,
             report=report,
-            error_code=None,
+            error_code=decision.reason_code,
             stop_harness_stage=HarnessStage.resolve_product,
             stop_reason=resolution.reason,
             failed_http_stage=None,
+            publication=decision,
         )
 
     async def _refuse(
@@ -495,6 +610,14 @@ class AnalysisHarness:
         *,
         failed_http_stage: str,
     ) -> HarnessResult:
+        decision = decide_refuse(
+            reason_code=code,
+            user_reason=user_message_for(code),
+            next_steps=[
+                "可返回首页修改材料后重试",
+                "失败不等于产品安全或无风险",
+            ],
+        )
         ctx.current_stage = harness_stage
         ctx.outcome = OutcomeStatus.refuse
         ctx.error_code = code
@@ -515,6 +638,7 @@ class AnalysisHarness:
             stop_harness_stage=harness_stage,
             stop_reason=reason,
             failed_http_stage=failed_http_stage,
+            publication=decision,
         )
 
     async def _stage(
@@ -562,16 +686,35 @@ class AnalysisHarness:
         extracted: ExtractResult,
         findings: list[Finding],
     ) -> LlmExplainRequest:
-        facts_payload = [
-            {
-                "key": p.key.value,
-                "label": p.label,
-                "status": p.status.value,
-                "value": p.value,
-                "amount": str(p.amount) if p.amount is not None else None,
-            }
-            for p in extracted.key_parameters
-        ]
+        fact_ids: list[str] = []
+        facts_payload: list[dict] = []
+        for p in extracted.key_parameters:
+            fid = f"param:{p.key.value}"
+            fact_ids.append(fid)
+            facts_payload.append(
+                {
+                    "fact_id": fid,
+                    "key": p.key.value,
+                    "label": p.label,
+                    "status": p.status.value,
+                    "value": p.value,
+                    "amount": str(p.amount) if p.amount is not None else None,
+                }
+            )
+        for ff in extracted.financial_facts:
+            fact_ids.append(ff.fact_id)
+            facts_payload.append(
+                {
+                    "fact_id": ff.fact_id,
+                    "field_key": ff.field_key,
+                    "raw_value": ff.raw_value,
+                    "normalized_value": ff.normalized_value,
+                    "status": ff.status.value,
+                    "qualifiers": list(ff.qualifiers),
+                    "condition_text": ff.condition_text,
+                }
+            )
+        finding_ids = [f.id for f in findings]
         findings_payload = [
             {
                 "id": f.id,
@@ -591,7 +734,26 @@ class AnalysisHarness:
             for f in findings
             for ev in f.evidence
         ]
+        knowledge_ids: list[str] = []
+        for ref in extracted.general_references:
+            kid = ref.source.strip() or "knowledge:general"
+            if kid not in knowledge_ids:
+                knowledge_ids.append(kid)
+        if not knowledge_ids:
+            knowledge_ids = ["knowledge:demo"]
+        # 去重保序
+        seen_f: set[str] = set()
+        unique_fact_ids: list[str] = []
+        for fid in fact_ids:
+            if fid in seen_f:
+                continue
+            seen_f.add(fid)
+            unique_fact_ids.append(fid)
+
         user_prompt = FINDINGS_USER_TEMPLATE.format(
+            allowed_fact_ids_json=json.dumps(unique_fact_ids, ensure_ascii=False),
+            allowed_finding_ids_json=json.dumps(finding_ids, ensure_ascii=False),
+            allowed_knowledge_ids_json=json.dumps(knowledge_ids, ensure_ascii=False),
             facts_json=json.dumps(facts_payload, ensure_ascii=False),
             findings_json=json.dumps(findings_payload, ensure_ascii=False),
             evidence_json=json.dumps(evidence_payload, ensure_ascii=False),
@@ -599,9 +761,17 @@ class AnalysisHarness:
         return LlmExplainRequest(
             system_prompt=RULE_REVIEW_SYSTEM,
             user_prompt=user_prompt,
+            allowed_fact_ids=unique_fact_ids,
+            allowed_finding_ids=finding_ids,
+            allowed_knowledge_ids=knowledge_ids,
         )
 
-    def _build_scope_gate_report(self, resolution: ProductResolution) -> AnalysisReport:
+    def _build_scope_gate_report(
+        self,
+        resolution: ProductResolution,
+        *,
+        publication=None,
+    ) -> AnalysisReport:
         if resolution.analysis_scope == AnalysisScope.needs_confirmation:
             plain = "产品类型存在冲突，请确认后重新分析。本次未做完整风险分析。"
             pending = [CONFIRM_PENDING_QUESTION]
@@ -643,13 +813,14 @@ class AnalysisHarness:
                 status=FactStatus.not_disclosed,
                 note="原文未明确风险等级",
             ),
-            plain_language=PlainLanguage(text=plain, status=StageStatus.success),
+            plain_language=PlainLanguage(text=plain, status=StageStatus.partial),
             key_parameters=[],
             findings=[],
             missing_disclosures=[],
             general_references=[],
             pending_questions=pending,
             disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+            publication=publication,
         )
 
     def _hits_to_findings(self, risk_hits: list[RiskHit]) -> list[Finding]:
@@ -682,6 +853,9 @@ class AnalysisHarness:
         extracted: ExtractResult,
         findings: list[Finding],
         plain: str,
+        *,
+        plain_status: StageStatus = StageStatus.success,
+        publication=None,
     ) -> AnalysisReport:
         candidates = list(resolution.candidates)
         if not candidates and resolution.resolved_product_type is not None:
@@ -721,11 +895,12 @@ class AnalysisHarness:
             analysis_scope=AnalysisScope.supported,
             scope_reason=resolution.reason,
             product_risk_grade=risk_grade,
-            plain_language=PlainLanguage(text=plain, status=StageStatus.success),
+            plain_language=PlainLanguage(text=plain, status=plain_status),
             key_parameters=list(extracted.key_parameters),
             findings=findings,
             missing_disclosures=list(extracted.missing_disclosures),
             general_references=list(extracted.general_references),
             pending_questions=list(extracted.pending_questions),
             disclaimer="本 Demo 不进行用户适当性评估，不构成投资建议。",
+            publication=publication,
         )

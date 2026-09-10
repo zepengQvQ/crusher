@@ -10,7 +10,7 @@ from app.domain.models.knowledge import (
     RiskPatternKnowledge,
     TermKnowledge,
 )
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation
+from app.domain.models.llm import LlmAnalysisDraft, LlmExplainRequest
 from app.domain.models.report import AnalysisTask
 
 
@@ -49,5 +49,5 @@ class KnowledgeRepository(Protocol):
 class LlmGateway(Protocol):
     """大模型网关端口。Demo 可用 Mock；确定性规则不经过此端口。"""
 
-    async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+    async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
         ...

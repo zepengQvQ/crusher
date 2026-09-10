@@ -124,6 +124,76 @@
         }
       }
     },
+    "/api/v1/analyses/{task_id}/corrections": {
+      "post": {
+        "summary": "Create Correction",
+        "description": "基于父任务创建纠错修订；原任务只读，新任务异步重跑。",
+        "operationId": "create_correction_api_v1_analyses__task_id__corrections_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAnalysisResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "纠错被拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "父任务不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dual-analyses": {
       "post": {
         "summary": "Create Dual Analysis",
@@ -450,6 +520,28 @@
   },
   "components": {
     "schemas": {
+      "AnalysisCoverage": {
+        "properties": {
+          "checked": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Checked"
+          },
+          "not_checked": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Not Checked"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnalysisCoverage",
+        "description": "本次系统检查了什么 / 没有检查什么。"
+      },
       "AnalysisReport": {
         "properties": {
           "product_candidates": {
@@ -525,6 +617,17 @@
             "minLength": 1,
             "title": "Disclaimer",
             "default": "本 Demo 不进行用户适当性评估，不构成投资建议。"
+          },
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationDecision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "发布决策（由 publication_gate 工厂写入，HTTP 不得自行拼装）"
           }
         },
         "additionalProperties": false,
@@ -535,6 +638,47 @@
         ],
         "title": "AnalysisReport",
         "description": "完整分析报告。"
+      },
+      "AnalysisRevision": {
+        "properties": {
+          "revision_no": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision No"
+          },
+          "parent_task_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Parent Task Id"
+          },
+          "corrections": {
+            "items": {
+              "$ref": "#/components/schemas/CorrectionRecord"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Corrections"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision_no",
+          "parent_task_id",
+          "corrections"
+        ],
+        "title": "AnalysisRevision",
+        "description": "相对父任务的一次修订元数据。"
       },
       "AnalysisScope": {
         "type": "string",
@@ -1256,6 +1400,165 @@
         ],
         "title": "CompletenessResult"
       },
+      "CorrectionItem": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CorrectionKind"
+          },
+          "corrected_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected Text",
+            "description": "原文/OCR 修正后的全文"
+          },
+          "product_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductHint"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "产品类型确认（不得为 auto）"
+          },
+          "parameter_key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParameterKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corrected_value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected Value"
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value",
+            "description": "可选，前端展示差异用"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "CorrectionItem",
+        "description": "单条纠错请求项。"
+      },
+      "CorrectionKind": {
+        "type": "string",
+        "enum": [
+          "source_text",
+          "product_type",
+          "fact_value"
+        ],
+        "title": "CorrectionKind",
+        "description": "支持的修正类型。"
+      },
+      "CorrectionRecord": {
+        "properties": {
+          "correction_id": {
+            "type": "string",
+            "title": "Correction Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CorrectionKind"
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value"
+          },
+          "new_value": {
+            "type": "string",
+            "minLength": 1,
+            "title": "New Value"
+          },
+          "parameter_key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParameterKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "new_value"
+        ],
+        "title": "CorrectionRecord",
+        "description": "落库/落任务的修正记录（不可变快照）。"
+      },
+      "CorrectionRequest": {
+        "properties": {
+          "corrections": {
+            "items": {
+              "$ref": "#/components/schemas/CorrectionItem"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Corrections"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "corrections"
+        ],
+        "title": "CorrectionRequest",
+        "description": "POST /analyses/{task_id}/corrections 请求体。"
+      },
       "CreateAnalysisRequest": {
         "properties": {
           "text": {
@@ -1419,6 +1722,22 @@
             "type": "array",
             "title": "Pending Questions"
           },
+          "sales_financial_facts": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialFact"
+            },
+            "type": "array",
+            "title": "Sales Financial Facts",
+            "description": "销售材料侧同源 FinancialFact 账本"
+          },
+          "official_financial_facts": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialFact"
+            },
+            "type": "array",
+            "title": "Official Financial Facts",
+            "description": "正式材料侧同源 FinancialFact 账本"
+          },
           "disclaimer": {
             "type": "string",
             "title": "Disclaimer",
@@ -1475,6 +1794,8 @@
           "MODEL_TIMEOUT",
           "RATE_LIMITED",
           "INVALID_MODEL_JSON",
+          "MODEL_OUTPUT_INVALID",
+          "OUTPUT_VERIFICATION_FAILED",
           "RULE_FAILED",
           "KNOWLEDGE_UNAVAILABLE",
           "TASK_NOT_FOUND",
@@ -1482,6 +1803,11 @@
           "OCR_UNAVAILABLE",
           "DOCUMENT_PARSE_FAILED",
           "CALCULATION_INVALID",
+          "INTENT_AMBIGUOUS",
+          "INPUT_INCOMPLETE",
+          "PRODUCT_CONFLICT",
+          "INSUFFICIENT_EVIDENCE",
+          "UNSUPPORTED_REQUEST",
           "INTERNAL_ERROR"
         ],
         "title": "ErrorCode"
@@ -1678,6 +2004,51 @@
         "title": "ExtractedDocument",
         "description": "用户确认前的提取结果（可编辑文本）。"
       },
+      "ExtractorSource": {
+        "type": "string",
+        "enum": [
+          "RULE",
+          "MODEL_CANDIDATE",
+          "USER_CORRECTION"
+        ],
+        "title": "ExtractorSource"
+      },
+      "FactEvidenceRef": {
+        "properties": {
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Quote"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quote",
+          "start",
+          "end"
+        ],
+        "title": "FactEvidenceRef"
+      },
+      "FactPolarity": {
+        "type": "string",
+        "enum": [
+          "affirmative",
+          "negative",
+          "contrastive"
+        ],
+        "title": "FactPolarity"
+      },
       "FactSideValue": {
         "properties": {
           "display": {
@@ -1737,6 +2108,7 @@
           "calculated_fact",
           "general_reference",
           "not_disclosed",
+          "user_asserted",
           "unknown"
         ],
         "title": "FactStatus",
@@ -1752,6 +2124,128 @@
         ],
         "title": "FieldStatus",
         "description": "抽取字段状态（计算器预填等）。"
+      },
+      "FinancialFact": {
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Fact Id"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "field_key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Field Key"
+          },
+          "raw_value": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Raw Value"
+          },
+          "normalized_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "$ref": "#/components/schemas/ValueKind"
+          },
+          "polarity": {
+            "$ref": "#/components/schemas/FactPolarity",
+            "default": "affirmative"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Qualifiers"
+          },
+          "condition_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Text"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FinancialFactStatus"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/FactEvidenceRef"
+            },
+            "type": "array",
+            "title": "Evidence Refs"
+          },
+          "extractor_source": {
+            "$ref": "#/components/schemas/ExtractorSource",
+            "default": "RULE"
+          },
+          "negated_raw_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negated Raw Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fact_id",
+          "field_key",
+          "raw_value",
+          "value_kind",
+          "status"
+        ],
+        "title": "FinancialFact",
+        "description": "程序确认的金融事实条目。"
+      },
+      "FinancialFactStatus": {
+        "type": "string",
+        "enum": [
+          "CONFIRMED",
+          "UNCERTAIN",
+          "NOT_DISCLOSED"
+        ],
+        "title": "FinancialFactStatus"
       },
       "Finding": {
         "properties": {
@@ -2394,6 +2888,57 @@
         ],
         "title": "ProductTypeId"
       },
+      "PublicationDecision": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/PublicationOutcome"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "user_reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "User Reason"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/AnalysisCoverage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "outcome",
+          "user_reason"
+        ],
+        "title": "PublicationDecision",
+        "description": "最终发布决策（领域层唯一真相）。"
+      },
+      "PublicationOutcome": {
+        "type": "string",
+        "enum": [
+          "publish",
+          "publish_partial",
+          "clarify",
+          "refuse"
+        ],
+        "title": "PublicationOutcome",
+        "description": "统一结果状态（对外稳定）。"
+      },
       "SourceDocument": {
         "properties": {
           "source_id": {
@@ -2611,6 +3156,37 @@
                 "type": "null"
               }
             ]
+          },
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Task Id"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2635,6 +3211,17 @@
         ],
         "title": "TaskStatus",
         "description": "整次分析任务：排队 / 进行中 / 成功 / 失败。"
+      },
+      "ValueKind": {
+        "type": "string",
+        "enum": [
+          "amount",
+          "percent",
+          "term",
+          "text",
+          "fee"
+        ],
+        "title": "ValueKind"
       }
     }
   }

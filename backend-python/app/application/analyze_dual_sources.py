@@ -17,10 +17,14 @@ from app.domain.models.claim_comparison import (
 from app.domain.models.p1_enums import SourceType
 from app.domain.rules.claim_extractor import extract_sales_claims
 from app.domain.rules.claim_matcher import match_claims_to_official
+from app.domain.rules.financial_fact_extractor import FinancialFactExtractor
 
 
 class AnalyzeDualSourcesUseCase:
     """同一产品：销售材料 A vs 正式材料 B。"""
+
+    def __init__(self) -> None:
+        self._facts = FinancialFactExtractor()
 
     def execute(self, request: DualAnalysisRequest) -> DualAnalysisReport:
         sales = SourceDocument(
@@ -54,9 +58,17 @@ class AnalyzeDualSourcesUseCase:
                 continue
             seen.add(q)
             uniq_pending.append(q)
+        sales_facts = self._facts.extract(
+            sales.text, product_id=sales.source_id
+        ).facts
+        official_facts = self._facts.extract(
+            official.text, product_id=official.source_id
+        ).facts
         return DualAnalysisReport(
             sales_source=sales,
             official_source=official,
             comparisons=comparisons,
             pending_questions=uniq_pending,
+            sales_financial_facts=sales_facts,
+            official_financial_facts=official_facts,
         )

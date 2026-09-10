@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.domain.models.correction import AnalysisRevision
 from app.domain.models.enums import (
     AnalysisScope,
     DemoErrorKind,
@@ -22,6 +23,7 @@ from app.domain.models.enums import (
     ProductHint,
     ProductTypeId,
 )
+from app.domain.models.verification import PublicationDecision
 from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus
 
@@ -113,6 +115,9 @@ class KeyParameter(StrictModel):
         if self.status == FactStatus.not_disclosed:
             if self.value not in (None, "") or self.amount is not None:
                 raise ValueError("not_disclosed 参数不能带 value/amount")
+        if self.status == FactStatus.user_asserted:
+            if self.value in (None, ""):
+                raise ValueError("user_asserted 参数必须提供 value")
         if self.key == ParameterKey.amount and self.status == FactStatus.document_fact:
             if self.amount is None:
                 raise ValueError("amount 参数在 document_fact 时必须提供可解析金额")
@@ -157,6 +162,10 @@ class AnalysisReport(StrictModel):
     disclaimer: str = Field(
         default="本 Demo 不进行用户适当性评估，不构成投资建议。",
         min_length=1,
+    )
+    publication: PublicationDecision | None = Field(
+        default=None,
+        description="发布决策（由 publication_gate 工厂写入，HTTP 不得自行拼装）",
     )
 
 
@@ -248,6 +257,9 @@ class AnalysisTask(StrictModel):
     error_code: ErrorCode | None = None
     error_message: str | None = None
     report: AnalysisReport | None = None
+    publication: PublicationDecision | None = None
+    parent_task_id: str | None = None
+    revision: AnalysisRevision | None = None
 
     def touch(self) -> None:
         self.updated_at = utc_now()

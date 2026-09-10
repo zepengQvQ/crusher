@@ -19,7 +19,12 @@ from app.composition_root import build_llm_gateway, require_real_llm_settings  #
 from app.config.settings import Settings  # noqa: E402
 from app.domain.llm_errors import LlmConfigError, LlmInvalidJsonError  # noqa: E402
 from app.domain.models import AnalyzeTextRequest  # noqa: E402
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
+from app.domain.models.llm import (  # noqa: E402
+    LlmAnalysisDraft,
+    LlmExplainRequest,
+    draft_from_request,
+    make_simple_draft,
+)
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
 from app.infrastructure.llm.mock_gateway import MockLlmGateway  # noqa: E402
 from app.infrastructure.llm.openai_compatible_gateway import (  # noqa: E402
@@ -44,8 +49,36 @@ def _settings(**overrides) -> Settings:
     return Settings(**base)
 
 
-def _json_content(plain: str) -> str:
-    return json.dumps({"plain_language": plain}, ensure_ascii=False)
+
+def _extract_json_list(user: str, label: str) -> list[str]:
+    marker = label
+    idx = user.find(marker)
+    if idx < 0:
+        return []
+    start = user.find("[", idx)
+    end = user.find("]", start)
+    if start < 0 or end < 0:
+        return []
+    try:
+        data = json.loads(user[start : end + 1])
+    except json.JSONDecodeError:
+        return []
+    return [str(x) for x in data] if isinstance(data, list) else []
+
+
+def _json_content_for_http(request: httpx.Request, plain: str) -> str:
+    body_in = json.loads(request.content.decode("utf-8"))
+    user = body_in["messages"][1]["content"]
+    fact_ids = _extract_json_list(user, "允许引用的 fact_ids：")
+    finding_ids = _extract_json_list(user, "允许引用的 finding_ids：")
+    knowledge_ids = _extract_json_list(user, "允许引用的 knowledge_ids：")
+    draft = make_simple_draft(
+        plain,
+        fact_ids=fact_ids[:1],
+        finding_ids=finding_ids,
+        knowledge_ids=knowledge_ids[:1] if not fact_ids and not finding_ids else [],
+    )
+    return json.dumps(draft.model_dump(mode="json"), ensure_ascii=False)
 
 
 def _ok_handler(plain: str):
@@ -57,7 +90,7 @@ def _ok_handler(plain: str):
         assert roles == ["system", "user"], roles
         body = {
             "choices": [
-                {"message": {"content": _json_content(plain)}},
+                {"message": {"content": _json_content_for_http(request, plain)}},
             ]
         }
         return httpx.Response(200, json=body)
@@ -97,17 +130,18 @@ class MockGatewayTests(unittest.TestCase):
         async def run() -> None:
             a = await gw.complete(req)
             b = await gw.complete(req)
-            self.assertEqual(a.plain_language, b.plain_language)
-            self.assertIsInstance(a, LlmExplanation)
+            self.assertEqual(a.render_plain_language(), b.render_plain_language())
+            self.assertIsInstance(a, LlmAnalysisDraft)
 
         asyncio.run(run())
 
 
 class ParseContentTests(unittest.TestCase):
     def test_strips_markdown_fence(self):
-        raw = '```json\n{"plain_language":"你好"}\n```'
+        draft = make_simple_draft("你好", knowledge_ids=["knowledge:demo"])
+        raw = "```json\n" + json.dumps(draft.model_dump(mode="json"), ensure_ascii=False) + "\n```"
         exp = parse_llm_explanation_content(raw)
-        self.assertEqual(exp.plain_language, "你好")
+        self.assertEqual(exp.render_plain_language(), "你好")
 
     def test_empty_choices_content_invalid(self):
         with self.assertRaises(LlmInvalidJsonError):
@@ -155,17 +189,18 @@ class RealGatewayPipelineTests(unittest.TestCase):
             gw,
             "提前还款需支付剩余本金3%的违约金。",
         )
-        # 若规则未命中 Finding，矛盾检测不触发；有 Finding 才必须失败
-        if task.report and task.report.findings:
-            self.fail("有 Finding 时不得完成报告")
-        if task.task_status == TaskStatus.completed:
-            # 规则未命中时允许完成；跳过本断言场景
+        # 若规则未命中 Finding，矛盾检测不触发；有 Finding 则部分发布程序事实
+        if task.task_status == TaskStatus.completed and not (
+            task.report and task.report.findings
+        ):
             self.skipTest("当前样例未命中 Finding，矛盾用例不适用")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
         explain = next(s for s in task.stages if s.name == "explain")
-        self.assertEqual(explain.status.value, "failed")
+        self.assertEqual(explain.status.value, "partial")
 
     def test_rate_limited(self):
         def handler(request: httpx.Request) -> httpx.Response:
@@ -221,9 +256,8 @@ class ForcedFindingContradictionTests(unittest.TestCase):
 
     def test_contradiction_fails_when_findings_present(self):
         class FixedGw:
-            async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
-                _ = request
-                return LlmExplanation(plain_language="综合来看没有风险。")
+            async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
+                return draft_from_request(request, "综合来看没有风险。")
 
         class SeededUc(AnalyzeTextUseCase):
             def _collect_risks(self, text, product_type_id):
@@ -253,9 +287,11 @@ class ForcedFindingContradictionTests(unittest.TestCase):
             return store.get(task.task_id)
 
         task = asyncio.run(go())
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
 
 if __name__ == "__main__":

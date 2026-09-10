@@ -16,6 +16,7 @@ from app.domain.models.completeness import (
     ClarificationAnswer,
     CompletenessResult,
 )
+from app.domain.models.correction import CorrectionRecord
 from app.domain.models.enums import DemoErrorKind, ProductHint
 from app.domain.models.intent import IntentDecision, IntentType
 from app.domain.models.report import (
@@ -23,6 +24,7 @@ from app.domain.models.report import (
     ProductResolution,
     StrictModel,
 )
+from app.domain.models.verification import PublicationDecision
 from app.shared.enums import ErrorCode, StageStatus
 
 
@@ -73,6 +75,8 @@ class AnalysisContext(StrictModel):
     intent_decision: IntentDecision | None = None
     clarification_answers: list[ClarificationAnswer] = Field(default_factory=list)
     completeness_result: CompletenessResult | None = None
+    # P2-09：用户纠错快照（仅 fact_value 在抽取后应用；原文/产品已写在 source_text/hint）
+    corrections: list[CorrectionRecord] = Field(default_factory=list)
     current_stage: HarnessStage = HarnessStage.receive
     product_resolution: ProductResolution | None = None
     report: AnalysisReport | None = None
@@ -94,6 +98,7 @@ class HarnessResult(StrictModel):
     stop_harness_stage: HarnessStage
     stop_reason: str = ""
     failed_http_stage: str | None = None
+    publication: PublicationDecision | None = None
 
 
 # Harness 阶段 → 现有 HTTP 轮询阶段名

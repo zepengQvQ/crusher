@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Demo 全量测试入口（不含 legacy Streamlit/Mermaid 旧脚本）。
+# Demo 全量测试入口。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${ROOT}/backend-python/.venv/bin/python"
@@ -88,6 +88,24 @@ echo "==> P2-03"
 echo "==> P2-04"
 "$PY" -m unittest discover -s "${ROOT}/tests/p2_04" -v
 "$PY" "${ROOT}/scripts/validate_knowledge.py"
+
+echo "==> P2-05"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_05" -v
+
+echo "==> P2-06"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_06" -v
+
+echo "==> P2-07"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_07" -v
+
+echo "==> P2-08"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_08" -v
+
+echo "==> P2-09"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_09" -v
+
+echo "==> P2-10 (no MCP package required for core checks)"
+"$PY" -m unittest discover -s "${ROOT}/tests/p2_10" -v
 
 echo "==> P0-05"
 "$PY" -m unittest discover -s "${ROOT}/tests/p0_05" -v

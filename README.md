@@ -35,7 +35,6 @@ docs/             说明文档（从 docs/project.md 进）
 contracts/        接口说明书快照（机器导出的）
 scripts/          启动、测试用脚本
 data/             演示用条款原文（不是主知识库）
-legacy/           旧版网页，只对照，别加新功能
 ```
 
 ## 常用命令

@@ -9,6 +9,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from app.domain.llm_errors import LlmInvalidJsonError
+from app.domain.models.llm import LlmAnalysisDraft
 from app.domain.models.report import Finding, KeyParameter
 
 # 笼统「无风险」；双重否定前缀保护「不能说没有风险」类表述
@@ -114,3 +115,29 @@ def validate_explanation_against_program(
         novel = extract_number_tokens(plain) - allowed
         if novel:
             raise LlmInvalidJsonError(f"explanation invents numbers: {sorted(novel)}")
+
+
+def validate_draft_reference_whitelist(
+    draft: LlmAnalysisDraft,
+    *,
+    allowed_fact_ids: set[str] | list[str],
+    allowed_finding_ids: set[str] | list[str],
+    allowed_knowledge_ids: set[str] | list[str],
+) -> None:
+    """草稿中的 ID 必须全部落在输入白名单；空引用已在 Schema 拒绝。"""
+    facts = set(allowed_fact_ids)
+    findings = set(allowed_finding_ids)
+    knowledge = set(allowed_knowledge_ids)
+    items = draft.all_items()
+    if not items:
+        raise LlmInvalidJsonError("empty draft items")
+    for item in items:
+        for fid in item.fact_ids:
+            if fid not in facts:
+                raise LlmInvalidJsonError(f"unknown fact_id: {fid}")
+        for nid in item.finding_ids:
+            if nid not in findings:
+                raise LlmInvalidJsonError(f"unknown finding_id: {nid}")
+        for kid in item.knowledge_ids:
+            if kid not in knowledge:
+                raise LlmInvalidJsonError(f"unknown knowledge_id: {kid}")

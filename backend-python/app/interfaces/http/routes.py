@@ -19,6 +19,10 @@ from app.application.calculate_scenario import CalculateScenarioUseCase
 from app.application.check_input_completeness import CheckInputCompletenessUseCase
 from app.application.compare_products import CompareProductsUseCase
 from app.application.extract_document import ExtractDocumentUseCase
+from app.application.reanalyze_with_correction import (
+    CorrectionRejectedError,
+    ReanalyzeWithCorrectionUseCase,
+)
 from app.application.resolve_intent import ResolveIntentUseCase
 from app.composition_root import (
     get_analyze_dual_sources_use_case,
@@ -28,6 +32,7 @@ from app.composition_root import (
     get_check_input_completeness_use_case,
     get_compare_products_use_case,
     get_extract_document_use_case,
+    get_reanalyze_with_correction_use_case,
     get_resolve_intent_use_case,
     get_task_store,
 )
@@ -42,11 +47,13 @@ from app.domain.models import (
 )
 from app.domain.models.calculation import CalculateScenarioRequest, CalculationResult
 from app.domain.models.completeness import CompletenessCheckRequest, CompletenessResult
+from app.domain.models.correction import AnalysisRevision, CorrectionRequest
 from app.domain.models.enums import AnalysisScope, ProductHint, ProductTypeId
 from app.domain.models.evidence_answer import EvidenceAnswer, FollowUpRequest
 from app.domain.models.intent import IntentDecision, IntentResolveRequest
 from app.domain.models.product_facts import ProductCompareRequest, ProductComparisonReport
 from app.domain.models.source_document import ExtractedDocument
+from app.domain.models.verification import PublicationDecision
 from app.infrastructure.task_store.memory import InMemoryTaskStore
 from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, TaskStatus, user_message_for
@@ -87,6 +94,9 @@ IntentUseCaseDep = Annotated[ResolveIntentUseCase, Depends(get_resolve_intent_us
 CompletenessUseCaseDep = Annotated[
     CheckInputCompletenessUseCase, Depends(get_check_input_completeness_use_case)
 ]
+CorrectionUseCaseDep = Annotated[
+    ReanalyzeWithCorrectionUseCase, Depends(get_reanalyze_with_correction_use_case)
+]
 StoreDep = Annotated[InMemoryTaskStore, Depends(get_task_store)]
 
 
@@ -117,7 +127,9 @@ class TaskResponse(BaseModel):
     product_hint: ProductHint = ProductHint.auto
     resolved_product_type: ProductTypeId | None = None
     analysis_scope: AnalysisScope | None = None
-
+    publication: PublicationDecision | None = None
+    parent_task_id: str | None = None
+    revision: AnalysisRevision | None = None
 
 def _forbidden_fields_from_validation(
     errors: list[dict[str, object]],
@@ -268,6 +280,9 @@ def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
             },
         )
     failed = task.task_status == TaskStatus.failed
+    publication = task.publication
+    if publication is None and task.report is not None:
+        publication = task.report.publication
     return TaskResponse(
         task_id=task.task_id,
         task_status=task.task_status,
@@ -282,7 +297,38 @@ def get_analysis(task_id: str, store: StoreDep) -> TaskResponse:
         product_hint=task.product_hint,
         resolved_product_type=task.resolved_product_type,
         analysis_scope=task.analysis_scope,
+        publication=publication,
+        parent_task_id=task.parent_task_id,
+        revision=task.revision,
     )
+
+
+@router.post(
+    "/api/v1/analyses/{task_id}/corrections",
+    response_model=CreateAnalysisResponse,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "纠错被拒绝"},
+        404: {"model": ApiErrorResponse, "description": "父任务不存在"},
+        422: {"model": ApiErrorResponse, "description": "请求参数不合法"},
+    },
+)
+async def create_correction(
+    task_id: str,
+    body: CorrectionRequest,
+    background_tasks: BackgroundTasks,
+    use_case: CorrectionUseCaseDep,
+) -> CreateAnalysisResponse:
+    """基于父任务创建纠错修订；原任务只读，新任务异步重跑。"""
+    try:
+        task = use_case.submit(task_id, body)
+    except CorrectionRejectedError as exc:
+        status = 404 if exc.error_code == ErrorCode.TASK_NOT_FOUND.value else 400
+        raise HTTPException(
+            status_code=status,
+            detail={"error_code": exc.error_code, "message": exc.message},
+        ) from exc
+    background_tasks.add_task(use_case.run, task.task_id)
+    return CreateAnalysisResponse(task_id=task.task_id, task_status=task.task_status)
 
 
 @router.post(

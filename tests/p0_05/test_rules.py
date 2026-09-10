@@ -136,12 +136,13 @@ class NegationAndStabilityTests(unittest.TestCase):
 
 
 class PromptNoPaddingTests(unittest.TestCase):
-    def test_legacy_stage3_prompt_does_not_require_min_findings(self):
-        sys.path.insert(0, str(PROJECT_ROOT / "legacy"))
-        from backend.prompts import STAGE3_USER_PROMPT  # noqa: WPS433
+    def test_current_prompt_does_not_require_min_findings(self):
+        from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
 
-        self.assertNotIn("至少找出", STAGE3_USER_PROMPT)
-        self.assertIn("可以返回空数组", STAGE3_USER_PROMPT)
+        blob = RULE_REVIEW_SYSTEM + "\n" + FINDINGS_USER_TEMPLATE
+        self.assertNotIn("至少找出", blob)
+        self.assertIn("可为空", FINDINGS_USER_TEMPLATE)
+        self.assertIn("不要生成 findings 数组", RULE_REVIEW_SYSTEM)
 
 
 if __name__ == "__main__":

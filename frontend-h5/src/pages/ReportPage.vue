@@ -18,6 +18,22 @@
     </div>
 
     <template v-else-if="report">
+      <div v-if="revisionBanner" class="block">
+        <van-notice-bar left-icon="replay" :text="revisionBanner" />
+      </div>
+
+      <div v-if="outcomeBanner" class="block">
+        <van-notice-bar
+          left-icon="warning-o"
+          :text="outcomeBanner"
+          color="#9a3412"
+          background="#fff7ed"
+        />
+        <ul v-if="nextSteps.length" class="next-steps">
+          <li v-for="(s, i) in nextSteps" :key="'ns' + i">{{ s }}</li>
+        </ul>
+      </div>
+
       <div class="block dashboard-block">
         <div class="dashboard-grid">
           <div class="dash-left">
@@ -80,8 +96,17 @@
         />
       </div>
 
+      <div v-if="publication?.coverage" class="block">
+        <AnalysisCoverageCard :coverage="publication.coverage" />
+      </div>
+
       <div class="block">
-        <div class="block-title"><van-icon name="label-o" /> 产品候选</div>
+        <div class="section-header">
+          <h3><van-icon name="label-o" style="color:#1989fa;margin-right:4px" /> 产品候选</h3>
+          <van-button size="small" plain class="touch-btn" @click="openCorrection('product_type')">
+            产品认错了
+          </van-button>
+        </div>
         <van-cell-group :border="false">
           <van-cell
             v-for="(c, idx) in report.product_candidates || []"
@@ -105,8 +130,14 @@
             v-for="p in report.key_parameters || []"
             :key="p.key"
             :title="p.label || p.key"
+            :label="statusLabel(p.status)"
             size="large"
+            is-link
+            @click="openFactCorrection(p)"
           >
+            <template #icon>
+              <van-icon name="orders-o" size="18" style="color:#1989fa;margin-right:8px" />
+            </template>
             <template #value>
               <div class="param-val" :class="{ 'not-disclosed': p.status === 'not_disclosed' }">
                 <template v-if="p.status === 'not_disclosed'">
@@ -177,9 +208,14 @@
       <div class="block">
         <div class="section-header">
           <h3><van-icon name="description" style="color:#1989fa;margin-right:4px" /> 原文标记</h3>
-          <span class="more" @click="sourceExpanded = !sourceExpanded">
-            {{ sourceExpanded ? '收起' : '展开' }}
-          </span>
+          <div class="row-actions">
+            <van-button size="small" plain class="touch-btn" @click="openCorrection('source_text')">
+              原文错了
+            </van-button>
+            <van-button size="small" plain class="touch-btn" @click="sourceExpanded = !sourceExpanded">
+              {{ sourceExpanded ? '收起' : '展开' }}
+            </van-button>
+          </div>
         </div>
         <div class="source-wrap" :class="{ clamped: !sourceExpanded }">
           <div class="source-text" v-html="highlightedSource"></div>
@@ -276,6 +312,17 @@
         </van-button>
       </div>
     </template>
+
+    <CorrectionSheet
+      v-model="sheetOpen"
+      :task-id="taskId"
+      :mode="sheetMode"
+      :parameter-key="sheetParamKey"
+      :previous-value="sheetPrevValue"
+      :source-text="sourceText"
+      :product-hint="productHint"
+      @submitted="onCorrectionSubmitted"
+    />
   </div>
 </template>
 
@@ -285,6 +332,8 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
+import AnalysisCoverageCard from '../components/AnalysisCoverageCard.vue'
+import CorrectionSheet from '../components/CorrectionSheet.vue'
 import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
 import ReportActions from '../components/ReportActions.vue'
 import ScenarioCalculator from '../components/ScenarioCalculator.vue'
@@ -301,10 +350,18 @@ const chatStore = useChatStore()
 const loading = ref(true)
 const loadError = ref('')
 const report = ref(null)
+const publication = ref(null)
+const revision = ref(null)
+const parentTaskId = ref('')
+const productHint = ref('auto')
 const activeFindings = ref([])
 const sourceExpanded = ref(false)
 const sourceText = ref('')
 const dashScore = ref(0)
+const sheetOpen = ref(false)
+const sheetMode = ref('fact_value')
+const sheetParamKey = ref('')
+const sheetPrevValue = ref('')
 let active = true
 
 function sevClass(sev) {
@@ -339,7 +396,49 @@ const productGradeText = computed(() => {
   return g.value
 })
 
+const outcome = computed(
+  () => publication.value?.outcome || report.value?.publication?.outcome || 'publish',
+)
+
+const nextSteps = computed(
+  () => publication.value?.next_steps || report.value?.publication?.next_steps || [],
+)
+
+const outcomeBanner = computed(() => {
+  const o = outcome.value
+  const reason =
+    publication.value?.user_reason || report.value?.publication?.user_reason || ''
+  if (o === 'publish_partial') {
+    return reason || '部分结果：仅展示程序已确认内容，请勿当作完整模型说明'
+  }
+  if (o === 'clarify') {
+    return reason || '还需确认信息后才能继续完整分析'
+  }
+  return ''
+})
+
+const revisionBanner = computed(() => {
+  if (!revision.value) return ''
+  const parent = parentTaskId.value || revision.value.parent_task_id || ''
+  const n = revision.value.revision_no
+  return `本报告为修订 #${n}（父任务 ${parent}），未覆盖原报告`
+})
+
 const conclusion = computed(() => {
+  const o = outcome.value
+  if (o === 'clarify') {
+    return publication.value?.user_reason || '请先确认下方问题后再继续'
+  }
+  if (o === 'publish_partial') {
+    const scope = report.value?.analysis_scope || 'supported'
+    if (scope === 'out_of_scope') {
+      return '当前 Demo 未分析该产品，请选择结构性存款或贷款'
+    }
+    return (
+      publication.value?.user_reason ||
+      '部分结果已确认；通俗解释未通过校验或不适用'
+    )
+  }
   const scope = report.value?.analysis_scope || 'supported'
   if (scope === 'out_of_scope') {
     return '当前 Demo 未分析该产品，请选择结构性存款或贷款'
@@ -439,8 +538,40 @@ function candidateLabel(c) {
 
 function formatParam(p) {
   if (p.status === 'not_disclosed') return '材料未说明'
+  if (p.status === 'user_asserted') {
+    const v = p.key === 'amount' && p.amount != null ? String(p.amount) : p.value ?? '-'
+    return `${v}（用户声明）`
+  }
   if (p.key === 'amount' && p.amount != null) return String(p.amount)
   return p.value ?? '-'
+}
+
+function statusLabel(status) {
+  if (status === 'user_asserted') return '用户声明，非原文事实'
+  if (status === 'not_disclosed') return '材料未说明'
+  if (status === 'document_fact') return '原文事实'
+  return status || ''
+}
+
+function openCorrection(mode) {
+  sheetMode.value = mode
+  sheetParamKey.value = ''
+  sheetPrevValue.value = ''
+  sheetOpen.value = true
+}
+
+function openFactCorrection(p) {
+  sheetMode.value = 'fact_value'
+  sheetParamKey.value = p.key
+  sheetPrevValue.value =
+    p.status === 'not_disclosed' ? '' : p.value || (p.amount != null ? String(p.amount) : '')
+  sheetOpen.value = true
+}
+
+function onCorrectionSubmitted(res) {
+  showToast('已创建修订任务')
+  store.setTask(res.task_id, res.task_status)
+  router.replace({ name: 'status', params: { taskId: res.task_id } })
 }
 
 async function onCopy(text) {
@@ -487,6 +618,10 @@ onMounted(async () => {
       return
     }
     report.value = data.report
+    publication.value = data.publication || data.report.publication || null
+    revision.value = data.revision || null
+    parentTaskId.value = data.parent_task_id || ''
+    productHint.value = data.product_hint || 'auto'
     sourceText.value = data.source_text || ''
     const raw = highCount.value * 25 + midCount.value * 10 + lowCount.value * 4
     dashScore.value = Math.min(100, raw + (report.value?.missing_disclosures?.length || 0) * 3)
@@ -593,6 +728,11 @@ onUnmounted(() => {
   margin: 0; font-size: 14px; line-height: 1.7; color: var(--crusher-ink);
 }
 
+.row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .source-wrap {
   font-size: 14px; line-height: 1.7; color: var(--crusher-ink);
   background: var(--crusher-surface); padding: 12px; border-radius: 10px;
@@ -615,6 +755,14 @@ onUnmounted(() => {
 .legend-item .dot.high { background: #fee2e2; border: 1px solid #fecaca; }
 .legend-item .dot.mid { background: #fef3c7; border: 1px solid #fde68a; }
 .legend-item .dot.low { background: #dbeafe; border: 1px solid #bfdbfe; }
+
+.next-steps {
+  margin: 10px 0 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+  color: #9a3412;
+  line-height: 1.5;
+}
 
 .disclaimer {
   margin: 12px 16px; color: var(--crusher-ink-3); font-size: 12px;

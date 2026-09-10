@@ -81,10 +81,11 @@ class AnalysisHarnessTests(unittest.TestCase):
         src = Path(
             ROOT / "backend-python/app/application/analysis_harness.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("P2-01 兼容适配器", src)
+        # 历史兼容阶段标注；verify 已由 P2-07 真门禁替换适配器
         self.assertIn("P2-02", src)
         self.assertIn("P2-03", src)
         self.assertIn("P2-07", src)
+        self.assertIn("run_publication_gate", src)
 
     def test_no_agent_framework_dependency(self) -> None:
         src = Path(

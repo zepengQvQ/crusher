@@ -25,6 +25,7 @@ class FactStatus(str, Enum):
     calculated_fact = "calculated_fact"  # 程序算出来的
     general_reference = "general_reference"  # 行业常识，不能当成本材料事实
     not_disclosed = "not_disclosed"  # 原文没写
+    user_asserted = "user_asserted"  # 用户纠错声明，不能伪装成 document_fact
     unknown = "unknown"
 
 

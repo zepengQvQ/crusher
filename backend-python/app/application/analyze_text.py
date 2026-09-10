@@ -6,7 +6,7 @@
 用途：任务提交、异步执行、把 Harness 结果写回 TaskStore。
 输入：AnalyzeTextRequest。
 输出：AnalysisTask（queued → running → completed/failed）。
-不变量：失败时 report=None；风险 Finding 仍由规则产生。
+不变量：真 refuse 时 report=None；clarify/partial/publish 均带报告与 publication。
 失败方式：按 Harness 返回的 failed_http_stage 标记，禁止一律标 explain。
 """
 from __future__ import annotations
@@ -17,6 +17,7 @@ from app.application.analysis_harness import AnalysisHarness
 from app.config.settings import Settings
 from app.domain.models import AnalysisTask, AnalyzeTextRequest, ProductResolution, StageInfo
 from app.domain.models.analysis_context import AnalysisContext, OutcomeStatus
+from app.domain.models.verification import PublicationDecision
 from app.domain.ports.protocols import KnowledgeRepository, LlmGateway, TaskStore
 from app.domain.rules.engine import RuleEngine
 from app.domain.rules.fact_extractor import FactExtractor
@@ -112,6 +113,7 @@ class AnalyzeTextUseCase:
             source_text=request.text,
             product_hint=request.product_hint,
             demo_error=request.demo_error,
+            corrections=list(task.revision.corrections) if task.revision else [],
         )
 
         async def on_http_stage(name: str, status: StageStatus, message: str) -> None:
@@ -128,22 +130,33 @@ class AnalyzeTextUseCase:
         if task is None:
             return
 
+        publication = result.publication
+        if publication is None and result.report is not None:
+            publication = result.report.publication
+
         if result.outcome == OutcomeStatus.refuse:
             code = result.error_code or ErrorCode.INTERNAL_ERROR
             failed = result.failed_http_stage or "explain"
-            await self._fail(task_id, failed, code)
+            await self._fail(task_id, failed, code, publication=publication)
             return
 
-        # clarify 且带报告：输入不完整，发布待确认报告（禁止空风险伪装成功分析）
+        # clarify 必须带报告，禁止空风险伪装成功分析
         if result.outcome == OutcomeStatus.clarify and result.report is None:
-            await self._fail(task_id, "preprocess", ErrorCode.INTERNAL_ERROR)
+            await self._fail(
+                task_id,
+                "preprocess",
+                ErrorCode.INTERNAL_ERROR,
+                publication=publication,
+            )
             return
 
         task = self._tasks.get(task_id)
         if task is None:
             return
         task.report = result.report
+        task.publication = publication
         task.task_status = TaskStatus.completed
+        # 部分结果/追问：原因码写在 publication，不占用 failed 语义
         task.error_code = None
         task.error_message = None
         if result.context.product_resolution is not None:
@@ -153,7 +166,12 @@ class AnalyzeTextUseCase:
             task.analysis_scope = result.context.product_resolution.analysis_scope
         self._tasks.save(task)
         finding_count = len(task.report.findings) if task.report is not None else 0
-        log_task("task_completed", task_id, findings=finding_count)
+        log_task(
+            "task_completed",
+            task_id,
+            findings=finding_count,
+            outcome=result.outcome.value,
+        )
 
     async def _persist_resolution(self, task_id: str, resolution: ProductResolution) -> None:
         """分类后写回任务级决议字段，失败态 GET 仍可读取。"""
@@ -182,7 +200,14 @@ class AnalyzeTextUseCase:
                 stage.message = message
         self._tasks.save(task)
 
-    async def _fail(self, task_id: str, failed_stage: str, code: ErrorCode) -> None:
+    async def _fail(
+        self,
+        task_id: str,
+        failed_stage: str,
+        code: ErrorCode,
+        *,
+        publication: PublicationDecision | None = None,
+    ) -> None:
         task = self._tasks.get(task_id)
         if task is None:
             return
@@ -196,5 +221,6 @@ class AnalyzeTextUseCase:
         task.error_code = code
         task.error_message = user_message_for(code)
         task.report = None
+        task.publication = publication
         self._tasks.save(task)
         log_task("task_failed", task_id, error_code=code.value)

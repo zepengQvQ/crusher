@@ -17,7 +17,12 @@ from app.domain.models.enums import (
     ProductHint,
     ProductTypeId,
 )
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation
+from app.domain.models.llm import (
+    LlmAnalysisDraft,
+    LlmExplainRequest,
+    LlmExplanation,
+    make_simple_draft,
+)
 from app.domain.models.p1_enums import ClaimStatus, ClaimSubject, SourceType
 from app.domain.models.report import (
     AnalysisReport,
@@ -59,6 +64,8 @@ __all__ = [
     "SourceType",
     "LlmExplainRequest",
     "LlmExplanation",
+    "LlmAnalysisDraft",
+    "make_simple_draft",
     "AnalysisReport",
     "AnalysisTask",
     "AnalyzeTextRequest",

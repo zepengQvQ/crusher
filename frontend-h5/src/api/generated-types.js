@@ -4,7 +4,7 @@
  * 更新命令：make export-openapi
  */
 
-export const SCHEMA_NAMES = ["AnalysisReport", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "FactSideValue", "FactStatus", "FieldStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus"]
+export const SCHEMA_NAMES = ["AnalysisCoverage", "AnalysisReport", "AnalysisRevision", "AnalysisScope", "AnswerControl", "AnswerStatus", "ApiErrorDetail", "ApiErrorResponse", "Body_extract_document_api_v1_documents_extract_post", "CalculateScenarioRequest", "CalculationKind", "CalculationResult", "Claim", "ClaimComparison", "ClaimStatus", "ClaimSubject", "ClarificationAnswer", "ClarifyingOption", "ClarifyingQuestion", "CompletenessCheckRequest", "CompletenessResult", "CorrectionItem", "CorrectionKind", "CorrectionRecord", "CorrectionRequest", "CreateAnalysisRequest", "CreateAnalysisResponse", "DayCountBasis", "DecisionSource", "DecisionStatus", "DemoErrorKind", "DiffStatus", "DimensionComparison", "DualAnalysisReport", "DualAnalysisRequest", "ErrorCode", "Evidence", "EvidenceAnswer", "EvidenceRef", "EvidenceSource", "ExtractedDocument", "ExtractorSource", "FactEvidenceRef", "FactPolarity", "FactSideValue", "FactStatus", "FieldStatus", "FinancialFact", "FinancialFactStatus", "Finding", "FindingSeverity", "FollowUpRequest", "GapKind", "GeneralReference", "IntentDecision", "IntentOption", "IntentResolveRequest", "IntentType", "KeyParameter", "MissingDisclosure", "PageExtractResult", "PageExtractStatus", "ParameterKey", "PlainLanguage", "ProductCandidate", "ProductCompareRequest", "ProductComparisonReport", "ProductFactDimension", "ProductFacts", "ProductHint", "ProductRiskGrade", "ProductTypeId", "PublicationDecision", "PublicationOutcome", "SourceDocument", "SourceEnvelope", "SourceRole", "SourceType", "StageInfo", "StageStatus", "TaskResponse", "TaskStatus", "ValueKind"]
 
 export const MAX_INPUT_CHARS = 8000
 
@@ -75,6 +75,16 @@ export const ClaimSubject = Object.freeze({
 })
 
 /**
+ * @typedef {"source_text"|"product_type"|"fact_value"} CorrectionKindValue
+ */
+
+export const CorrectionKind = Object.freeze({
+  source_text: "source_text",
+  product_type: "product_type",
+  fact_value: "fact_value",
+})
+
+/**
  * @typedef {"360"|"365"} DayCountBasisValue
  */
 
@@ -128,7 +138,7 @@ export const DiffStatus = Object.freeze({
 })
 
 /**
- * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"CALCULATION_INVALID"|"INTERNAL_ERROR"} ErrorCodeValue
+ * @typedef {"INPUT_TOO_LONG"|"MODEL_TIMEOUT"|"RATE_LIMITED"|"INVALID_MODEL_JSON"|"MODEL_OUTPUT_INVALID"|"OUTPUT_VERIFICATION_FAILED"|"RULE_FAILED"|"KNOWLEDGE_UNAVAILABLE"|"TASK_NOT_FOUND"|"FORBIDDEN_CLIENT_CONFIG"|"OCR_UNAVAILABLE"|"DOCUMENT_PARSE_FAILED"|"CALCULATION_INVALID"|"INTENT_AMBIGUOUS"|"INPUT_INCOMPLETE"|"PRODUCT_CONFLICT"|"INSUFFICIENT_EVIDENCE"|"UNSUPPORTED_REQUEST"|"INTERNAL_ERROR"} ErrorCodeValue
  */
 
 export const ErrorCode = Object.freeze({
@@ -136,6 +146,8 @@ export const ErrorCode = Object.freeze({
   MODEL_TIMEOUT: "MODEL_TIMEOUT",
   RATE_LIMITED: "RATE_LIMITED",
   INVALID_MODEL_JSON: "INVALID_MODEL_JSON",
+  MODEL_OUTPUT_INVALID: "MODEL_OUTPUT_INVALID",
+  OUTPUT_VERIFICATION_FAILED: "OUTPUT_VERIFICATION_FAILED",
   RULE_FAILED: "RULE_FAILED",
   KNOWLEDGE_UNAVAILABLE: "KNOWLEDGE_UNAVAILABLE",
   TASK_NOT_FOUND: "TASK_NOT_FOUND",
@@ -143,6 +155,11 @@ export const ErrorCode = Object.freeze({
   OCR_UNAVAILABLE: "OCR_UNAVAILABLE",
   DOCUMENT_PARSE_FAILED: "DOCUMENT_PARSE_FAILED",
   CALCULATION_INVALID: "CALCULATION_INVALID",
+  INTENT_AMBIGUOUS: "INTENT_AMBIGUOUS",
+  INPUT_INCOMPLETE: "INPUT_INCOMPLETE",
+  PRODUCT_CONFLICT: "PRODUCT_CONFLICT",
+  INSUFFICIENT_EVIDENCE: "INSUFFICIENT_EVIDENCE",
+  UNSUPPORTED_REQUEST: "UNSUPPORTED_REQUEST",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 })
 
@@ -156,7 +173,27 @@ export const EvidenceSource = Object.freeze({
 })
 
 /**
- * @typedef {"document_fact"|"calculated_fact"|"general_reference"|"not_disclosed"|"unknown"} FactStatusValue
+ * @typedef {"RULE"|"MODEL_CANDIDATE"|"USER_CORRECTION"} ExtractorSourceValue
+ */
+
+export const ExtractorSource = Object.freeze({
+  RULE: "RULE",
+  MODEL_CANDIDATE: "MODEL_CANDIDATE",
+  USER_CORRECTION: "USER_CORRECTION",
+})
+
+/**
+ * @typedef {"affirmative"|"negative"|"contrastive"} FactPolarityValue
+ */
+
+export const FactPolarity = Object.freeze({
+  affirmative: "affirmative",
+  negative: "negative",
+  contrastive: "contrastive",
+})
+
+/**
+ * @typedef {"document_fact"|"calculated_fact"|"general_reference"|"not_disclosed"|"user_asserted"|"unknown"} FactStatusValue
  */
 
 export const FactStatus = Object.freeze({
@@ -164,6 +201,7 @@ export const FactStatus = Object.freeze({
   calculated_fact: "calculated_fact",
   general_reference: "general_reference",
   not_disclosed: "not_disclosed",
+  user_asserted: "user_asserted",
   unknown: "unknown",
 })
 
@@ -176,6 +214,16 @@ export const FieldStatus = Object.freeze({
   missing: "missing",
   conflicting: "conflicting",
   uncertain: "uncertain",
+})
+
+/**
+ * @typedef {"CONFIRMED"|"UNCERTAIN"|"NOT_DISCLOSED"} FinancialFactStatusValue
+ */
+
+export const FinancialFactStatus = Object.freeze({
+  CONFIRMED: "CONFIRMED",
+  UNCERTAIN: "UNCERTAIN",
+  NOT_DISCLOSED: "NOT_DISCLOSED",
 })
 
 /**
@@ -283,6 +331,17 @@ export const ProductTypeId = Object.freeze({
 })
 
 /**
+ * @typedef {"publish"|"publish_partial"|"clarify"|"refuse"} PublicationOutcomeValue
+ */
+
+export const PublicationOutcome = Object.freeze({
+  publish: "publish",
+  publish_partial: "publish_partial",
+  clarify: "clarify",
+  refuse: "refuse",
+})
+
+/**
  * @typedef {"sales_pitch"|"official_document"|"user_supplement"|"unknown"} SourceRoleValue
  */
 
@@ -326,6 +385,18 @@ export const TaskStatus = Object.freeze({
 })
 
 /**
+ * @typedef {"amount"|"percent"|"term"|"text"|"fee"} ValueKindValue
+ */
+
+export const ValueKind = Object.freeze({
+  amount: "amount",
+  percent: "percent",
+  term: "term",
+  text: "text",
+  fee: "fee",
+})
+
+/**
  * @typedef {Object} CreateAnalysisRequest
  * @property {string} text
  * @property {ProductHintValue} [product_hint]
@@ -354,6 +425,9 @@ export const TaskStatus = Object.freeze({
  * @property {ProductHintValue} [product_hint]
  * @property {ProductTypeIdValue} [resolved_product_type]
  * @property {AnalysisScopeValue} [analysis_scope]
+ * @property {PublicationDecision} [publication]
+ * @property {string} [parent_task_id]
+ * @property {AnalysisRevision} [revision]
  */
 
 /**
@@ -370,6 +444,7 @@ export const TaskStatus = Object.freeze({
  * @property {Array<GeneralReference>} [general_references]
  * @property {Array<string>} [pending_questions]
  * @property {string} [disclaimer]
+ * @property {PublicationDecision} [publication]
  */
 
 /**
@@ -469,6 +544,8 @@ export const TaskStatus = Object.freeze({
  * @property {SourceDocument} official_source
  * @property {Array<ClaimComparison>} [comparisons]
  * @property {Array<string>} [pending_questions]
+ * @property {Array<FinancialFact>} [sales_financial_facts]
+ * @property {Array<FinancialFact>} [official_financial_facts]
  * @property {string} [disclaimer]
  */
 
@@ -702,6 +779,21 @@ export const TaskStatus = Object.freeze({
  */
 
 /**
+ * @typedef {Object} AnalysisCoverage
+ * @property {Array<string>} [checked]
+ * @property {Array<string>} [not_checked]
+ */
+
+/**
+ * @typedef {Object} AnalysisRevision
+ * @property {number} revision_no
+ * @property {string} parent_task_id
+ * @property {Array<CorrectionRecord>} corrections
+ * @property {string} [created_at]
+ * @property {string} [note]
+ */
+
+/**
  * @typedef {Object} Body_extract_document_api_v1_documents_extract_post
  * @property {Array<string>} files
  */
@@ -716,5 +808,65 @@ export const TaskStatus = Object.freeze({
  * @typedef {Object} ClarifyingOption
  * @property {string} value
  * @property {string} label
+ */
+
+/**
+ * @typedef {Object} CorrectionItem
+ * @property {CorrectionKindValue} kind
+ * @property {string} [corrected_text]
+ * @property {ProductHintValue} [product_type]
+ * @property {ParameterKeyValue} [parameter_key]
+ * @property {string} [corrected_value]
+ * @property {string} [previous_value]
+ */
+
+/**
+ * @typedef {Object} CorrectionRecord
+ * @property {string} [correction_id]
+ * @property {CorrectionKindValue} kind
+ * @property {string} [previous_value]
+ * @property {string} new_value
+ * @property {ParameterKeyValue} [parameter_key]
+ * @property {string} [created_at]
+ */
+
+/**
+ * @typedef {Object} CorrectionRequest
+ * @property {Array<CorrectionItem>} corrections
+ * @property {string} [note]
+ */
+
+/**
+ * @typedef {Object} FactEvidenceRef
+ * @property {string} quote
+ * @property {number} start
+ * @property {number} end
+ */
+
+/**
+ * @typedef {Object} FinancialFact
+ * @property {string} fact_id
+ * @property {string} [product_id]
+ * @property {string} field_key
+ * @property {string} raw_value
+ * @property {string} [normalized_value]
+ * @property {string} [unit]
+ * @property {ValueKindValue} value_kind
+ * @property {FactPolarityValue} [polarity]
+ * @property {Array<string>} [qualifiers]
+ * @property {string} [condition_text]
+ * @property {FinancialFactStatusValue} status
+ * @property {Array<FactEvidenceRef>} [evidence_refs]
+ * @property {ExtractorSourceValue} [extractor_source]
+ * @property {string} [negated_raw_value]
+ */
+
+/**
+ * @typedef {Object} PublicationDecision
+ * @property {PublicationOutcomeValue} outcome
+ * @property {ErrorCodeValue} [reason_code]
+ * @property {string} user_reason
+ * @property {Array<string>} [next_steps]
+ * @property {AnalysisCoverage} [coverage]
  */
 

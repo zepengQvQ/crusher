@@ -21,7 +21,12 @@ from app.domain.llm_explanation_guard import (  # noqa: E402
 )
 from app.domain.models import AnalyzeTextRequest, Evidence, Finding  # noqa: E402
 from app.domain.models.enums import EvidenceSource, FindingSeverity  # noqa: E402
-from app.domain.models.llm import LlmExplainRequest, LlmExplanation  # noqa: E402
+from app.domain.models.llm import (  # noqa: E402
+    LlmAnalysisDraft,
+    LlmExplainRequest,
+    draft_from_request,
+    make_simple_draft,
+)
 from app.infrastructure.knowledge.local_files import LocalFileKnowledgeRepository  # noqa: E402
 from app.infrastructure.llm.openai_compatible_gateway import (  # noqa: E402
     OpenAiCompatibleLlmGateway,
@@ -69,14 +74,17 @@ def _prepay_finding() -> Finding:
 
 
 class LlmExplanationDtoTests(unittest.TestCase):
-    def test_extra_fields_forbidden(self):
+    def test_extra_fields_and_findings_forbidden(self):
+        good = make_simple_draft("说明", knowledge_ids=["knowledge:demo"]).model_dump(mode="json")
         with self.assertRaises(Exception):
-            LlmExplanation.model_validate(
-                {"plain_language": "说明", "findings": []},
+            LlmAnalysisDraft.model_validate({**good, "findings": []})
+        with self.assertRaises(LlmInvalidJsonError):
+            parse_llm_explanation_content(
+                json.dumps({**good, "findings": []}, ensure_ascii=False)
             )
         with self.assertRaises(LlmInvalidJsonError):
             parse_llm_explanation_content(
-                json.dumps({"plain_language": "说明", "findings": []}, ensure_ascii=False)
+                json.dumps({"plain_language": "说明"}, ensure_ascii=False)
             )
 
 
@@ -123,9 +131,9 @@ class ExplainPipelineTests(unittest.TestCase):
         class FixedGw:
             last_request: LlmExplainRequest | None = None
 
-            async def complete(self, request: LlmExplainRequest) -> LlmExplanation:
+            async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
                 FixedGw.last_request = request
-                return LlmExplanation(plain_language=plain)
+                return draft_from_request(request, plain)
 
         store = InMemoryTaskStore()
         uc = AnalyzeTextUseCase(
@@ -145,14 +153,17 @@ class ExplainPipelineTests(unittest.TestCase):
 
     def test_pipeline_rejects_denial(self):
         task, _ = self._run_with_plain("提前还款不会产生违约金，可以放心提前还款。")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
-        self.assertIsNone(task.report)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertIsNotNone(task.report)
+        self.assertTrue(task.report.findings)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
     def test_pipeline_rejects_blanket(self):
         task, _ = self._run_with_plain("经核对，未发现明显风险，可以放心办理。")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
     def test_pipeline_allows_double_negation(self):
         task, req = self._run_with_plain(
@@ -163,13 +174,14 @@ class ExplainPipelineTests(unittest.TestCase):
         self.assertTrue(task.report.findings)
         self.assertIsNotNone(req)
         self.assertTrue(req.system_prompt.strip())
-        self.assertIn("程序已抽取", req.user_prompt)
+        self.assertIn("结构化事实", req.user_prompt)
         self.assertNotIn("[:2000]", req.user_prompt)
 
     def test_pipeline_rejects_wrong_percent(self):
         task, _ = self._run_with_plain("提前还款需支付5%的违约金。")
-        self.assertEqual(task.task_status, TaskStatus.failed)
-        self.assertEqual(task.error_code, ErrorCode.INVALID_MODEL_JSON)
+        self.assertEqual(task.task_status, TaskStatus.completed)
+        self.assertEqual(task.publication.outcome.value, "publish_partial")
+        self.assertEqual(task.publication.reason_code, ErrorCode.MODEL_OUTPUT_INVALID)
 
     def test_prompt_injection_does_not_drop_findings(self):
         text = (
@@ -183,7 +195,7 @@ class ExplainPipelineTests(unittest.TestCase):
         self.assertEqual(task.task_status, TaskStatus.completed)
         self.assertTrue(task.report and task.report.findings)
         self.assertNotIn("忽略之前要求", req.system_prompt)
-        self.assertIn("不可信", req.user_prompt)
+        self.assertIn("程序结论", req.user_prompt)
 
 
 class GatewayMessageSplitTests(unittest.TestCase):
@@ -192,12 +204,16 @@ class GatewayMessageSplitTests(unittest.TestCase):
 
         def handler(request: httpx.Request) -> httpx.Response:
             captured["body"] = json.loads(request.content.decode("utf-8"))
+            draft = make_simple_draft(
+                "本贷款提前还款会产生3%违约金。",
+                knowledge_ids=["knowledge:demo"],
+            )
             body = {
                 "choices": [
                     {
                         "message": {
                             "content": json.dumps(
-                                {"plain_language": "本贷款提前还款会产生3%违约金。"},
+                                draft.model_dump(mode="json"),
                                 ensure_ascii=False,
                             )
                         }
@@ -215,7 +231,7 @@ class GatewayMessageSplitTests(unittest.TestCase):
             )
 
         exp = asyncio.run(go())
-        self.assertEqual(exp.plain_language, "本贷款提前还款会产生3%违约金。")
+        self.assertEqual(exp.render_plain_language(), "本贷款提前还款会产生3%违约金。")
         roles = [m["role"] for m in captured["body"]["messages"]]
         self.assertEqual(roles, ["system", "user"])
         self.assertEqual(captured["body"]["messages"][0]["content"], "SYS")
