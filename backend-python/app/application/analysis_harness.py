@@ -65,6 +65,7 @@ from app.domain.rules.product_resolver import (
     ProductResolver,
 )
 from app.domain.rules.prompts import FINDINGS_USER_TEMPLATE, RULE_REVIEW_SYSTEM
+from app.domain.validation.program_plain_language import render_program_plain_language
 from app.domain.validation.publication_gate import (
     decide_clarify,
     decide_from_verification,
@@ -223,7 +224,10 @@ class AnalysisHarness:
                 f"规则复核完成：{len(risk_hits)} 条候选发现（允许为 0）",
             )
             raw_findings = self._hits_to_findings(risk_hits)
-            findings = validate_and_fix_findings(ctx.source_text, raw_findings)
+            findings, dropped_finding_ids = validate_and_fix_findings(
+                ctx.source_text, raw_findings
+            )
+            rule_hit_count = len(raw_findings)
             evidence_status = (
                 StageStatus.partial
                 if raw_findings and len(findings) < len(raw_findings)
@@ -307,13 +311,21 @@ class AnalysisHarness:
                 allowed_fact_ids=list(explain_req.allowed_fact_ids),
                 allowed_finding_ids=list(explain_req.allowed_finding_ids),
                 allowed_knowledge_ids=list(explain_req.allowed_knowledge_ids),
+                dropped_finding_ids=dropped_finding_ids,
+                rule_hit_count=rule_hit_count,
             )
             if not verification.can_publish:
                 decision = decide_from_verification(verification)
+                program_bits = render_program_plain_language(
+                    findings=findings,
+                    financial_facts=list(extracted.financial_facts),
+                    key_parameters=list(extracted.key_parameters),
+                )
                 plain_partial = (
                     f"【部分结果】{decision.user_reason}\n"
                     "以下仅包含程序已确认的事实与风险；"
-                    "模型通俗解释未通过校验，未作为确定说明发布。"
+                    "模型通俗解释未通过校验，未作为确定说明发布。\n"
+                    f"{program_bits}"
                 )
                 await self._emit_http(
                     ctx,
@@ -348,8 +360,18 @@ class AnalysisHarness:
 
             await self._stage(ctx, HarnessStage.decide_outcome, on_http_stage)
             decision = decide_publish()
+            # 完整发布：用户可见白话由程序模板生成，不采信未验证模型自由文案
+            program_plain = render_program_plain_language(
+                findings=findings,
+                financial_facts=list(extracted.financial_facts),
+                key_parameters=list(extracted.key_parameters),
+            )
             report = self._build_report(
-                resolution, extracted, findings, plain, publication=decision
+                resolution,
+                extracted,
+                findings,
+                program_plain,
+                publication=decision,
             )
             ctx.report = report
             outcome = OutcomeStatus.publish

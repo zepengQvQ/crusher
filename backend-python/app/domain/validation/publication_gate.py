@@ -6,6 +6,7 @@ import logging
 from app.domain.llm_errors import LlmInvalidJsonError
 from app.domain.llm_explanation_guard import (
     allowed_numbers_from_program,
+    extract_number_tokens,
     validate_draft_reference_whitelist,
 )
 from app.domain.models.financial_fact import FinancialFact
@@ -17,8 +18,13 @@ from app.domain.models.verification import (
     PublicationOutcome,
     VerificationResult,
 )
-from app.domain.validation.evidence_validator import validate_finding_evidence
+from app.domain.validation.draft_grounding import validate_draft_grounded_in_catalog
+from app.domain.validation.evidence_validator import (
+    validate_financial_fact_evidence,
+    validate_finding_evidence,
+)
 from app.domain.validation.number_validator import validate_numbers_and_grades
+from app.domain.validation.reference_catalog import ReferenceCatalog
 from app.domain.validation.semantic_validator import validate_semantics
 from app.domain.validation.types import VerificationCheck, VerificationIssue
 from app.shared.enums import ErrorCode, user_message_for
@@ -169,11 +175,13 @@ def run_publication_gate(
     allowed_fact_ids: list[str],
     allowed_finding_ids: list[str],
     allowed_knowledge_ids: list[str],
+    dropped_finding_ids: list[str] | None = None,
+    rule_hit_count: int | None = None,
 ) -> VerificationResult:
-    """固定顺序：schema → 引用 → 证据 → 数值 → 单位/否定条件/覆盖/边界。"""
+    """顺序：schema → 引用 → Finding/Fact 证据 → 数值 → 语义 → 丢弃 Finding。"""
     issues: list[VerificationIssue] = []
 
-    # 1. Schema（解析后再次确认非空）
+    # 1. Schema
     if not draft.all_items():
         issues.append(
             VerificationIssue(
@@ -183,7 +191,7 @@ def run_publication_gate(
             )
         )
 
-    # 2. 引用白名单
+    # 2. 引用白名单（ID 存在性）
     try:
         validate_draft_reference_whitelist(
             draft,
@@ -200,28 +208,48 @@ def run_publication_gate(
             )
         )
 
-    # 3. 证据
+    # 3. Finding 证据
     issues.extend(validate_finding_evidence(source_text, findings))
 
-    # 4. 数值 / 评级
+    # 4. FinancialFact 证据
+    fact_evidence_issues = validate_financial_fact_evidence(source_text, financial_facts)
+    issues.extend(fact_evidence_issues)
+    failed_fact_ids: set[str] = set()
+    for issue in fact_evidence_issues:
+        # message: "fact {fact_id} ..."
+        parts = issue.message.split()
+        if len(parts) >= 2 and parts[0] == "fact":
+            failed_fact_ids.add(parts[1])
+    verified_facts = [
+        fact for fact in financial_facts if fact.fact_id not in failed_fact_ids
+    ]
+
+    catalog = ReferenceCatalog.from_verified(
+        financial_facts=verified_facts,
+        findings=findings,
+        knowledge_ids=allowed_knowledge_ids,
+        verified_fact_ids={f.fact_id for f in verified_facts},
+        key_parameters=key_parameters,
+    )
+
+    # 5. 数值 / 评级：只用已验证事实
     issues.extend(
         validate_numbers_and_grades(
             plain,
             findings=findings,
             key_parameters=key_parameters,
-            financial_facts=financial_facts,
+            financial_facts=verified_facts,
         )
     )
 
-    # 5–8. 单位 / 否定条件 / 风险覆盖 / 边界（semantic 内含）
+    # 6. 语义 / 单位 / 否定 / 覆盖 / 边界
     allowed_nums = allowed_numbers_from_program(
         findings=findings, key_parameters=key_parameters
     )
-    for fact in financial_facts:
+    for fact in verified_facts:
         if fact.normalized_value:
-            from app.domain.llm_explanation_guard import extract_number_tokens
-
             allowed_nums |= extract_number_tokens(fact.normalized_value)
+        if fact.raw_value:
             allowed_nums |= extract_number_tokens(fact.raw_value)
 
     issues.extend(
@@ -229,10 +257,41 @@ def run_publication_gate(
             plain,
             draft=draft,
             findings=findings,
-            financial_facts=financial_facts,
+            financial_facts=verified_facts,
             allowed_numbers=allowed_nums,
         )
     )
+
+    # 7. 草稿须被已验证引用支撑（防合法 ID 撑任意文案）
+    issues.extend(
+        validate_draft_grounded_in_catalog(
+            draft, catalog, source_text=source_text
+        )
+    )
+
+    # 8. 规则命中但证据全丢 → 不得完整发布
+    dropped = list(dropped_finding_ids or [])
+    hits = rule_hit_count if rule_hit_count is not None else len(dropped)
+    if dropped and hits > 0 and not findings:
+        issues.append(
+            VerificationIssue(
+                check=VerificationCheck.evidence,
+                message=(
+                    "rule hits dropped for invalid evidence: "
+                    + ",".join(dropped)
+                ),
+                error_code=ErrorCode.OUTPUT_VERIFICATION_FAILED,
+            )
+        )
+    elif dropped and hits > len(findings):
+        # 有丢弃时至少部分发布
+        issues.append(
+            VerificationIssue(
+                check=VerificationCheck.evidence,
+                message="some rule findings dropped due to invalid evidence",
+                error_code=ErrorCode.OUTPUT_VERIFICATION_FAILED,
+            )
+        )
 
     if not issues:
         return VerificationResult(
@@ -240,7 +299,7 @@ def run_publication_gate(
             issues=[],
             failed_stage=None,
             error_code=None,
-            adapter_note="P2-07 publication gate passed",
+            adapter_note="P2-RC-01 publication gate passed",
             failed_checks=[],
         )
 
@@ -252,13 +311,12 @@ def run_publication_gate(
             issue.message,
         )
 
-    # 优先返回第一个问题的错误码；模型文案关键失败一律不可发布
     primary = issues[0]
     return VerificationResult(
         can_publish=False,
         issues=[i.message for i in issues],
         failed_stage=primary.check.value,
         error_code=primary.error_code,
-        adapter_note="P2-07 publication gate rejected model copy",
+        adapter_note="P2-RC-01 publication gate rejected model copy",
         failed_checks=[i.check.value for i in issues],
     )

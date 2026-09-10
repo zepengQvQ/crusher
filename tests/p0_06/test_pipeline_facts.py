@@ -148,8 +148,9 @@ class EvidenceTests(unittest.TestCase):
             rule_or_knowledge_id="x",
             confidence=0.9,
         )
-        kept = validate_and_fix_findings(text, [bad])
+        kept, dropped = validate_and_fix_findings(text, [bad])
         self.assertEqual(kept, [])
+        self.assertTrue(dropped)
 
 
 class IdempotencyTests(unittest.TestCase):

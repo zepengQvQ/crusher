@@ -35,7 +35,11 @@ def _fact(**kwargs: object) -> FinancialFact:
         condition_text="满足观察条件后",
         status=FinancialFactStatus.CONFIRMED,
         evidence_refs=[
-            FactEvidenceRef(quote="满足观察条件后收益为2.8%", start=0, end=16)
+            FactEvidenceRef(
+                quote="满足观察条件后收益为2.8%",
+                start=0,
+                end=len("满足观察条件后收益为2.8%"),
+            )
         ],
         extractor_source=ExtractorSource.RULE,
     )
@@ -49,7 +53,7 @@ class ConditionAndNegationGateTests(unittest.TestCase):
             raw_value="年化最高3%",
             qualifiers=["最高"],
             condition_text=None,
-            evidence_refs=[FactEvidenceRef(quote="年化最高3%", start=0, end=6)],
+            evidence_refs=[FactEvidenceRef(quote="年化最高3%", start=0, end=len("年化最高3%"))],
         )
         draft = make_simple_draft("到期收益为3%。", fact_ids=[fact.fact_id])
         result = run_publication_gate(
@@ -95,7 +99,11 @@ class ConditionAndNegationGateTests(unittest.TestCase):
             polarity=FactPolarity.negative,
             condition_text=None,
             evidence_refs=[
-                FactEvidenceRef(quote="提前还款不收取违约金", start=0, end=10)
+                FactEvidenceRef(
+                    quote="提前还款不收取违约金",
+                    start=0,
+                    end=len("提前还款不收取违约金"),
+                )
             ],
         )
         draft = make_simple_draft(

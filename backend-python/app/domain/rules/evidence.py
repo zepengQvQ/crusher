@@ -5,10 +5,13 @@ from app.domain.models import Evidence, Finding
 from app.domain.models.enums import EvidenceSource
 
 
-def validate_and_fix_findings(text: str, findings: list[Finding]) -> list[Finding]:
-    """校验并修正证据下标；原文对不上的 Finding 直接丢弃。"""
+def validate_and_fix_findings(
+    text: str, findings: list[Finding]
+) -> tuple[list[Finding], list[str]]:
+    """校验并修正证据下标；原文对不上的 Finding 丢弃并返回 dropped ids。"""
     text = text or ""
     kept: list[Finding] = []
+    dropped: list[str] = []
     for finding in findings:
         fixed_evidence: list[Evidence] = []
         for ev in finding.evidence:
@@ -16,7 +19,7 @@ def validate_and_fix_findings(text: str, findings: list[Finding]) -> list[Findin
             if fixed is not None:
                 fixed_evidence.append(fixed)
         if not fixed_evidence:
-            # 无可用原文证据 → 丢弃，禁止带着假证据进入报告
+            dropped.append(finding.id)
             continue
         kept.append(
             finding.model_copy(
@@ -26,7 +29,7 @@ def validate_and_fix_findings(text: str, findings: list[Finding]) -> list[Findin
                 }
             )
         )
-    return kept
+    return kept, dropped
 
 
 def _fix_one(text: str, ev: Evidence) -> Evidence | None:
