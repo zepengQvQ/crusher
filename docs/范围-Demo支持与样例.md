@@ -10,7 +10,7 @@
 | 服务端 | Python + FastAPI（`backend-python/`） |
 | 前端 | Vue3 + Vant H5（`frontend-h5/`） |
 | 运行方式 | **不使用 Docker**；本机启动 API + H5（见根 README） |
-| 可选 MCP | 本地 STDIO，见 [`MCP-本地使用说明.md`](MCP-本地使用说明.md)；不影响 H5 主路径 |
+| 可选 MCP | 本地 STDIO，见 [`说明-MCP本地.md`](说明-MCP本地.md)；不影响 H5 主路径 |
 ---
 
 ## 1. 支持什么

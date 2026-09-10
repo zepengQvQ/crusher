@@ -1,6 +1,6 @@
 # docs/http/
 
-这里放「点一下就能发请求」的脚本，方便你在编辑器里试接口。
+这里放「点一下就能发请求」的脚本（命名：`示例-简述.http`）。
 
 1. 装好 VS Code 的 REST Client 插件（或用 IDEA 自带的 HTTP Client）
 2. 打开 `示例-分析接口.http`

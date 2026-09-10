@@ -50,19 +50,22 @@ class PackagingContractTests(unittest.TestCase):
     def test_docs_hub_and_project_md_convention(self):
         hub = (ROOT / "docs" / "project.md").read_text(encoding="utf-8")
         self.assertIn("文档怎么找", hub)
-        self.assertIn("开发地图-代码与请求链路.md", hub)
-        self.assertIn("demo-支持范围与样例.md", hub)
-        self.assertIn("agent-改代码约定.md", hub)
+        self.assertIn("命名规则", hub)
+        self.assertIn("地图-代码与请求链路.md", hub)
+        self.assertIn("范围-Demo支持与样例.md", hub)
+        self.assertIn("约定-Agent改代码.md", hub)
+        self.assertIn("说明-MCP本地.md", hub)
         self.assertIn("archive/", hub)
-        self.assertTrue((ROOT / "docs" / "开发地图-代码与请求链路.md").is_file())
-        self.assertTrue((ROOT / "docs" / "demo-支持范围与样例.md").is_file())
-        self.assertTrue(
-            (ROOT / "docs" / "archive" / "整改实施清单-P0.md").is_file()
-        )
-        self.assertTrue(
-            (ROOT / "docs" / "archive" / "P0收口修复-Cursor执行清单.md").is_file()
-        )
+        self.assertTrue((ROOT / "docs" / "地图-代码与请求链路.md").is_file())
+        self.assertTrue((ROOT / "docs" / "范围-Demo支持与样例.md").is_file())
+        self.assertTrue((ROOT / "docs" / "约定-Agent改代码.md").is_file())
+        self.assertTrue((ROOT / "docs" / "说明-MCP本地.md").is_file())
+        self.assertTrue((ROOT / "docs" / "archive" / "P0-整改实施.md").is_file())
+        self.assertTrue((ROOT / "docs" / "archive" / "P0-收口修复.md").is_file())
+        self.assertTrue((ROOT / "docs" / "archive" / "P2-智能分析正确性.md").is_file())
         self.assertFalse((ROOT / "docs" / "整改实施清单-P0.md").exists())
+        self.assertFalse((ROOT / "docs" / "demo-支持范围与样例.md").exists())
+        self.assertFalse((ROOT / "docs" / "agent-改代码约定.md").exists())
         self.assertFalse((ROOT / "docs" / "demo-samples.md").exists())
         self.assertFalse((ROOT / "docs" / "java-python-map.md").exists())
         self.assertFalse((ROOT / "docs" / "README.md").exists())
@@ -97,7 +100,7 @@ class PackagingContractTests(unittest.TestCase):
         self.assertNotIn("sys.path.insert", src)
 
     def test_demo_scope_lists_samples(self):
-        doc = (ROOT / "docs" / "demo-支持范围与样例.md").read_text(encoding="utf-8")
+        doc = (ROOT / "docs" / "范围-Demo支持与样例.md").read_text(encoding="utf-8")
         self.assertIn("样例从哪点", doc)
         self.assertIn("mock_smoke_pack", doc)
 
