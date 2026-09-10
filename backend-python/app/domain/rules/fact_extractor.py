@@ -60,6 +60,7 @@ class FactExtractor:
 
     def extract(self, text: str, product_type_id: str | None = None) -> ExtractResult:
         text = text or ""
+        ledger = self._fact_ledger.extract(text, product_id=product_type_id)
         if product_type_id == "loan":
             result = self.extract_loan(text)
         elif product_type_id == "structured_deposit":
@@ -68,70 +69,83 @@ class FactExtractor:
             result = ExtractResult()
         result.general_references = self._general_refs_for_product(product_type_id)
         result.pending_questions = []
-        ledger = self._fact_ledger.extract(text, product_id=product_type_id)
         result.financial_facts = list(ledger.facts)
-        self._overlay_key_parameters_from_facts(result)
+        # 账本为权威：覆盖同名字段的 KeyParameter（兼容视图）
+        self._apply_ledger_as_authority(result)
         return result
 
-    def _overlay_key_parameters_from_facts(self, result: ExtractResult) -> None:
-        """用 FinancialFact 账本校正 KeyParameter 展示，保留旧 API。"""
-        by_key = {p.key: p for p in result.key_parameters}
+    def _apply_ledger_as_authority(self, result: ExtractResult) -> None:
+        """FinancialFact 账本覆盖同名字段；confirmed 必须已有精确证据。"""
+        from decimal import Decimal, InvalidOperation
+
         for fact in result.financial_facts:
             if fact.status == FinancialFactStatus.NOT_DISCLOSED:
                 if fact.field_key == "management_fee":
-                    fee = by_key.get(ParameterKey.fee_structure)
-                    if fee and fee.status == FactStatus.document_fact:
-                        # 未披露不得写成已披露管理费数值
-                        if fee.value and "管理费" in fee.value and "%" in fee.value:
-                            result.key_parameters = [
-                                p
-                                for p in result.key_parameters
-                                if p.key != ParameterKey.fee_structure
-                            ]
-                            result.missing_disclosures.append(
-                                MissingDisclosure(
-                                    key=ParameterKey.fee_structure,
-                                    question="费用（管理费/手续费等）如何收取？",
-                                )
+                    result.key_parameters = [
+                        p
+                        for p in result.key_parameters
+                        if p.key != ParameterKey.fee_structure
+                    ]
+                    if not any(
+                        m.key == ParameterKey.fee_structure
+                        for m in result.missing_disclosures
+                    ):
+                        result.missing_disclosures.append(
+                            MissingDisclosure(
+                                key=ParameterKey.fee_structure,
+                                question="费用（管理费/手续费等）如何收取？",
                             )
+                        )
                 continue
             if fact.status != FinancialFactStatus.CONFIRMED:
                 continue
+            mapping: dict[str, tuple[ParameterKey, str]] = {
+                "amount": (ParameterKey.amount, "借款金额"),
+                "term": (ParameterKey.term, "产品期限"),
+                "annual_interest_rate": (ParameterKey.annual_interest_rate, "年化利率"),
+                "expected_return": (ParameterKey.expected_return, "预期/到期收益率"),
+                "prepayment_fee": (ParameterKey.prepayment_fee, "提前还款费用"),
+                "penalty_interest": (ParameterKey.penalty_interest, "罚息约定"),
+                "repayment_method": (ParameterKey.repayment_method, "还款方式"),
+                "product_risk_grade": (ParameterKey.product_risk_grade, "产品风险评级"),
+                "management_fee": (ParameterKey.fee_structure, "费用结构"),
+                "principal_protection": (
+                    ParameterKey.principal_protection,
+                    "本金保障",
+                ),
+                "early_redemption": (ParameterKey.early_redemption, "提前赎回/支取"),
+            }
+            mapped = mapping.get(fact.field_key)
+            if not mapped:
+                continue
+            key, label = mapped
+            display = fact.raw_value
             if fact.field_key == "expected_return":
-                display = fact.raw_value
-                if fact.qualifiers:
+                if fact.qualifiers and fact.normalized_value:
                     display = f"{'、'.join(fact.qualifiers)} {fact.normalized_value}%"
-                elif fact.polarity.value == "contrastive" and fact.normalized_value:
-                    display = f"{fact.normalized_value}%"
                 elif fact.condition_text and fact.normalized_value:
                     display = f"{fact.condition_text} {fact.normalized_value}%"
-                self._upsert_param(
-                    result,
-                    key=ParameterKey.expected_return,
-                    label="预期/到期收益率",
+            amount: Decimal | None = None
+            if fact.field_key == "amount" and fact.normalized_value:
+                try:
+                    amount = Decimal(fact.normalized_value)
+                except (InvalidOperation, ValueError):
+                    amount = None
+            if fact.field_key == "annual_interest_rate" and fact.normalized_value:
+                display = f"{fact.normalized_value}%"
+            result.key_parameters = [p for p in result.key_parameters if p.key != key]
+            result.missing_disclosures = [
+                m for m in result.missing_disclosures if m.key != key
+            ]
+            result.key_parameters.append(
+                KeyParameter(
+                    key=key,
+                    label=label,
                     value=display,
-                    question="合同是否写明预期/到期收益率？",
+                    status=FactStatus.document_fact,
+                    amount=amount,
                 )
-            elif fact.field_key == "prepayment_fee":
-                self._upsert_param(
-                    result,
-                    key=ParameterKey.prepayment_fee,
-                    label="提前还款费用",
-                    value=fact.raw_value,
-                    question="提前还款是否收取违约金或手续费？",
-                )
-            elif fact.field_key == "term" and fact.normalized_value:
-                # 不覆盖已有更精确期限展示，仅在缺失时补齐
-                if ParameterKey.term not in by_key or by_key[
-                    ParameterKey.term
-                ].status == FactStatus.not_disclosed:
-                    self._upsert_param(
-                        result,
-                        key=ParameterKey.term,
-                        label="产品期限",
-                        value=fact.raw_value,
-                        question="合同是否明确产品期限？",
-                    )
+            )
 
     @staticmethod
     def _upsert_param(

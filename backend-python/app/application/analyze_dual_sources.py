@@ -17,6 +17,7 @@ from app.domain.models.claim_comparison import (
 from app.domain.models.p1_enums import SourceType
 from app.domain.rules.claim_extractor import extract_sales_claims
 from app.domain.rules.claim_matcher import match_claims_to_official
+from app.domain.rules.financial_fact_compare import compare_ledgers, merge_comparisons
 from app.domain.rules.financial_fact_extractor import FinancialFactExtractor
 
 
@@ -37,20 +38,36 @@ class AnalyzeDualSourcesUseCase:
             name="正式材料",
             text=request.official_text,
         )
-        # 证据 source_id 与文档对齐
+        sales_facts = self._facts.extract(
+            sales.text,
+            product_id=None,
+            source_id=sales.source_id,
+        ).facts
+        official_facts = self._facts.extract(
+            official.text,
+            product_id=None,
+            source_id=official.source_id,
+        ).facts
+        # 结论优先由共享账本生成
+        ledger_comps = compare_ledgers(
+            sales_facts=sales_facts,
+            official_facts=official_facts,
+            sales_source_id=sales.source_id,
+            official_source_id=official.source_id,
+        )
+        # 账本未覆盖的主题，保留主张抽取作补充
         claims = extract_sales_claims(sales.source_id, sales.text)
-        # matcher 内官方证据先写 official，再改写 source_id
-        comparisons = match_claims_to_official(
+        claim_comps = match_claims_to_official(
             claims,
             official.text,
             official_source_id=official.source_id,
         )
+        comparisons = merge_comparisons(ledger_comps, claim_comps)
         pending = [
             c.suggested_follow_up
             for c in comparisons
             if c.suggested_follow_up and c.status.value != "confirmed"
         ]
-        # 去重保序
         seen: set[str] = set()
         uniq_pending: list[str] = []
         for q in pending:
@@ -58,12 +75,6 @@ class AnalyzeDualSourcesUseCase:
                 continue
             seen.add(q)
             uniq_pending.append(q)
-        sales_facts = self._facts.extract(
-            sales.text, product_id=sales.source_id
-        ).facts
-        official_facts = self._facts.extract(
-            official.text, product_id=official.source_id
-        ).facts
         return DualAnalysisReport(
             sales_source=sales,
             official_source=official,

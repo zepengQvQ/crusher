@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.domain.models.base import StrictModel
 from app.domain.models.correction import AnalysisRevision
 from app.domain.models.enums import (
     AnalysisScope,
@@ -23,6 +24,7 @@ from app.domain.models.enums import (
     ProductHint,
     ProductTypeId,
 )
+from app.domain.models.financial_fact import FinancialFact
 from app.domain.models.verification import PublicationDecision
 from app.shared.constants import MAX_INPUT_CHARS
 from app.shared.enums import ErrorCode, StageStatus, TaskStatus
@@ -32,12 +34,6 @@ T = TypeVar("T")
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-class StrictModel(BaseModel):
-    """默认拒绝多余字段。"""
-
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 class Evidence(StrictModel):
@@ -152,6 +148,10 @@ class AnalysisReport(StrictModel):
     product_risk_grade: ProductRiskGrade
     plain_language: PlainLanguage
     key_parameters: list[KeyParameter] = Field(default_factory=list)
+    financial_facts: list[FinancialFact] = Field(
+        default_factory=list,
+        description="统一事实账本（向后兼容增量字段；key_parameters 为其视图）",
+    )
     findings: list[Finding] = Field(default_factory=list)
     missing_disclosures: list[MissingDisclosure] = Field(default_factory=list)
     general_references: list[GeneralReference] = Field(default_factory=list)

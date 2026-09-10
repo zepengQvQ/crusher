@@ -583,6 +583,14 @@
             "type": "array",
             "title": "Key Parameters"
           },
+          "financial_facts": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialFact"
+            },
+            "type": "array",
+            "title": "Financial Facts",
+            "description": "统一事实账本（向后兼容增量字段；key_parameters 为其视图）"
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/Finding"
@@ -2142,6 +2150,18 @@
               }
             ],
             "title": "Product Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id",
+            "description": "材料来源 ID（双材料/对比）；与 product_id 分离"
           },
           "field_key": {
             "type": "string",

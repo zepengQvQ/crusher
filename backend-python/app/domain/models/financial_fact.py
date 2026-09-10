@@ -1,15 +1,17 @@
-"""统一金融事实账本（P2-05）。
+"""统一金融事实账本（P2-05 / P2-RC-02）。
 
 确认事实必须带可定位证据；金额/比例/期限用 Decimal 字符串承载，禁止 float 业务判断。
+fact_id 对同一原文+字段+证据跨运行稳定。
 """
 from __future__ import annotations
 
+import hashlib
+import uuid
 from enum import Enum
-from uuid import uuid4
 
 from pydantic import Field, model_validator
 
-from app.domain.models.report import StrictModel
+from app.domain.models.base import StrictModel
 
 
 class ValueKind(str, Enum):
@@ -57,6 +59,10 @@ class FinancialFact(StrictModel):
 
     fact_id: str = Field(..., min_length=1)
     product_id: str | None = None
+    source_id: str | None = Field(
+        default=None,
+        description="材料来源 ID（双材料/对比）；与 product_id 分离",
+    )
     field_key: str = Field(..., min_length=1)
     raw_value: str = Field(..., min_length=1)
     normalized_value: str | None = None
@@ -74,12 +80,38 @@ class FinancialFact(StrictModel):
     def _confirmed_needs_evidence(self) -> FinancialFact:
         if self.status == FinancialFactStatus.CONFIRMED and not self.evidence_refs:
             raise ValueError(f"确认事实必须有证据: {self.fact_id}")
-        if self.status == FinancialFactStatus.NOT_DISCLOSED:
-            if self.evidence_refs and self.normalized_value not in (None, ""):
-                # 允许保留「未披露」原文证据，但不得有已披露标准值
-                pass
         return self
 
 
+def source_content_hash(text: str) -> str:
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:16]
+
+
+def stable_fact_id(
+    *,
+    source_text: str,
+    product_id: str | None,
+    field_key: str,
+    start: int,
+    end: int,
+    normalized_value: str | None,
+    source_id: str | None = None,
+) -> str:
+    """同一原文/字段/证据位置/标准值 → 相同 fact_id。"""
+    payload = "|".join(
+        [
+            source_content_hash(source_text),
+            product_id or "",
+            source_id or "",
+            field_key,
+            str(start),
+            str(end),
+            normalized_value or "",
+        ]
+    )
+    return "ff_" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
 def new_fact_id(prefix: str = "ff") -> str:
-    return f"{prefix}_{uuid4().hex[:12]}"
+    """兼容旧调用；新抽取请用 stable_fact_id。"""
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"

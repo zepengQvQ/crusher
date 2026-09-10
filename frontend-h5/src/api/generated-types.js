@@ -439,6 +439,7 @@ export const ValueKind = Object.freeze({
  * @property {ProductRiskGrade} product_risk_grade
  * @property {PlainLanguage} plain_language
  * @property {Array<KeyParameter>} [key_parameters]
+ * @property {Array<FinancialFact>} [financial_facts]
  * @property {Array<Finding>} [findings]
  * @property {Array<MissingDisclosure>} [missing_disclosures]
  * @property {Array<GeneralReference>} [general_references]
@@ -847,6 +848,7 @@ export const ValueKind = Object.freeze({
  * @typedef {Object} FinancialFact
  * @property {string} fact_id
  * @property {string} [product_id]
+ * @property {string} [source_id]
  * @property {string} field_key
  * @property {string} raw_value
  * @property {string} [normalized_value]

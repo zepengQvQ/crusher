@@ -919,6 +919,7 @@ class AnalysisHarness:
             product_risk_grade=risk_grade,
             plain_language=PlainLanguage(text=plain, status=plain_status),
             key_parameters=list(extracted.key_parameters),
+            financial_facts=list(extracted.financial_facts),
             findings=findings,
             missing_disclosures=list(extracted.missing_disclosures),
             general_references=list(extracted.general_references),

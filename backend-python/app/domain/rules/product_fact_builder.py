@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
-from uuid import uuid4
 
 from app.domain.models.claim_comparison import EvidenceRef
 from app.domain.models.enums import FactStatus, ParameterKey, ProductHint, ProductTypeId
+from app.domain.models.financial_fact import FinancialFact
 from app.domain.models.p1_enums import FieldStatus
 from app.domain.models.product_facts import FactSideValue, ProductFacts
 from app.domain.ports.protocols import KnowledgeRepository
@@ -47,8 +47,13 @@ def build_side_facts(
     knowledge: KnowledgeRepository,
 ) -> tuple[ProductFacts, dict[str, FactSideValue]]:
     """返回产品元信息与维度值映射。"""
-    product_id = f"prod_{uuid4().hex[:10]}"
+    import hashlib
+
     product_type = resolve_product_type(text, hint)
+    # 稳定 product_id（同源文本可复现），source 语义不塞进 product_id
+    product_id = "prod_" + hashlib.sha256(
+        f"{product_type.value if product_type else 'unknown'}|{text}".encode()
+    ).hexdigest()[:10]
     extractor = FactExtractor(knowledge)
     extracted = extractor.extract(
         text,
@@ -68,32 +73,55 @@ def build_side_facts(
     )
 
     param_map = {p.key: p for p in extracted.key_parameters}
+    fact_by_field = {f.field_key: f for f in extracted.financial_facts}
 
-    fields["term"] = _from_param(
-        product_id, text, param_map.get(ParameterKey.term), normalize="term"
+    fields["term"] = _from_param_or_fact(
+        product_id,
+        text,
+        param_map.get(ParameterKey.term),
+        fact_by_field.get("term"),
+        normalize="term",
     )
-    fields["amount"] = _from_param(
-        product_id, text, param_map.get(ParameterKey.amount), normalize="amount"
+    fields["amount"] = _from_param_or_fact(
+        product_id,
+        text,
+        param_map.get(ParameterKey.amount),
+        fact_by_field.get("amount"),
+        normalize="amount",
     )
     if product_type == ProductTypeId.loan:
         rate_param = param_map.get(ParameterKey.annual_interest_rate)
+        rate_fact = fact_by_field.get("annual_interest_rate")
     else:
         rate_param = param_map.get(ParameterKey.expected_return)
-    fields["return_or_rate"] = _from_param(
-        product_id, text, rate_param, normalize="rate"
+        rate_fact = fact_by_field.get("expected_return")
+    fields["return_or_rate"] = _from_param_or_fact(
+        product_id, text, rate_param, rate_fact, normalize="rate"
     )
     early_key = (
         ParameterKey.prepayment_fee
         if product_type == ProductTypeId.loan
         else ParameterKey.early_redemption
     )
-    fields["early_exit"] = _from_param(product_id, text, param_map.get(early_key))
+    early_field = (
+        "prepayment_fee" if product_type == ProductTypeId.loan else "early_redemption"
+    )
+    fields["early_exit"] = _from_param_or_fact(
+        product_id,
+        text,
+        param_map.get(early_key),
+        fact_by_field.get(early_field),
+    )
     fee_param = param_map.get(ParameterKey.fee_structure) or param_map.get(
         ParameterKey.prepayment_fee
     )
-    fields["fees"] = _from_param(product_id, text, fee_param)
-    fields["principal_protection"] = _from_param(
-        product_id, text, param_map.get(ParameterKey.principal_protection)
+    fee_fact = fact_by_field.get("management_fee") or fact_by_field.get("prepayment_fee")
+    fields["fees"] = _from_param_or_fact(product_id, text, fee_param, fee_fact)
+    fields["principal_protection"] = _from_param_or_fact(
+        product_id,
+        text,
+        param_map.get(ParameterKey.principal_protection),
+        fact_by_field.get("principal_protection"),
     )
 
     if risks:
@@ -194,6 +222,64 @@ def _find_type_evidence(
                 )
             ]
     return []
+
+
+def _from_param_or_fact(
+    product_id: str,
+    text: str,
+    param: object | None,
+    fact: FinancialFact | None,
+    *,
+    normalize: str | None = None,
+) -> FactSideValue:
+    """优先使用 FinancialFact 原文证据；display 可用标准化金额。"""
+    if fact is not None and fact.status.value == "CONFIRMED" and fact.evidence_refs:
+        display = (
+            format(Decimal(fact.normalized_value), "f")
+            if normalize == "amount" and fact.normalized_value
+            else (fact.raw_value or fact.normalized_value)
+        )
+        if not display:
+            return FactSideValue(status=FieldStatus.missing)
+        nature = None
+        normalized = display
+        if normalize == "term":
+            normalized = normalize_term_months(fact.raw_value) or display
+        elif normalize == "amount":
+            amount = None
+            try:
+                amount = Decimal(fact.normalized_value) if fact.normalized_value else None
+            except Exception:  # noqa: BLE001
+                amount = None
+            normalized = normalize_amount(fact.raw_value, amount) or display
+        elif normalize == "rate":
+            nature, normalized = normalize_rate(fact.raw_value)
+        evidence = [
+            EvidenceRef(
+                source_id=product_id,
+                quote=ev.quote,
+                start=ev.start,
+                end=ev.end,
+            )
+            for ev in fact.evidence_refs
+            if text[ev.start : ev.end] == ev.quote
+        ]
+        if not evidence:
+            return FactSideValue(
+                display=display,
+                normalized=normalized,
+                status=FieldStatus.uncertain,
+                evidence=[],
+                nature=nature,
+            )
+        return FactSideValue(
+            display=display,
+            normalized=normalized,
+            status=FieldStatus.confirmed,
+            evidence=evidence,
+            nature=nature,
+        )
+    return _from_param(product_id, text, param, normalize=normalize)
 
 
 def _from_param(
