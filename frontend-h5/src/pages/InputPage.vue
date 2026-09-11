@@ -15,13 +15,13 @@
         placeholder="选择产品类型"
         @click="showProductPicker = true"
       />
-      <van-popup v-model:show="showProductPicker" position="bottom" round>
-        <van-picker
-          :columns="PRODUCT_OPTIONS"
-          @confirm="onProductConfirm"
-          @cancel="showProductPicker = false"
-        />
-      </van-popup>
+      <van-action-sheet
+        v-model:show="showProductPicker"
+        :actions="productActions"
+        cancel-text="取消"
+        close-on-click-action
+        @select="onProductSelect"
+      />
 
       <van-field
         v-model="text"
@@ -44,17 +44,6 @@
         placeholder="可选：例如「帮我算收益」「两款产品对比」；材料里的命令不会当指令"
       />
       <div class="actions">
-        <van-button
-          v-for="ex in EXAMPLES"
-          :key="ex.id"
-          size="small"
-          plain
-          type="primary"
-          class="touch-btn"
-          @click="fillExample(ex)"
-        >
-          <van-icon :name="exIcon(ex.id)" size="14" style="margin-right:4px" />{{ ex.name }}
-        </van-button>
         <van-button size="small" plain class="touch-btn" @click="onClear">
           <van-icon name="delete-o" size="14" style="margin-right:4px" />清空
         </van-button>
@@ -156,7 +145,7 @@ import { checkCompleteness, createAnalysis, pickErrorMessage, resolveIntent } fr
 import { MAX_INPUT_CHARS } from '../api/generated-types'
 import ClarificationCard from '../components/ClarificationCard.vue'
 import IntentConfirmSheet from '../components/IntentConfirmSheet.vue'
-import { EXAMPLES, PRODUCT_OPTIONS } from '../data/examples'
+import { PRODUCT_OPTIONS } from '../data/examples'
 import { useTaskStore } from '../stores/task'
 import { saveIntentContext } from '../utils/intentContext'
 
@@ -179,10 +168,17 @@ const productLabel = computed(() => {
   return hit?.text || '自动识别'
 })
 
-function exIcon(id) {
-  if (id === 'structured_deposit') return 'gold-coin-o'
-  if (id === 'loan') return 'cash-o'
-  return 'certificate'
+const productActions = computed(() =>
+  PRODUCT_OPTIONS.map((o) => ({
+    name: o.text,
+    value: o.value,
+    color: o.value === productHint.value ? 'var(--crusher-primary)' : undefined,
+  })),
+)
+
+function onProductSelect(action) {
+  if (action?.value) productHint.value = action.value
+  showProductPicker.value = false
 }
 
 onMounted(() => {
@@ -191,22 +187,6 @@ onMounted(() => {
   if (store.draftText) text.value = store.draftText
   if (store.productHint) productHint.value = store.productHint
 })
-
-function onProductConfirm({ selectedOptions }) {
-  const opt = selectedOptions?.[0]
-  if (opt?.value) productHint.value = opt.value
-  showProductPicker.value = false
-}
-
-function fillExample(ex) {
-  text.value = ex.text
-  if (ex.id === 'structured_deposit' || ex.id === 'loan') {
-    productHint.value = ex.id
-  } else {
-    productHint.value = 'auto'
-  }
-  store.setDraft(text.value, productHint.value)
-}
 
 function onClear() {
   text.value = ''

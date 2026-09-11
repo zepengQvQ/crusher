@@ -166,13 +166,9 @@ const banners = [
 
 const entries = [
   { key: 'paste', label: '粘贴分析', icon: 'edit', cls: 'blue', go: 'input' },
-  { key: 'compare', label: '条款对比', icon: 'balance-list-o', cls: 'purple', go: 'compare' },
-  { key: 'chat', label: 'AI问答', icon: 'chat-o', cls: 'green', go: 'chat' },
   { key: 'upload', label: '上传解析', icon: 'photograph', cls: 'orange', go: 'upload' },
   { key: 'dual', label: '销售对照', icon: 'exchange', cls: 'pink', go: 'dual' },
-  { key: 'history', label: '分析记录', icon: 'clock-o', cls: 'cyan', go: 'history' },
-  { key: 'tips', label: '反诈知识', icon: 'shield-o', cls: 'green', go: 'tips' },
-  { key: 'theme', label: '深色模式', icon: 'bulb-o', cls: 'blue', go: 'theme' },
+  { key: 'compare', label: '条款对比', icon: 'balance-list-o', cls: 'purple', go: 'compare' },
 ]
 
 const EXAMPLES = RAW_EXAMPLES.map((e) => ({
@@ -230,20 +226,9 @@ function goAnalyze() {
 
 function go(e) {
   if (e.go === 'input') return router.push({ name: 'input' })
-  if (e.go === 'compare') return router.push({ name: 'compare' })
-  if (e.go === 'chat') return router.push({ name: 'chat' })
   if (e.go === 'upload') return router.push({ name: 'upload' })
   if (e.go === 'dual') return router.push({ name: 'dual-input' })
-  if (e.go === 'history') return router.push({ name: 'history' })
-  if (e.go === 'theme') {
-    themeStore.toggle()
-    return showToast(themeStore.isDark ? '已切换深色模式' : '已切换浅色模式')
-  }
-  if (e.go === 'tips') {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-    return
-  }
-  showToast('功能开发中，敬请期待')
+  if (e.go === 'compare') return router.push({ name: 'compare' })
 }
 
 function onBanner(b) {

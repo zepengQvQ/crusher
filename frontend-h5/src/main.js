@@ -46,6 +46,7 @@ import {
   Pagination,
   Form,
   Sticky,
+  ConfigProvider,
 } from 'vant'
 import 'vant/lib/index.css'
 import './styles/global.css'
@@ -101,6 +102,7 @@ app.use(router)
   Pagination,
   Form,
   Sticky,
+  ConfigProvider,
 ].forEach((c) => app.use(c))
 app.config.globalProperties.$toast = showToast
 app.config.globalProperties.$dialog = Dialog

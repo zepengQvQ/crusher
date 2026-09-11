@@ -140,7 +140,7 @@ body,
   font-size: 18px;
 }
 
-button,
+button:not(.van-picker__cancel):not(.van-picker__confirm):not(.van-action-sheet__item):not(.van-action-sheet__cancel),
 .van-button,
 .touch-btn {
   min-height: 46px !important;
