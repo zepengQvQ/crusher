@@ -95,6 +95,7 @@ class ProductResolver:
 
         if hint in (ProductHint.structured_deposit, ProductHint.loan):
             resolved = ProductTypeId(hint.value)
+            label = resolved.label
             return ProductResolution(
                 requested_hint=hint,
                 resolved_product_type=resolved,
@@ -104,13 +105,13 @@ class ProductResolver:
                     [
                         ProductHit(
                             product_id=hint.value,
-                            product_name=hint.value,
+                            product_name=label,
                             confidence=1.0,
-                            evidence_quotes=[f"手动选择:{hint.value}"],
+                            evidence_quotes=[f"手动选择：{label}"],
                         )
                     ]
                 ),
-                reason=f"手动指定 {hint.value}",
+                reason=f"手动指定 {label}",
             )
 
         # auto

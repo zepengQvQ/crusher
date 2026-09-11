@@ -79,10 +79,13 @@ describe('correction-reanalysis-flow', () => {
       },
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('将提交的差异')
+    expect(wrapper.text()).toContain('当前识别为')
     expect(wrapper.text()).toContain('100000')
     const fields = wrapper.findAll('textarea')
     await fields.at(0).setValue('200000')
+    await flushPromises()
+    expect(wrapper.text()).toContain('将改成')
+    expect(wrapper.text()).toContain('200000')
     await wrapper.findAll('button').at(0).trigger('click')
     await flushPromises()
     expect(api.createCorrection).toHaveBeenCalledWith('tsk_parent', {

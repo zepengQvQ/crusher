@@ -126,11 +126,9 @@
       <van-tabs v-model:active="activeTab" shrink line-width="3">
         <van-tab title="仅在 A">
           <div class="diff-list">
-            <van-empty
-              v-if="!summary.uniqueInA.length"
-              description="A 条款无独有风险"
-              image="success"
-            />
+            <p v-if="!summary.uniqueInA.length" class="empty-findings">
+              A 条款无独有风险
+            </p>
             <FindingCard
               v-for="(f, i) in summary.uniqueInA"
               :key="'ua' + i"
@@ -141,11 +139,9 @@
         </van-tab>
         <van-tab title="仅在 B">
           <div class="diff-list">
-            <van-empty
-              v-if="!summary.uniqueInB.length"
-              description="B 条款无独有风险"
-              image="success"
-            />
+            <p v-if="!summary.uniqueInB.length" class="empty-findings">
+              B 条款无独有风险
+            </p>
             <FindingCard
               v-for="(f, i) in summary.uniqueInB"
               :key="'ub' + i"
@@ -408,6 +404,13 @@ const FindingCard = {
   flex-direction: column;
   gap: 8px;
   min-height: 100px;
+}
+.empty-findings {
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--crusher-ink-3);
+  text-align: center;
 }
 .finding-item {
   padding: 10px 12px;

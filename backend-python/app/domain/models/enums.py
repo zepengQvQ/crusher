@@ -45,6 +45,17 @@ class ProductTypeId(str, Enum):
     fund = "fund"
     unknown = "unknown"
 
+    @property
+    def label(self) -> str:
+        return {
+            ProductTypeId.structured_deposit: "结构性存款",
+            ProductTypeId.loan: "贷款",
+            ProductTypeId.snowball: "雪球结构",
+            ProductTypeId.insurance: "保险",
+            ProductTypeId.fund: "基金",
+            ProductTypeId.unknown: "未识别",
+        }.get(self, self.value)
+
 
 class ProductHint(str, Enum):
     """接口允许的手动产品提示（首版仅自动 / 结构性存款 / 贷款）。"""

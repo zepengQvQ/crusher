@@ -88,11 +88,9 @@
           <h3>需要留意的点</h3>
           <span class="more">{{ findings.length }} 条</span>
         </div>
-        <van-empty
-          v-if="!findings.length"
-          description="这次没抓到风险点；不等于产品一定安全"
-          image="success"
-        />
+        <p v-if="!findings.length" class="empty-findings">
+          这次没抓到风险点；不等于产品一定安全
+        </p>
         <van-collapse v-else v-model="activeFindings">
           <van-collapse-item
             v-for="(f, idx) in findings"
@@ -138,8 +136,8 @@
           <van-cell
             v-for="(c, idx) in report.product_candidates || []"
             :key="c.product_type_id + idx"
-            :title="c.product_type_name || c.product_type_id"
-            :label="candidateLabel(c)"
+            :title="productCandidateTitle(c)"
+            :label="productSourceHint(c)"
             :value="confidenceLabel(c.confidence)"
             size="large"
           />
@@ -214,35 +212,32 @@
       </div>
 
       <details v-if="publication?.coverage" class="block more-details">
-        <summary>系统检查范围（可选）</summary>
+        <summary>这次系统看了什么（可选）</summary>
         <AnalysisCoverageCard :coverage="publication.coverage" />
       </details>
 
-      <van-collapse v-model="moreOpen" class="block more-collapse">
-        <van-collapse-item title="更多工具" name="tools">
-          <EvidenceQuestionPanel :source-text="sourceText" :pending="pendingItems" />
-          <div style="height:10px" />
-          <ScenarioCalculator :key-parameters="report.key_parameters || []" />
-          <div style="height:10px" />
-          <ReportActions
-            :report="report"
-            kind="analysis"
-            title="分析报告"
-            :task-id="taskId"
-            :source-text="sourceText"
-          />
-          <van-button
-            block
-            plain
-            type="primary"
-            class="touch-btn"
-            style="margin-top:10px"
-            @click="goCompareSecond"
-          >
-            加入第二款产品对照
-          </van-button>
-        </van-collapse-item>
-      </van-collapse>
+      <div class="block tools-block">
+        <div class="block-title">更多工具</div>
+        <p class="soft-hint tools-intro">复制报告、简单计算，或再加一款产品对照。</p>
+        <ScenarioCalculator :key-parameters="report.key_parameters || []" />
+        <ReportActions
+          :report="report"
+          kind="analysis"
+          title="分析报告"
+          :task-id="taskId"
+          :source-text="sourceText"
+        />
+        <van-button
+          block
+          plain
+          type="primary"
+          class="touch-btn"
+          style="margin-top:10px"
+          @click="goCompareSecond"
+        >
+          加入第二款产品对照
+        </van-button>
+      </div>
 
       <p class="disclaimer">
         {{ report.disclaimer || DISCLAIMER }}
@@ -276,7 +271,6 @@ import { copyText, getAnalysis } from '../api/client'
 import { DISCLAIMER, FindingSeverity } from '../api/generated-types'
 import AnalysisCoverageCard from '../components/AnalysisCoverageCard.vue'
 import CorrectionSheet from '../components/CorrectionSheet.vue'
-import EvidenceQuestionPanel from '../components/EvidenceQuestionPanel.vue'
 import ReportActions from '../components/ReportActions.vue'
 import ScenarioCalculator from '../components/ScenarioCalculator.vue'
 import { useTaskStore } from '../stores/task'
@@ -356,7 +350,6 @@ const lowCount = computed(
   () => findings.value.filter((f) => f.finding_severity === FindingSeverity.low).length,
 )
 
-const moreOpen = ref([])
 const allParams = computed(() => report.value?.key_parameters || [])
 const disclosedParams = computed(() =>
   allParams.value.filter((p) => p && p.status !== 'not_disclosed' && (p.value || p.amount != null)),
@@ -382,9 +375,42 @@ function confidenceLabel(confidence) {
   return '把握不大'
 }
 
-const productName = computed(
-  () => report.value?.product_candidates?.[0]?.product_type_name || '未知产品',
-)
+const PRODUCT_LABEL = {
+  structured_deposit: '结构性存款',
+  loan: '贷款',
+  snowball: '雪球结构',
+  insurance: '保险',
+  fund: '基金',
+  unknown: '未识别',
+}
+
+function productTypeLabel(id, name) {
+  const rawName = String(name || '').trim()
+  const rawId = String(id || '').trim()
+  if (PRODUCT_LABEL[rawName]) return PRODUCT_LABEL[rawName]
+  if (rawName && !/^[a-z][a-z0-9_]*$/.test(rawName)) return rawName
+  return PRODUCT_LABEL[rawId] || rawName || '未知产品'
+}
+
+function humanizeProductQuote(quote) {
+  let t = String(quote || '').trim()
+  if (!t) return ''
+  t = t.replace(/^手动选择[:：]\s*/i, '手动选择：')
+  for (const [id, label] of Object.entries(PRODUCT_LABEL)) {
+    t = t.replaceAll(id, label)
+  }
+  return t
+}
+
+function productCandidateTitle(c) {
+  return productTypeLabel(c?.product_type_id, c?.product_type_name)
+}
+
+const productName = computed(() => {
+  const c = report.value?.product_candidates?.[0]
+  if (c) return productCandidateTitle(c)
+  return productTypeLabel(report.value?.resolved_product_type, '')
+})
 
 const productGradeText = computed(() => {
   const g = report.value?.product_risk_grade
@@ -530,10 +556,14 @@ const pendingItems = computed(() => {
   return out
 })
 
-function candidateLabel(c) {
-  const quotes = (c.evidence_quotes || []).filter(Boolean)
-  if (!quotes.length) return '暂无识别证据'
-  return `证据：${quotes.slice(0, 3).join('；')}`
+function productSourceHint(c) {
+  const quotes = (c?.evidence_quotes || []).map((q) => String(q || '').trim()).filter(Boolean)
+  if (quotes.some((q) => /手动选择|手动指定/.test(q))) {
+    return '你手动指定的类型，不是从材料原文读出的'
+  }
+  const cleaned = quotes.map(humanizeProductQuote).filter(Boolean)
+  if (!cleaned.length) return '暂无材料依据'
+  return `材料依据：${cleaned.slice(0, 2).join('；')}`
 }
 
 function formatParam(p) {
@@ -724,8 +754,21 @@ onUnmounted(() => {
   color: var(--crusher-ink-3);
   line-height: 1.5;
 }
-.more-collapse {
-  margin-top: 8px;
+.empty-findings {
+  margin: 4px 0 0;
+  padding: 12px 0 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--crusher-ink-3);
+  text-align: center;
+}
+.tools-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tools-intro {
+  margin-top: -4px;
 }
 .more-details {
   margin-top: 8px;

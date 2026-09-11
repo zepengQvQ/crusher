@@ -42,8 +42,36 @@ _CONTEXT_SYSTEM = """你是金融条款助手。只能根据用户提供的「�
 硬性规则：
 1. 不得编造材料未出现的数字、收益率、评级或条款。
 2. 不做买/不买建议，不做用户适当性评估；若被问是否适合某类人群，只能说明材料写了什么，并声明需以机构评估为准。
-3. 用简体中文，短句，面向普通用户。
-4. 不确定就说材料没写清，不要猜测。"""
+3. 用简体中文、短句，面向普通用户。
+4. 不确定就说材料没写清，不要猜测。
+5. 禁止使用 Markdown（不要 **加粗**、# 标题、代码块）；用「标签：内容」或「· 条目」这种纯文本即可。"""
+
+
+def _to_plain_chat_text(text: str) -> str:
+    """去掉模型常见 Markdown，改成气泡可读纯文本。"""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    # **标题**\n内容 → 标题：内容
+    t = re.sub(r"\*\*([^*]+)\*\*\s*\n+\s*", r"\1：", t)
+    t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)
+    t = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"\1", t)
+    t = re.sub(r"^#{1,6}\s+", "", t, flags=re.MULTILINE)
+    t = re.sub(r"^[-*]\s+", "· ", t, flags=re.MULTILINE)
+    t = re.sub(r"`([^`]+)`", r"\1", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
+
+
+def _ensure_disclaimer(text: str) -> str:
+    body = _to_plain_chat_text(text)
+    if not body:
+        body = "按现有材料只能作有限说明，无法给出确定结论。"
+    if "投资建议" not in body and "适当性" not in body:
+        return f"{body}\n\n{_DISCLAIMER}"
+    if _DISCLAIMER not in body and "不做投资建议" not in body:
+        return f"{body}\n\n{_DISCLAIMER}"
+    return body
 
 # 证据不足时：告诉用户该补哪类材料（不是空泛的「章节」）
 _MISSING_BY_TOPIC: dict[str, list[str]] = {
@@ -133,17 +161,6 @@ def _run_async(coro: Any) -> Any:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, coro).result()
     return asyncio.run(coro)
-
-
-def _ensure_disclaimer(text: str) -> str:
-    body = (text or "").strip()
-    if not body:
-        body = "按现有材料只能作有限说明，无法给出确定结论。"
-    if "投资建议" not in body and "适当性" not in body:
-        return f"{body}\n\n{_DISCLAIMER}"
-    if _DISCLAIMER not in body and "不做投资建议" not in body:
-        return f"{body}\n\n{_DISCLAIMER}"
-    return body
 
 
 class AnswerFromEvidenceUseCase:

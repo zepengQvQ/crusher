@@ -100,10 +100,11 @@ class ReportAssembler:
     ) -> AnalysisReport:
         candidates = list(resolution.candidates)
         if not candidates and resolution.resolved_product_type is not None:
+            resolved = resolution.resolved_product_type
             candidates = [
                 ProductCandidate(
-                    product_type_id=resolution.resolved_product_type,
-                    product_type_name=resolution.resolved_product_type.value,
+                    product_type_id=resolved,
+                    product_type_name=resolved.label,
                     confidence=1.0,
                     evidence_quotes=[],
                 )

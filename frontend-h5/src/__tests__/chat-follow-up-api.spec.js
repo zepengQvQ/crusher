@@ -78,6 +78,40 @@ describe('chat store follow-up, guide and materials', () => {
     expect(msg.content).toContain('适当性')
   })
 
+  it('greeting without materials stays conversational and skips intent', async () => {
+    const store = useChatStore()
+    const msg = await store.send('你好')
+    expect(client.resolveIntent).not.toHaveBeenCalled()
+    expect(client.createFollowUp).not.toHaveBeenCalled()
+    expect(msg.meta?.kind).toBe('chitchat')
+    expect(msg.content).toContain('你好')
+    expect(msg.content).not.toContain('规则无法')
+    expect(msg.content).not.toContain('唯一确定意图')
+  })
+
+  it('long clause paste without materials becomes material not intent', async () => {
+    const store = useChatStore()
+    const clause = (
+      '六、风险提示\n（一）市场风险：汇率波动可能导致仅获最低收益。\n（二）流动性风险：存续期内不可提前支取。\n' +
+      '（三）提前终止风险：银行有权提前终止。\n七、其他约定。本产品说明书仅为演示样例，不构成真实要约。\n'
+    ).repeat(3)
+    expect(clause.length).toBeGreaterThan(220)
+    await store.send(clause)
+    expect(client.resolveIntent).not.toHaveBeenCalled()
+    expect(store.hasMaterials).toBe(true)
+    expect(store.materialSourceText).toContain('风险提示')
+  })
+
+  it('explains recognition failure instead of clarifying intent', async () => {
+    const store = useChatStore()
+    const msg = await store.send('为啥会识别失败')
+    expect(client.resolveIntent).not.toHaveBeenCalled()
+    expect(msg.meta?.kind).toBe('help')
+    expect(msg.content).toContain('500')
+    expect(msg.content).toContain('粘贴条款')
+    expect(msg.content).not.toContain('不确定你想做哪一步')
+  })
+
   it('without context uses intent guide and does not call follow-up', async () => {
     client.resolveIntent.mockResolvedValue({
       intent: 'single_analysis',
@@ -94,7 +128,29 @@ describe('chat store follow-up, guide and materials', () => {
     expect(client.resolveIntent).toHaveBeenCalledTimes(1)
     expect(msg.meta?.kind).toBe('intent')
     expect(msg.meta?.decision?.intent).toBe('single_analysis')
+    expect(msg.content).toContain('正在为你打开')
     expect(msg.content).not.toContain('不太适合')
+  })
+
+  it('intent clarification hides technical rationale', async () => {
+    client.resolveIntent.mockResolvedValue({
+      intent: null,
+      status: 'needs_clarification',
+      source: 'rule',
+      rationale: ['规则无法从用户目标唯一确定意图'],
+      missing: [],
+      clarifying_options: [
+        { intent: 'single_analysis', label: '单材料分析' },
+        { intent: 'dual_source_compare', label: '销售与材料对照' },
+      ],
+      use_case_key: '',
+    })
+    const store = useChatStore()
+    const msg = await store.send('我想看看')
+    expect(msg.meta?.kind).toBe('intent')
+    expect(msg.content).not.toContain('规则无法')
+    expect(msg.content).toContain('不确定')
+    expect(msg.meta?.options?.length).toBe(2)
   })
 
   it('does not fall back to local mock when API fails', async () => {

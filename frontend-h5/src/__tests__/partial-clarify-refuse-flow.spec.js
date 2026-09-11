@@ -37,10 +37,10 @@ describe('partial-clarify-refuse-flow', () => {
       },
     })
     expect(wrapper.text()).toContain('已检查')
-    expect(wrapper.text()).toContain('产品类型识别（程序规则）')
+    expect(wrapper.text()).toContain('产品类型')
     expect(wrapper.text()).toContain('未检查')
-    expect(wrapper.text()).toContain('用户适当性评估')
-    expect(wrapper.text()).toContain('材料未说明')
+    expect(wrapper.text()).toContain('是否适合你买')
+    expect(wrapper.text()).toContain('材料没写')
   })
 
   it('PUBLISH_PARTIAL 展示横幅与覆盖说明，不伪装全绿成功', async () => {
@@ -81,7 +81,7 @@ describe('partial-clarify-refuse-flow', () => {
     })
     await flushPromises()
     expect(wrapper.text()).toContain('模型解释未通过校验')
-    expect(wrapper.text()).toContain('模型通俗解释（未通过校验）')
+    expect(wrapper.text()).toContain('模型通俗说明（未通过）')
     expect(wrapper.text()).not.toContain('可以放心')
   })
 

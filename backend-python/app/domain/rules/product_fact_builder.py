@@ -197,10 +197,10 @@ def compare_side_values(a: FactSideValue, b: FactSideValue) -> tuple[str, str]:
 
 
 def _type_label(t: ProductTypeId | None) -> str | None:
-    if t == ProductTypeId.loan:
-        return "贷款"
-    if t == ProductTypeId.structured_deposit:
-        return "结构性存款"
+    if t is None:
+        return None
+    if t in (ProductTypeId.loan, ProductTypeId.structured_deposit):
+        return t.label
     return None
 
 

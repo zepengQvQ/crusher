@@ -104,6 +104,20 @@ class ProductResolutionTests(unittest.TestCase):
         self.assertEqual(task.report.findings, [])
         self.assertIn("未分析该产品", task.report.plain_language.text)
 
+    def test_manual_hint_without_markers_uses_chinese_product_name(self):
+        task = asyncio.run(
+            _run("本说明书仅作演示，未写明产品品类。", ProductHint.structured_deposit)
+        )
+        self.assertEqual(task.report.analysis_scope, AnalysisScope.supported)
+        self.assertEqual(task.report.resolved_product_type.value, "structured_deposit")
+        self.assertTrue(task.report.product_candidates)
+        top = task.report.product_candidates[0]
+        self.assertEqual(top.product_type_name, "结构性存款")
+        self.assertNotIn("structured_deposit", top.product_type_name)
+        joined = "；".join(top.evidence_quotes or [])
+        self.assertIn("手动选择", joined)
+        self.assertNotIn("structured_deposit", joined)
+
 
 class ReportPageScopeContractTests(unittest.TestCase):
     def test_report_page_has_three_scope_copy(self):
@@ -118,6 +132,8 @@ class ReportPageScopeContractTests(unittest.TestCase):
         self.assertIn("当前 Demo 未分析该产品，请选择结构性存款或贷款", src)
         self.assertIn("产品类型存在冲突，请确认后重新分析", src)
         self.assertIn("analysis_scope", src)
+        self.assertNotIn('image="success"', src)
+        self.assertIn("这次没抓到风险点；不等于产品一定安全", src)
 
 
 if __name__ == "__main__":

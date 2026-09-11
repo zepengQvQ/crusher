@@ -24,16 +24,26 @@ const GUIDE_WELCOME =
   '你好，我是金融话术粉碎机助手。\n\n点左下角「+」可粘贴条款或上传文件，材料会留在本会话；备齐后点「开始分析」。也可直接说想做什么。'
 
 function intentReply(decision) {
-  if (!decision) return '暂时无法识别你的目标，请换一种说法或点快捷选项。'
+  if (!decision) return '还没听清你想做什么。可以说「分析这份条款」，或点左下角「+」先加材料。'
   if (decision.status === 'resolved') {
-    const reasons = (decision.rationale || []).join('；')
-    return reasons ? `已识别：${reasons}\n正在为你打开对应功能…` : '已识别目标，正在为你打开对应功能…'
+    return '好的，正在为你打开对应功能…'
   }
   if (decision.intent === 'unsupported' || decision.status === 'rejected') {
-    return (decision.rationale || []).join('；') || '该需求超出当前 Demo 范围，不能提供购买建议。'
+    const reasons = (decision.rationale || [])
+      .map((r) => String(r || '').trim())
+      .filter((r) => r && !isTechnicalRationale(r))
+    return (
+      reasons.join('；') ||
+      '这个需求超出当前 Demo 范围。我更适合帮你核对条款事实，不能给购买建议。'
+    )
   }
-  const reasons = (decision.rationale || []).join('；')
-  return reasons || '目标还不明确，请从下面选一件事继续。'
+  // needs_clarification 等：禁止把「规则无法…」这类诊断原文丢给用户
+  return '我还不确定你想做哪一步。可以点下面选项，或用左下角「+」先加入材料再说。'
+}
+
+function isTechnicalRationale(text) {
+  const t = String(text || '')
+  return /规则无法|唯一确定意图|clarif|intent|use_case|resolver|rationale/i.test(t)
 }
 
 function joinMaterials(materials) {
@@ -47,7 +57,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** 寒暄 / 无实质问题：有材料时也不走证据追问。 */
+/** 寒暄 / 无实质问题：有无材料都不当作意图/追问。 */
 function isChitchat(text) {
   const t = String(text || '')
     .trim()
@@ -56,6 +66,56 @@ function isChitchat(text) {
   return /^(你好|您好|嗨|哈喽|在吗|在不在|谢谢|多谢|早上好|中午好|下午好|晚上好|hi|hello|hey|ok|好的|嗯|哦)$/i.test(
     t,
   )
+}
+
+function chitchatReply(hasMaterials) {
+  if (hasMaterials) {
+    return '你好。可以问材料里的具体问题（比如收益率、提前赎回、是否保本），或点下方快捷问题；材料不够时用左下角「+」补充。'
+  }
+  return (
+    '你好。我可以帮你看金融条款、对照销售说法，或回答材料里的事实问题。\n\n' +
+    '点左下角「+」粘贴/上传材料，备齐后点「开始分析」；也可以直接说想做什么。'
+  )
+}
+
+/** 像整段条款/说明书，应进材料，而不是当意图短句。 */
+function looksLikeMaterialPaste(text) {
+  const t = String(text || '').trim()
+  if (t.length >= 220) return true
+  if (
+    t.length >= 80 &&
+    /(风险提示|其他约定|产品说明|本合同|条款|结构性存款|提前终止|流动性风险|年化收益率|观察期)/.test(t)
+  ) {
+    return true
+  }
+  return false
+}
+
+/** 用户在追问刚才的失败原因 / 怎么用。 */
+function isHelpAboutFailure(text) {
+  const t = String(text || '').trim()
+  return /(为啥|为什么|怎么会|如何).{0,8}(失败|不合法|识别)|识别失败|参数不合法|请求参数|怎么用|如何使用|点\+|技能栏/.test(
+    t,
+  )
+}
+
+const HELP_FAIL_REPLY =
+  '刚才那段更像「材料原文」，被当成「想做什么」去识别了。\n\n' +
+  '意图识别只接受大约 500 字的短目标；整段条款超长就会报「请求参数不合法」。\n\n' +
+  '正确做法：点左下角「+」→「粘贴条款」，把材料加进会话，再点「开始分析」。对话框更适合问短问题，例如「保本吗？」'
+
+/** 去掉模型 Markdown，避免气泡里出现 **标题**。 */
+export function toPlainChatText(text) {
+  let t = String(text || '').trim()
+  if (!t) return ''
+  t = t.replace(/\*\*([^*]+)\*\*\s*\n+\s*/g, '$1：')
+  t = t.replace(/\*\*([^*]+)\*\*/g, '$1')
+  t = t.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
+  t = t.replace(/^#{1,6}\s+/gm, '')
+  t = t.replace(/^[-*]\s+/gm, '· ')
+  t = t.replace(/`([^`]+)`/g, '$1')
+  t = t.replace(/\n{3,}/g, '\n\n')
+  return t.trim()
 }
 
 /** 聊天完成气泡只用口语摘要；程序账本 / 英文键名一律不进会话。 */
@@ -401,18 +461,26 @@ export const useChatStore = defineStore('chat', {
       const text = String(question || '').trim()
       if (!text) return null
 
+      if (isChitchat(text)) {
+        this._pushUser(text)
+        return this._pushAi(chitchatReply(!!this.materialSourceText), { kind: 'chitchat' })
+      }
+
+      if (isHelpAboutFailure(text)) {
+        this._pushUser(text)
+        return this._pushAi(HELP_FAIL_REPLY, { kind: 'help' })
+      }
+
+      // 无材料时把长条款当材料加入，避免误走意图接口（user_query≤500）
+      if (!this.materialSourceText && looksLikeMaterialPaste(text)) {
+        return this.addMaterial({ kind: 'paste', name: '粘贴条款', text })
+      }
+
       this._pushUser(text)
 
       const source = this.materialSourceText
       if (!source) {
         return this._sendGuide(text)
-      }
-
-      if (isChitchat(text)) {
-        return this._pushAi(
-          '你好。可以问材料里的具体问题（比如收益率、提前赎回、是否保本），或点下方快捷问题；材料不够时用左下角「+」补充。',
-          { kind: 'chitchat' },
-        )
       }
 
       try {
@@ -432,7 +500,7 @@ export const useChatStore = defineStore('chat', {
         if (!data || typeof data.answer !== 'string' || !data.answer.trim()) {
           throw new Error('追问接口未返回有效答案')
         }
-        let reply = data.answer
+        let reply = toPlainChatText(data.answer)
         if (data.status === 'insufficient_evidence') {
           const items = Array.isArray(data.missing_info)
             ? data.missing_info.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 4)
@@ -441,12 +509,12 @@ export const useChatStore = defineStore('chat', {
             ? `建议补充这些材料：\n${items.map((s) => `· ${s}`).join('\n')}`
             : '建议补充：能直接回答你这个问题的正式条款原文。'
           reply = [
-            data.answer || '按现有材料还没法确定回答。',
+            toPlainChatText(data.answer) || '按现有材料还没法确定回答。',
             list,
             '怎么补：点左下角「+」→「粘贴条款」或「上传文件」，加进本会话后再问一次。',
           ].join('\n\n')
         } else if (data.status === 'out_of_scope') {
-          reply = data.answer || '这个问题超出了当前材料能回答的范围。'
+          reply = toPlainChatText(data.answer) || '这个问题超出了当前材料能回答的范围。'
         }
         return this._pushAi(reply, {
           kind: 'follow_up',
@@ -482,9 +550,16 @@ export const useChatStore = defineStore('chat', {
       return out.reverse()
     },
     async _sendGuide(userQuery) {
+      const q = String(userQuery || '').trim()
+      if (looksLikeMaterialPaste(q) || q.length > 500) {
+        return this._pushAi(
+          '这段更像材料原文，不适合当成「想做什么」来识别。\n\n请点左下角「+」→「粘贴条款」加入会话，再点「开始分析」。',
+          { kind: 'help' },
+        )
+      }
       try {
         const decision = await resolveIntent({
-          user_query: userQuery,
+          user_query: q.slice(0, 500),
           page_route: null,
           source_envelopes: [],
           allow_model_candidate: false,
@@ -499,9 +574,11 @@ export const useChatStore = defineStore('chat', {
         })
       } catch (e) {
         const msg = pickErrorMessage(e)
-        this._pushAi(`意图识别失败：${msg}\n\n请确认后端已启动，或使用「+」技能栏。`, {
-          kind: 'intent_error',
-        })
+        const soft =
+          /不合法|422|validation|max_length|500/i.test(String(msg))
+            ? '这段内容太长或格式不适合意图识别。请用「+」粘贴条款进会话后再分析。'
+            : `意图识别失败：${msg}\n\n请确认后端已启动，或使用「+」技能栏。`
+        this._pushAi(soft, { kind: 'intent_error' })
         throw e
       }
     },
