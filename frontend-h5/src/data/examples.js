@@ -24,3 +24,10 @@ export const PRODUCT_OPTIONS = [
   { value: 'structured_deposit', text: '结构性存款' },
   { value: 'loan', text: '借贷' },
 ]
+
+/** 双材料对照输入预填（仅样例文本；结论须走 /dual-analyses）。 */
+export const DUAL_EXAMPLE = {
+  sales_text: '本产品年化收益率3.65%，我们不收费，随时可以提前支取。',
+  official_text:
+    '产品说明书：年化收益率3.65%。费用说明：提前支取若未满观察期，需支付手续费0.5%。',
+}

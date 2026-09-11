@@ -51,6 +51,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { createDualAnalysis, pickErrorMessage } from '../api/client'
 import { MAX_INPUT_CHARS } from '../api/generated-types'
+import { DUAL_EXAMPLE } from '../data/examples'
 import {
   DUAL_SALES_PREFILL_KEY,
   clearIntentContext,
@@ -82,9 +83,9 @@ onMounted(() => {
 })
 
 function fillDemo() {
-  salesText.value = '本产品年化收益率3.65%，我们不收费，随时可以提前支取。'
-  officialText.value =
-    '产品说明书：年化收益率3.65%。费用说明：提前支取若未满观察期，需支付手续费0.5%。'
+  // 仅预填输入样例；对照结论由 createDualAnalysis 接口返回
+  salesText.value = DUAL_EXAMPLE.sales_text
+  officialText.value = DUAL_EXAMPLE.official_text
 }
 
 function onClear() {

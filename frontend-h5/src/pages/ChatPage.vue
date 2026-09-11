@@ -9,7 +9,7 @@
     <van-notice-bar
       v-if="!hasContext"
       left-icon="info-o"
-      text="可以先去分析一份条款，再回到这里针对性追问；或直接提问通用问题。"
+      text="请先完成条款分析，并从报告页进入追问；回答只来自服务端证据接口，不会本地编造。"
     />
 
     <div class="context-card" v-if="hasContext">
@@ -116,28 +116,24 @@ const aiThinking = ref(false)
 const chatListRef = ref(null)
 
 const messages = computed(() => chatStore.messages)
-const hasContext = computed(() => !!chatStore.contextText || chatStore.contextFindings.length > 0)
+const hasContext = computed(() => !!(chatStore.contextText || '').trim())
 const contextPreview = computed(
-  () => chatStore.contextText?.slice(0, 60) || `已分析 ${chatStore.contextFindings.length} 条风险`,
+  () => chatStore.contextText?.slice(0, 60) || '（无材料预览）',
 )
 const contextFindingCount = computed(() => chatStore.contextFindings.length)
-const canSend = computed(() => inputText.value.trim().length > 0 && !aiThinking.value)
-const showQuickAsk = computed(() => messages.value.length > 0 || hasContext.value)
+const canSend = computed(
+  () => hasContext.value && inputText.value.trim().length > 0 && !aiThinking.value,
+)
+const showQuickAsk = computed(() => hasContext.value)
 
 const quickQuestions = computed(() => {
-  const base = [
-    '这份条款有坑吗？',
-    '最坏情况会怎样？',
+  if (!hasContext.value) return []
+  return [
+    '最坏情况会损失多少？',
+    '适合老年人买吗？',
+    '提前赎回有何费用？',
+    '保本吗？本金安全吗？',
   ]
-  if (hasContext.value) {
-    return [
-      '最坏情况会损失多少？',
-      '适合老年人买吗？',
-      '提前赎回有何费用？',
-      '保本吗？本金安全吗？',
-    ].slice(0, 4)
-  }
-  return base
 })
 
 function formatTime(ts) {
@@ -168,12 +164,19 @@ async function onSend() {
 
 async function send(text) {
   if (aiThinking.value) return
+  if (!(chatStore.contextText || '').trim()) {
+    showToast('请先完成分析并关联材料后再追问')
+    return
+  }
   aiThinking.value = true
   try {
     await chatStore.send(text)
     await scrollBottom()
   } catch (e) {
-    showToast('发送失败，请稍后重试')
+    if (e?.code !== 'NO_CONTEXT') {
+      // store 已写入失败说明；再给轻提示
+      showToast('追问未成功，请查看对话中的失败说明')
+    }
   } finally {
     aiThinking.value = false
     await scrollBottom()

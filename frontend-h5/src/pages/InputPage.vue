@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <van-nav-bar title="金融话术粉碎机" />
+    <van-nav-bar title="金融话术粉碎机" left-arrow @click-left="$router.push('/')" />
     <van-notice-bar
       left-icon="info-o"
       text="密钥只在本机 .env；网页不能填 Key。重启服务后旧任务会丢失。"
