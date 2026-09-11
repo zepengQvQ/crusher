@@ -1,7 +1,7 @@
 <template>
   <div v-if="coverage" class="card">
-    <div class="title">本次系统检查范围</div>
-    <p class="hint">「材料未说明」≠「系统没有检查」；下列未检查项不代表产品无风险。</p>
+    <div class="title">系统检查范围</div>
+    <p class="hint">「材料未说明」不等于「系统没检查」；下面没查的项，也不代表产品没风险。</p>
     <div class="col">
       <div class="label">已检查</div>
       <ul v-if="checked.length">

@@ -26,7 +26,7 @@ const route = useRoute()
 const themeStore = useThemeStore()
 
 const showFloatingChat = computed(() => {
-  const noShow = ['home', 'chat', 'compare', 'error']
+  const noShow = ['home', 'chat', 'compare', 'error', 'report']
   return !noShow.includes(route.name)
 })
 

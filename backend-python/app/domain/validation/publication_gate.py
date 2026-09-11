@@ -157,11 +157,23 @@ def decide_from_verification(verification: VerificationResult) -> PublicationDec
     code = verification.error_code or ErrorCode.OUTPUT_VERIFICATION_FAILED
     if code == ErrorCode.INVALID_MODEL_JSON:
         code = ErrorCode.MODEL_OUTPUT_INVALID
-    detail = "; ".join(verification.issues[:3]) if verification.issues else ""
+    # issues 里是英文诊断，只转成用户可读短句，禁止原文进 H5
     reason = user_message_for(code)
-    if detail:
-        reason = f"{reason}（{detail}）"
+    hint = _user_facing_issue_hint(verification.issues)
+    if hint:
+        reason = f"{reason}：{hint}"
     return decide_publish_partial(reason_code=code, user_reason=reason)
+
+
+def _user_facing_issue_hint(issues: list[str]) -> str:
+    blob = " ".join(str(i) for i in (issues or []))
+    if "invents numbers" in blob:
+        return "通俗解释里出现了原文未写明的数字，已拦截"
+    if "draft empty" in blob:
+        return "模型未给出可用解释"
+    if "grade" in blob.lower():
+        return "通俗解释里出现了原文未写明的风险评级"
+    return ""
 
 
 def run_publication_gate(

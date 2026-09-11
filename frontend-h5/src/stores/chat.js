@@ -12,11 +12,6 @@ const CHAT_KEY = 'crusher_chat'
 const POLL_MS = 800
 const POLL_MAX = 60
 
-export const GUIDE_CHIPS = [
-  { label: '销售对照', query: '对照销售话术和正式材料' },
-  { label: '两款对比', query: '两款产品对比一下' },
-]
-
 export const SKILL_ITEMS = [
   { key: 'paste', label: '粘贴条款', icon: 'edit' },
   { key: 'upload', label: '上传文件', icon: 'photograph' },
@@ -25,7 +20,7 @@ export const SKILL_ITEMS = [
 ]
 
 const GUIDE_WELCOME =
-  '你好，我是金融话术粉碎机助手。\n\n点左下角「+」可粘贴条款或上传文件，材料会留在本会话；备齐后点「开始分析」。也可直接说想做什么（如两款对比）。'
+  '你好，我是金融话术粉碎机助手。\n\n点左下角「+」可粘贴条款或上传文件，材料会留在本会话；备齐后点「开始分析」。也可直接说想做什么。'
 
 function intentReply(decision) {
   if (!decision) return '暂时无法识别你的目标，请换一种说法或点快捷选项。'
@@ -49,6 +44,81 @@ function joinMaterials(materials) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** 寒暄 / 无实质问题：有材料时也不走证据追问。 */
+function isChitchat(text) {
+  const t = String(text || '')
+    .trim()
+    .replace(/[！!。.?？~\s]/g, '')
+  if (!t) return true
+  return /^(你好|您好|嗨|哈喽|在吗|在不在|谢谢|多谢|早上好|中午好|下午好|晚上好|hi|hello|hey|ok|好的|嗯|哦)$/i.test(
+    t,
+  )
+}
+
+/** 聊天完成气泡只用口语摘要；程序账本 / 英文键名一律不进会话。 */
+function isChatFriendlyPlain(text) {
+  const t = String(text || '').trim()
+  if (!t || t.length < 8) return false
+  if (
+    /invents numbers|explanation invents|MODEL_|OUTPUT_VERIFICATION|draft empty|【部分结果】|【事实】|【参数】|【风险】|【程序说明】|已阻止当作正常解释|product_risk_grade|principal_protection|\bterm\s*:/i.test(
+      t,
+    )
+  ) {
+    return false
+  }
+  // 像「期限：183天」这种短中文说明可以展示；含大量英文 snake_case 则不要
+  const snake = (t.match(/[a-z]+_[a-z0-9_]+/gi) || []).length
+  if (snake >= 1) return false
+  return true
+}
+
+/**
+ * 分析完成气泡统一 SOP：
+ * 1) 看完了 + 风险条数
+ * 2) 可选：最多 3 条风险标题
+ * 3) 可选：真正的人话通俗解释（非账本）
+ * 4) 发布态一句话 + 引导打开报告
+ * 禁止：task_id、publish、英文诊断、【事实】账本
+ */
+function formatAnalyzeDone({ findingCount, outcome, plainText, findingTitles }) {
+  const count = Number(findingCount) || 0
+  const riskLine =
+    count <= 0
+      ? '按当前材料，没有抓到需要特别标出的风险点。'
+      : `按当前材料，标出了 ${count} 条需要留意的点。`
+
+  const titles = (findingTitles || []).map((t) => String(t || '').trim()).filter(Boolean)
+  const titleBlock =
+    titles.length > 0
+      ? `\n\n主要留意：\n${titles
+          .slice(0, 3)
+          .map((t) => `· ${t}`)
+          .join('\n')}`
+      : ''
+
+  let statusLine = ''
+  if (outcome === 'publish_partial') {
+    statusLine = '有一部分结论已确认；详细内容请打开报告对照原文。'
+  } else if (outcome === 'clarify') {
+    statusLine = '还有几处信息不够清楚，报告里写了待确认问题。'
+  } else if (outcome === 'refuse') {
+    statusLine = '这次没法给出完整结论，原因写在报告里。'
+  }
+
+  const plain = isChatFriendlyPlain(plainText)
+    ? String(plainText).trim().replace(/\s+/g, ' ')
+    : ''
+  const plainLine = plain
+    ? `\n\n先说一句人话：${plain.length > 100 ? `${plain.slice(0, 100)}…` : plain}`
+    : ''
+
+  const tail = statusLine
+    ? `\n${statusLine}\n\n想继续问就直接说，或点「查看报告」。`
+    : '\n\n想继续问就直接说，或点「查看报告」。'
+
+  return `看完了。${riskLine}${titleBlock}${plainLine}${tail}`
 }
 
 export const useChatStore = defineStore('chat', {
@@ -239,8 +309,8 @@ export const useChatStore = defineStore('chat', {
         err.code = 'NO_MATERIAL'
         throw err
       }
-      this._pushUser('开始分析当前会话材料', { kind: 'analyze_request' })
-      this._pushAi('正在分析，请稍候…', { kind: 'analyze_progress' })
+      this._pushUser('开始分析', { kind: 'analyze_request' })
+      this._pushAi('正在看这份材料，稍等一下…', { kind: 'analyze_progress' })
       try {
         const created = await createAnalysis(source, { productHint: productHint || 'auto' })
         const taskId = created.task_id
@@ -254,15 +324,15 @@ export const useChatStore = defineStore('chat', {
           await sleep(POLL_MS)
         }
         if (!data || (data.task_status !== 'completed' && data.task_status !== 'failed' && !data.is_failure)) {
-          this._pushAi('分析仍在进行中。可稍后在报告页查看，或再试一次。', {
+          this._pushAi('还在处理中。可以稍后再打开报告，或再试一次。', {
             kind: 'analyze_timeout',
             taskId,
           })
           return { taskId, data }
         }
         if (data.task_status === 'failed' || data.is_failure) {
-          const reason = data.error?.message || data.failure_reason || '分析失败'
-          this._pushAi(`分析失败：${reason}`, { kind: 'analyze_failed', taskId })
+          const reason = data.error?.message || data.failure_reason || '这次没分析成功'
+          this._pushAi(`没分析成功：${reason}`, { kind: 'analyze_failed', taskId })
           return { taskId, data }
         }
         const findings = Array.isArray(data.report?.findings) ? data.report.findings : []
@@ -272,18 +342,23 @@ export const useChatStore = defineStore('chat', {
         this.contextText = data.source_text || source
         this.contextFindings = findings
         this.pendingQuestions = pending
-        const count = findings.length
         const outcome = data.publication?.outcome || data.report?.publication?.outcome || ''
+        const plainText = data.report?.plain_language?.text || ''
         this._pushAi(
-          `分析完成（任务 ${taskId}）。\n发现 ${count} 条风险${outcome ? `，发布：${outcome}` : ''}。\n可直接追问，或打开完整报告。`,
-          { kind: 'analyze_done', taskId, findingCount: count },
+          formatAnalyzeDone({
+            findingCount: findings.length,
+            outcome,
+            plainText,
+            findingTitles: findings.map((f) => f.title || f.explanation || '').filter(Boolean),
+          }),
+          { kind: 'analyze_done', taskId, findingCount: findings.length },
         )
         this._persist()
         return { taskId, data }
       } catch (e) {
         if (e?.code === 'NO_MATERIAL') throw e
         const msg = pickErrorMessage(e)
-        this._pushAi(`分析失败：${msg}`, { kind: 'analyze_failed' })
+        this._pushAi(`没分析成功：${msg}`, { kind: 'analyze_failed' })
         throw e
       }
     },
@@ -302,6 +377,13 @@ export const useChatStore = defineStore('chat', {
         return this._sendGuide(text)
       }
 
+      if (isChitchat(text)) {
+        return this._pushAi(
+          '你好。可以问材料里的具体问题（比如收益率、提前赎回、是否保本），或点下方快捷问题；材料不够时用左下角「+」补充。',
+          { kind: 'chitchat' },
+        )
+      }
+
       try {
         const data = await createFollowUp(text, source, this.pendingQuestions)
         if (!data || typeof data.answer !== 'string' || !data.answer.trim()) {
@@ -309,13 +391,24 @@ export const useChatStore = defineStore('chat', {
         }
         let reply = data.answer
         if (data.status === 'insufficient_evidence') {
-          reply = '材料证据不足，无法给出确定结论。\n\n' + data.answer
+          const items = Array.isArray(data.missing_info)
+            ? data.missing_info.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 4)
+            : []
+          const list = items.length
+            ? `建议补充这些材料：\n${items.map((s) => `· ${s}`).join('\n')}`
+            : '建议补充：能直接回答你这个问题的正式条款原文。'
+          reply = [
+            data.answer || '按现有材料还没法确定回答。',
+            list,
+            '怎么补：点左下角「+」→「粘贴条款」或「上传文件」，加进本会话后再问一次。',
+          ].join('\n\n')
         } else if (data.status === 'out_of_scope') {
-          reply = '该问题超出了当前材料范围。\n\n' + data.answer
+          reply = data.answer || '这个问题超出了当前材料能回答的范围。'
         }
         return this._pushAi(reply, {
           kind: 'follow_up',
           status: data.status,
+          needSupplement: data.status === 'insufficient_evidence',
           evidence: Array.isArray(data.evidence) ? data.evidence : [],
           publication: data.publication || null,
         })

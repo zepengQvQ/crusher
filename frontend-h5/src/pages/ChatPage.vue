@@ -1,32 +1,34 @@
 <template>
   <div class="page chat-page" :class="{ 'skill-open': showSkillPanel }">
-    <van-nav-bar title="AI 条款助手" left-arrow @click-left="$router.back()">
+    <van-nav-bar title="AI 条款助手" left-arrow @click-left="goHome">
       <template #right>
         <van-icon name="delete-o" size="20" style="color:#ee0a24" @click="confirmClear" />
       </template>
     </van-nav-bar>
 
-    <van-notice-bar
-      v-if="showNotice"
-      left-icon="info-o"
-      :text="noticeText"
-    />
+    <div class="chat-top" v-if="showNotice || showContextCard">
+      <van-notice-bar
+        v-if="showNotice"
+        left-icon="info-o"
+        :text="noticeText"
+      />
 
-    <div class="context-card" v-if="showContextCard">
-      <div class="ctx-head">
-        <div class="ctx-ico">
-          <van-icon name="description" size="18" style="color:#1989fa" />
+      <div class="context-card" v-if="showContextCard">
+        <div class="ctx-head">
+          <div class="ctx-ico">
+            <van-icon name="description" size="18" style="color:#1989fa" />
+          </div>
+          <div class="ctx-info">
+            <div class="ctx-title">{{ contextCardTitle }}</div>
+            <div class="ctx-preview text-ellipsis-1">{{ contextPreview }}</div>
+          </div>
+          <van-icon name="close" size="18" style="color:#9ca3af" @click="clearContext" />
         </div>
-        <div class="ctx-info">
-          <div class="ctx-title">{{ contextCardTitle }}</div>
-          <div class="ctx-preview text-ellipsis-1">{{ contextPreview }}</div>
+        <div class="ctx-findings" v-if="contextFindingCount > 0">
+          <span class="risk-count-badge mid">
+            <van-icon name="warning-o" size="12" /> 已发现 {{ contextFindingCount }} 条风险
+          </span>
         </div>
-        <van-icon name="close" size="18" style="color:#9ca3af" @click="clearContext" />
-      </div>
-      <div class="ctx-findings" v-if="contextFindingCount > 0">
-        <span class="risk-count-badge mid">
-          <van-icon name="warning-o" size="12" /> 已发现 {{ contextFindingCount }} 条风险
-        </span>
       </div>
     </div>
 
@@ -63,7 +65,17 @@
               type="button"
               @click="goReport(m.meta.taskId)"
             >
-              查看完整报告
+              查看报告
+            </button>
+          </div>
+          <div v-if="m.meta?.kind === 'follow_up' && m.meta.needSupplement" class="intent-options">
+            <button
+              class="chat-quick-btn"
+              type="button"
+              :disabled="aiThinking"
+              @click="openSupplement"
+            >
+              去补充材料
             </button>
           </div>
           <div class="bubble-time">{{ formatTime(m.time) }}</div>
@@ -84,19 +96,7 @@
       </div>
     </div>
 
-    <div class="quick-row" v-if="showGuideChips">
-      <button
-        v-for="q in GUIDE_CHIPS"
-        :key="q.label"
-        class="chat-quick-btn"
-        type="button"
-        :disabled="aiThinking"
-        @click="send(q.query)"
-      >
-        {{ q.label }}
-      </button>
-    </div>
-    <div class="quick-row" v-else-if="showFollowUpAsk">
+    <div class="quick-row" v-if="showFollowUpAsk">
       <button
         v-for="q in followUpQuestions"
         :key="q"
@@ -167,19 +167,23 @@
       @change="onFilePicked"
     />
 
-    <van-popup v-model:show="showPasteSheet" position="bottom" round :style="{ height: '55%' }">
+    <van-popup v-model:show="showPasteSheet" position="bottom" round :style="{ height: '70%' }">
       <div class="paste-sheet">
-        <h3>粘贴条款</h3>
-        <p class="paste-hint">内容会加入本会话材料，不会跳转到其它页面。</p>
-        <van-field
-          v-model="pasteText"
-          rows="8"
-          autosize
-          type="textarea"
-          maxlength="8000"
-          show-word-limit
-          placeholder="粘贴结构性存款或借贷相关条款…"
-        />
+        <div class="paste-head">
+          <h3>粘贴条款</h3>
+          <p class="paste-hint">内容会加入本会话材料，不会跳转到其它页面。</p>
+        </div>
+        <div class="paste-body">
+          <van-field
+            v-model="pasteText"
+            rows="8"
+            type="textarea"
+            maxlength="8000"
+            show-word-limit
+            class="paste-field"
+            placeholder="粘贴结构性存款或借贷相关条款…"
+          />
+        </div>
         <div class="paste-actions">
           <van-button block plain class="touch-btn" @click="showPasteSheet = false">取消</van-button>
           <van-button block type="primary" class="touch-btn" @click="confirmPaste">加入会话</van-button>
@@ -193,7 +197,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
-import { GUIDE_CHIPS, SKILL_ITEMS, useChatStore } from '../stores/chat'
+import { SKILL_ITEMS, useChatStore } from '../stores/chat'
 import { useTaskStore } from '../stores/task'
 import { saveIntentContext } from '../utils/intentContext'
 
@@ -226,7 +230,6 @@ const contextCardTitle = computed(() =>
 )
 const noticeText = '点左下角「+」粘贴或上传材料，也可直接说出想做的事'
 const canSend = computed(() => inputText.value.trim().length > 0 && !aiThinking.value)
-const showGuideChips = computed(() => !hasContext.value && !aiThinking.value && !showSkillPanel.value)
 const showFollowUpAsk = computed(
   () => hasContext.value && contextFindingCount.value > 0 && !showSkillPanel.value,
 )
@@ -436,9 +439,20 @@ async function runAnalyze() {
   }
 }
 
+function goHome() {
+  router.push({ name: 'home' })
+}
+
 function goReport(taskId) {
   if (!taskId) return
   router.push({ name: 'report', params: { taskId } })
+}
+
+function openSupplement() {
+  showSkillPanel.value = false
+  pasteText.value = ''
+  showPasteSheet.value = true
+  showToast('把缺的条款粘贴进来，加入会话后再问')
 }
 
 function clearContext() {
@@ -482,18 +496,34 @@ watch(messages, () => scrollBottom(), { deep: true })
 
 <style scoped>
 .chat-page {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  min-height: 0 !important;
   padding-bottom: calc(72px + env(safe-area-inset-bottom));
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--crusher-bg);
+  box-sizing: border-box;
 }
 .chat-page.skill-open {
   padding-bottom: calc(168px + env(safe-area-inset-bottom));
 }
+.chat-page :deep(.van-nav-bar) {
+  flex: 0 0 auto;
+}
+
+.chat-top {
+  flex: 0 0 auto;
+  z-index: 5;
+  background: var(--crusher-bg);
+  box-shadow: 0 1px 0 var(--crusher-border);
+}
 
 .context-card {
-  margin: 8px 12px 0;
+  margin: 8px 12px 10px;
   padding: 10px 12px;
   background: var(--crusher-primary-light);
   border: 1px solid var(--crusher-border);
@@ -516,12 +546,15 @@ watch(messages, () => scrollBottom(), { deep: true })
 .ctx-findings { margin-top: 6px; }
 
 .chat-list {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 10px 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .chat-bubble-wrap {
   display: flex;
@@ -738,7 +771,15 @@ watch(messages, () => scrollBottom(), { deep: true })
   display: none;
 }
 .paste-sheet {
-  padding: 16px 16px 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.paste-head {
+  flex: 0 0 auto;
 }
 .paste-sheet h3 {
   margin: 0 0 6px;
@@ -749,11 +790,48 @@ watch(messages, () => scrollBottom(), { deep: true })
   font-size: 13px;
   color: var(--crusher-ink-3);
 }
+.paste-body {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow: hidden;
+}
+.paste-field {
+  height: 100%;
+  background: var(--crusher-card-bg, #fff);
+  border: 1px solid var(--crusher-line, rgba(0, 0, 0, 0.08));
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.paste-field :deep(.van-cell__value) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.paste-field :deep(.van-field__body) {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+.paste-field :deep(textarea.van-field__control) {
+  height: 100% !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+.paste-field :deep(.van-field__word-limit) {
+  flex: 0 0 auto;
+  padding: 4px 8px 8px;
+}
 .paste-actions {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 12px;
+  padding-top: 12px;
 }
 .touch-btn {
   min-height: 44px;

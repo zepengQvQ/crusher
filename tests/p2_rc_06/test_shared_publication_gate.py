@@ -229,7 +229,7 @@ class KeywordOnlyFollowUpTests(unittest.TestCase):
             FollowUpRequest(question="年化收益率是多少？", source_text=text)
         )
         self.assertEqual(ans.status, AnswerStatus.insufficient_evidence)
-        self.assertIn("找到相关原文，未形成确定答案", ans.answer)
+        self.assertIn("材料里只有相关字眼，还不足以给出确定结论", ans.answer)
         self.assertIsNotNone(ans.publication)
         assert ans.publication is not None
         self.assertIn(ans.publication.outcome, _ALLOWED)

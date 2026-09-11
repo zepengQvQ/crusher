@@ -93,7 +93,7 @@ describe('H5 成功流程', () => {
     expect(report.text()).toContain('区间外收益可能为零')
     expect(report.text()).toContain('结构性存款')
     expect(report.text()).toContain('消费贷')
-    expect(report.text()).toContain('0.91')
+    expect(report.text()).toContain('较有把握')
   })
 
   it('状态页一次网络失败后仍可恢复并进入报告', async () => {

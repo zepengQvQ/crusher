@@ -18,18 +18,49 @@ from app.domain.models.evidence_answer import (
 from app.domain.validation.publication_service import PublicationService
 
 _OUT_OF_SCOPE = re.compile(
-    r"(天气|气温|下雨|股票|买不买|能不能买|适合我吗|推荐购买|涨跌|彩票)"
+    r"(天气|气温|下雨|股票|买不买|能不能买|适合我吗|适不适合|适合.+买|推荐购买|涨跌|彩票|老年人)"
 )
 _FEE = re.compile(r"(费用|手续费|管理费|收不收|收费)")
-_RETURN = re.compile(r"(收益|年化|利率|回报)")
+_RETURN = re.compile(r"(收益|年化|利率|回报|收益率)")
 _TERM = re.compile(r"(期限|多久|多长时间|几个月)")
 _EARLY = re.compile(r"(提前|支取|赎回|退出)")
 _PRINCIPAL = re.compile(r"(保本|本金|保证本金)")
+_AUDIENCE = re.compile(r"(销售对象|适用人群|投资者范围|适当性)")
 
-_HAS_PCT = re.compile(r"\d+(?:\.\d+)?\s*[%％]")
-_HAS_TERM = re.compile(r"\d+\s*(个?月|年|天)")
-_HAS_FEE_ANSWER = re.compile(r"(不收|免收|无需|没有|0|零|\d+(?:\.\d+)?\s*[%％]|违约金)")
-_HAS_PRINCIPAL_ANSWER = re.compile(r"(非保本|不保本|保本|保证本金|不承诺保本|存款保险)")
+# 证据不足时：告诉用户该补哪类材料（不是空泛的「章节」）
+_MISSING_BY_TOPIC: dict[str, list[str]] = {
+    "费用": ["费用/手续费/管理费条款", "是否收费、收费标准的原文"],
+    "收益": ["预期或到期收益率条款", "收益怎么计算、区间条件的原文"],
+    "期限": ["产品期限、起息日/到期日条款"],
+    "提前退出": ["提前支取/赎回条件与费用（含违约金）条款"],
+    "本金保障": ["保本或非保本、本金是否保证的原文"],
+    "销售对象": ["销售对象、适用人群或投资者范围相关条款"],
+}
+
+
+def _topic_from_question(q: str) -> str:
+    if _FEE.search(q):
+        return "费用"
+    if _RETURN.search(q):
+        return "收益"
+    if _TERM.search(q):
+        return "期限"
+    if _EARLY.search(q):
+        return "提前退出"
+    if _PRINCIPAL.search(q):
+        return "本金保障"
+    if _AUDIENCE.search(q):
+        return "销售对象"
+    return ""
+
+
+def _missing_materials(topic: str, question: str) -> list[str]:
+    if topic and topic in _MISSING_BY_TOPIC:
+        return list(_MISSING_BY_TOPIC[topic])
+    short_q = question.strip()
+    if len(short_q) > 24:
+        short_q = short_q[:24] + "…"
+    return [f"能直接回答「{short_q}」的正式条款原文"]
 
 
 def _find_snippet(text: str, *needles: str) -> EvidenceRef | None:
@@ -49,6 +80,12 @@ def _find_snippet(text: str, *needles: str) -> EvidenceRef | None:
                 confidence=1.0,
             )
     return None
+
+
+_HAS_PCT = re.compile(r"\d+(?:\.\d+)?\s*[%％]")
+_HAS_TERM = re.compile(r"\d+\s*(个?月|年|天)")
+_HAS_FEE_ANSWER = re.compile(r"(不收|免收|无需|没有|0|零|\d+(?:\.\d+)?\s*[%％]|违约金)")
+_HAS_PRINCIPAL_ANSWER = re.compile(r"(非保本|不保本|保本|保证本金|不承诺保本|存款保险)")
 
 
 def _snippet_answers(label: str, quote: str) -> bool:
@@ -80,30 +117,32 @@ class AnswerFromEvidenceUseCase:
             raw = EvidenceAnswer(
                 question=q,
                 status=AnswerStatus.out_of_scope,
-                answer="该问题超出本 Demo 材料核对范围，不能据此做投资决策建议。",
+                answer=(
+                    "这类问题属于购买建议/适当性判断，本 Demo 不做。"
+                    "若合同里有「销售对象、适用人群」条款，可用「+」加进会话后，"
+                    "改问：材料有没有写清销售对象或适用人群？"
+                ),
                 missing_info=[],
             )
             return self._publication.finalize_follow_up(raw, source_text=text)
 
+        label = _topic_from_question(q)
         subject_hit: EvidenceRef | None = None
-        label = ""
-        if _FEE.search(q):
+        if label == "费用":
             subject_hit = _find_snippet(text, "手续费", "管理费", "费用", "不收费", "免收")
-            label = "费用"
-        elif _RETURN.search(q):
+        elif label == "收益":
             subject_hit = _find_snippet(text, "年化", "收益率", "利率", "收益")
-            label = "收益"
-        elif _TERM.search(q):
-            subject_hit = _find_snippet(text, "期限", "个月", "一年", "1年")
-            label = "期限"
-        elif _EARLY.search(q):
+        elif label == "期限":
+            subject_hit = _find_snippet(text, "期限", "个月", "一年", "1年", "天")
+        elif label == "提前退出":
             subject_hit = _find_snippet(text, "提前", "支取", "赎回", "违约金")
-            label = "提前退出"
-        elif _PRINCIPAL.search(q):
+        elif label == "本金保障":
             subject_hit = _find_snippet(text, "非保本", "保本", "本金")
-            label = "本金保障"
+        elif label == "销售对象":
+            subject_hit = _find_snippet(
+                text, "销售对象", "适用人群", "投资者", "适当性", "个人客户"
+            )
         else:
-            # 点击待确认问题：在材料里模糊检索关键词
             for token in re.findall(r"[\u4e00-\u9fff]{2,8}", q):
                 subject_hit = _find_snippet(text, token)
                 if subject_hit:
@@ -111,28 +150,25 @@ class AnswerFromEvidenceUseCase:
                     break
 
         if subject_hit is None:
-            missing = [f"请补充与「{label or '该问题'}」相关的正式条款章节"]
-            if request.pending_questions:
-                missing.extend(request.pending_questions[:3])
+            missing = _missing_materials(_topic_from_question(q), q)
             raw = EvidenceAnswer(
                 question=q,
                 status=AnswerStatus.insufficient_evidence,
-                answer="现有材料无法确认，请补充相关章节后再问。",
+                answer="当前材料里找不到足够依据，没法确定回答。",
                 evidence=[],
                 missing_info=missing,
             )
             return self._publication.finalize_follow_up(raw, source_text=text)
 
-        if not _snippet_answers(label, subject_hit.quote):
+        topic = _topic_from_question(q) or label
+        if not _snippet_answers(topic if topic in _MISSING_BY_TOPIC else label, subject_hit.quote):
+            missing = _missing_materials(topic if topic in _MISSING_BY_TOPIC else "", q)
             raw = EvidenceAnswer(
                 question=q,
                 status=AnswerStatus.insufficient_evidence,
-                answer="找到相关原文，未形成确定答案",
+                answer="材料里只有相关字眼，还不足以给出确定结论。",
                 evidence=[subject_hit],
-                missing_info=[
-                    f"材料仅出现与「{label or '该问题'}」相关的表述，"
-                    "但缺少可确认的完整答案，请补充条款"
-                ],
+                missing_info=missing,
             )
             return self._publication.finalize_follow_up(raw, source_text=text)
 

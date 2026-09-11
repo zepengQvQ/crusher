@@ -75,6 +75,36 @@ describe('chat store follow-up, guide and materials', () => {
     expect(last.content).not.toContain('本金有保障')
   })
 
+  it('insufficient evidence tells user how to add materials', async () => {
+    client.createFollowUp.mockResolvedValue({
+      question: '适合老年人买吗？',
+      status: 'insufficient_evidence',
+      answer: '当前材料里找不到足够依据，没法确定回答。',
+      evidence: [],
+      missing_info: ['请补充与「适合」相关的正式条款章节'],
+      publication: { outcome: 'publish_partial' },
+    })
+    const store = useChatStore()
+    store.setContext('结构性存款期限183天。', [], [])
+    const msg = await store.send('适合老年人买吗？')
+    expect(msg.meta?.needSupplement).toBe(true)
+    expect(msg.content).toContain('建议补充这些材料')
+    expect(msg.content).toContain('左下角')
+    expect(msg.content).toContain('粘贴')
+    expect(msg.content).not.toContain('补充相关章节后再问')
+    expect(msg.content).not.toMatch(/缺的大概是/)
+  })
+
+  it('greeting with materials does not call follow-up', async () => {
+    const store = useChatStore()
+    store.setContext('结构性存款期限183天。', [], [])
+    const msg = await store.send('你好')
+    expect(client.createFollowUp).not.toHaveBeenCalled()
+    expect(msg.meta?.kind).toBe('chitchat')
+    expect(msg.content).toContain('你好')
+    expect(msg.content).not.toContain('建议补充这些材料')
+  })
+
   it('addMaterial puts text into session context for follow-up', async () => {
     client.createFollowUp.mockResolvedValue({
       question: '有罚息吗？',
@@ -116,8 +146,14 @@ describe('chat store follow-up, guide and materials', () => {
       task_id: 'tsk_im',
       task_status: 'completed',
       source_text: '本贷款金额10万元。',
-      report: { findings: [{ title: '罚息' }], pending_questions: [] },
-      publication: { outcome: 'publish' },
+      report: {
+        findings: [{ title: '罚息条款需留意' }],
+        pending_questions: [],
+        plain_language: {
+          text: '【事实】term：183天 【事实】product_risk_grade：R2 【风险】收益不保证：…',
+        },
+      },
+      publication: { outcome: 'publish_partial' },
     })
     const store = useChatStore()
     store.addMaterial({ kind: 'paste', text: '本贷款金额10万元。' })
@@ -126,7 +162,13 @@ describe('chat store follow-up, guide and materials', () => {
     expect(client.createAnalysis).toHaveBeenCalled()
     expect(store.lastTaskId).toBe('tsk_im')
     const done = store.messages.filter((m) => m.meta?.kind === 'analyze_done').pop()
-    expect(done?.content).toContain('分析完成')
+    expect(done?.content).toContain('看完了')
+    expect(done?.content).toContain('1 条')
+    expect(done?.content).toContain('罚息条款需留意')
+    expect(done?.content).not.toContain('tsk_im')
+    expect(done?.content).not.toMatch(/publish/i)
+    expect(done?.content).not.toContain('product_risk_grade')
+    expect(done?.content).not.toContain('【事实】')
     expect(done?.meta?.taskId).toBe('tsk_im')
   })
 

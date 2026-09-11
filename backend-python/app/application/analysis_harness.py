@@ -326,9 +326,7 @@ class AnalysisHarness:
                     key_parameters=list(extracted.key_parameters),
                 )
                 plain_partial = (
-                    f"【部分结果】{decision.user_reason}\n"
-                    "以下仅包含程序已确认的事实与风险；"
-                    "模型通俗解释未通过校验，未作为确定说明发布。\n"
+                    "通俗解释未通过校验，以下只保留程序已确认的事实与风险。\n"
                     f"{program_bits}"
                 )
                 await self._emit_http(

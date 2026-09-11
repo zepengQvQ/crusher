@@ -231,7 +231,7 @@ class PublicationService:
                 publication = decide_publish_partial(
                     reason_code=ErrorCode.INSUFFICIENT_EVIDENCE,
                     user_reason="追问答案缺少可定位证据，未作为确定答案发布",
-                    next_steps=["请补充相关正式条款后再问"],
+                    next_steps=["请用会话「+」补充相关正式条款后再问"],
                     checked=["追问证据定位"],
                     not_checked=["确定答案"],
                 )
@@ -240,7 +240,7 @@ class PublicationService:
                         "status": AnswerStatus.insufficient_evidence,
                         "answer": "找到相关原文，未形成确定答案"
                         if answer.evidence
-                        else "现有材料无法确认，请补充相关章节后再问。",
+                        else "当前材料里找不到足够依据，没法确定回答。",
                         "evidence": [],
                         "missing_info": answer.missing_info
                         or ["请补充可精确定位的正式条款"],

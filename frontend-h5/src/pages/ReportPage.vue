@@ -1,10 +1,6 @@
 <template>
   <div class="page report-page">
-    <van-nav-bar title="分析报告" left-arrow @click-left="$router.push('/')">
-      <template #right>
-        <van-icon name="chat-o" size="22" style="color:#1989fa" @click="goChat" />
-      </template>
-    </van-nav-bar>
+    <van-nav-bar title="分析报告" left-arrow @click-left="goBack" />
 
     <div v-if="loading" class="block">
       <van-skeleton title :row="8" :avatar="true" />
@@ -12,9 +8,6 @@
 
     <div v-else-if="loadError" class="block">
       <van-empty :description="loadError" />
-      <van-button block type="primary" class="touch-btn" @click="$router.push('/')">
-        返回重试
-      </van-button>
     </div>
 
     <template v-else-if="report">
@@ -40,7 +33,7 @@
             <van-circle
               v-model="dashScore"
               :rate="dashRate"
-              :size="104"
+              :size="96"
               :stroke-width="8"
               :color="dashColor"
               layer-color="var(--crusher-bg-gray)"
@@ -50,7 +43,7 @@
                 <div class="dash-score dashboard-number" :style="{ color: dashColor }">
                   {{ dashScore }}
                 </div>
-                <div class="dash-label">风险评分</div>
+                <div class="dash-label">{{ dashLevelText }}</div>
               </div>
             </van-circle>
           </div>
@@ -58,107 +51,46 @@
             <div class="dash-title">
               <van-tag type="primary" round style="font-size:12px">{{ productName }}</van-tag>
               <span style="margin-left:6px;font-size:12px;color:var(--crusher-ink-3)">
-                评级：{{ productGradeText }}
+                评级 {{ productGradeText }}
               </span>
             </div>
             <div class="dash-conclusion">{{ conclusion }}</div>
             <div class="dash-counts">
               <div class="count-item high" v-if="highCount > 0">
                 <span class="count-dot"></span>
-                <span class="count-label">高风险</span>
+                <span class="count-label">高</span>
                 <span class="count-num">{{ highCount }}</span>
               </div>
               <div class="count-item mid" v-if="midCount > 0">
                 <span class="count-dot"></span>
-                <span class="count-label">中风险</span>
+                <span class="count-label">中</span>
                 <span class="count-num">{{ midCount }}</span>
               </div>
               <div class="count-item low" v-if="lowCount > 0">
                 <span class="count-dot"></span>
-                <span class="count-label">低风险</span>
+                <span class="count-label">低</span>
                 <span class="count-num">{{ lowCount }}</span>
-              </div>
-              <div class="count-item safe" v-if="!findings.length">
-                <span class="count-dot"></span>
-                <span class="count-label">无命中</span>
-                <span class="count-num">0</span>
               </div>
             </div>
           </div>
         </div>
-        <van-progress
-          style="margin-top:14px"
-          :percentage="dashScore"
-          :color="dashColor"
-          :pivot-text="dashLevelText"
-          :show-pivot="true"
-          :stroke-width="10"
-        />
       </div>
 
-      <div v-if="publication?.coverage" class="block">
-        <AnalysisCoverageCard :coverage="publication.coverage" />
-      </div>
-
-      <div class="block">
-        <div class="section-header">
-          <h3><van-icon name="label-o" style="color:#1989fa;margin-right:4px" /> 产品候选</h3>
-          <van-button size="small" plain class="touch-btn" @click="openCorrection('product_type')">
-            产品认错了
-          </van-button>
+      <div class="block" v-if="displayPlain">
+        <div class="block-title">一句话说明</div>
+        <div class="plain-box">
+          <p>{{ displayPlain }}</p>
         </div>
-        <van-cell-group :border="false">
-          <van-cell
-            v-for="(c, idx) in report.product_candidates || []"
-            :key="c.product_type_id + idx"
-            :title="c.product_type_name || c.product_type_id"
-            :label="candidateLabel(c)"
-            :value="`置信度 ${(Number(c.confidence) || 0).toFixed(2)}`"
-            size="large"
-          >
-            <template #icon>
-              <van-icon name="shop-o" size="18" style="color:#1989fa;margin-right:8px" />
-            </template>
-          </van-cell>
-        </van-cell-group>
-      </div>
-
-      <div class="block">
-        <div class="block-title"><van-icon name="orders-o" /> 关键参数</div>
-        <van-cell-group :border="false">
-          <van-cell
-            v-for="p in report.key_parameters || []"
-            :key="p.key"
-            :title="p.label || p.key"
-            :label="statusLabel(p.status)"
-            size="large"
-            is-link
-            @click="openFactCorrection(p)"
-          >
-            <template #icon>
-              <van-icon name="orders-o" size="18" style="color:#1989fa;margin-right:8px" />
-            </template>
-            <template #value>
-              <div class="param-val" :class="{ 'not-disclosed': p.status === 'not_disclosed' }">
-                <template v-if="p.status === 'not_disclosed'">
-                  <van-icon name="warning-o" size="12" style="color:#ff976a;margin-right:3px" />
-                  材料未说明
-                </template>
-                <template v-else>{{ formatParam(p) }}</template>
-              </div>
-            </template>
-          </van-cell>
-        </van-cell-group>
       </div>
 
       <div class="block">
         <div class="section-header">
-          <h3><van-icon name="warning-o" style="color:#ee0a24;margin-right:4px" /> 风险发现</h3>
+          <h3>需要留意的点</h3>
           <span class="more">{{ findings.length }} 条</span>
         </div>
         <van-empty
           v-if="!findings.length"
-          description="本次无风险发现（任务成功，不是失败）"
+          description="这次没抓到风险点；不等于产品一定安全"
           image="success"
         />
         <van-collapse v-else v-model="activeFindings">
@@ -181,15 +113,11 @@
               :key="eidx"
               class="evidence-block"
             >
-              <div class="evidence-label">
-                <van-icon name="description" size="12" /> 原文证据
-              </div>
+              <div class="evidence-label">材料原文</div>
               <blockquote>{{ ev.quote }}</blockquote>
               <div class="evidence-actions">
-                <span class="evidence-meta">位置 {{ ev.start }}–{{ ev.end }}</span>
                 <van-button size="small" plain type="primary" hairline @click="onCopy(ev.quote)">
-                  <template #icon><van-icon name="records-o" size="12" /></template>
-                  复制
+                  复制原文
                 </van-button>
               </div>
             </div>
@@ -198,117 +126,130 @@
       </div>
 
       <div class="block">
-        <div class="block-title"><van-icon name="comment-o" /> 通俗解释</div>
-        <div class="plain-box">
-          <van-icon name="smile-o" size="20" style="color:#1989fa;flex-shrink:0" />
-          <p>{{ report.plain_language?.text || '暂无通俗解释' }}</p>
+        <div class="section-header">
+          <h3>产品类型</h3>
+          <button type="button" class="ghost-action" @click="openCorrection('product_type')">
+            <van-icon name="edit" size="14" />
+            产品认错了
+          </button>
         </div>
+        <van-cell-group :border="false">
+          <van-cell
+            v-for="(c, idx) in report.product_candidates || []"
+            :key="c.product_type_id + idx"
+            :title="c.product_type_name || c.product_type_id"
+            :label="candidateLabel(c)"
+            :value="confidenceLabel(c.confidence)"
+            size="large"
+          />
+        </van-cell-group>
+      </div>
+
+      <div class="block">
+        <div class="block-title">材料里写明的关键信息</div>
+        <van-cell-group :border="false" v-if="disclosedParams.length">
+          <van-cell
+            v-for="p in disclosedParams"
+            :key="p.key"
+            :title="p.label || p.key"
+            size="large"
+            is-link
+            @click="openFactCorrection(p)"
+          >
+            <template #value>
+              <div class="param-val">{{ formatParam(p) }}</div>
+            </template>
+          </van-cell>
+        </van-cell-group>
+        <p v-else class="soft-hint">材料里暂时没抽出可展示的关键数字/条款。</p>
+
+        <details v-if="undisclosedParams.length" class="more-details">
+          <summary>材料没写明的项（{{ undisclosedParams.length }}）</summary>
+          <van-cell-group :border="false">
+            <van-cell
+              v-for="p in undisclosedParams"
+              :key="p.key"
+              :title="p.label || p.key"
+              size="large"
+              is-link
+              @click="openFactCorrection(p)"
+            >
+              <template #value>
+                <div class="param-val not-disclosed">材料未说明</div>
+              </template>
+            </van-cell>
+          </van-cell-group>
+        </details>
+      </div>
+
+      <div class="block" v-if="pendingItems.length">
+        <div class="block-title">还想确认的问题</div>
+        <van-cell-group :border="false">
+          <van-cell v-for="(q, idx) in pendingItems" :key="'q' + idx" :title="q" size="large" />
+        </van-cell-group>
       </div>
 
       <div class="block">
         <div class="section-header">
-          <h3><van-icon name="description" style="color:#1989fa;margin-right:4px" /> 原文标记</h3>
+          <h3>原文</h3>
           <div class="row-actions">
-            <van-button size="small" plain class="touch-btn" @click="openCorrection('source_text')">
+            <button type="button" class="ghost-action" @click="openCorrection('source_text')">
+              <van-icon name="edit" size="14" />
               原文错了
-            </van-button>
-            <van-button size="small" plain class="touch-btn" @click="sourceExpanded = !sourceExpanded">
+            </button>
+            <button
+              type="button"
+              class="ghost-action ghost-action--link"
+              @click="sourceExpanded = !sourceExpanded"
+            >
               {{ sourceExpanded ? '收起' : '展开' }}
-            </van-button>
+              <van-icon :name="sourceExpanded ? 'arrow-up' : 'arrow-down'" size="12" />
+            </button>
           </div>
         </div>
         <div class="source-wrap" :class="{ clamped: !sourceExpanded }">
           <div class="source-text" v-html="highlightedSource"></div>
         </div>
-        <div class="legend-row">
-          <span class="legend-item"><span class="dot high"></span>高风险</span>
-          <span class="legend-item"><span class="dot mid"></span>中风险</span>
-          <span class="legend-item"><span class="dot low"></span>低风险</span>
-        </div>
-        <van-button block plain style="margin-top:10px" @click="onCopy(sourceText)">
-          <template #icon><van-icon name="records-o" /></template>
-          复制原文
-        </van-button>
       </div>
 
-      <div class="block">
-        <div class="block-title"><van-icon name="question-o" /> 待确认问题</div>
-        <van-cell-group :border="false">
-          <van-cell
-            v-for="(q, idx) in pendingItems"
-            :key="'q' + idx"
-            :title="q"
-            size="large"
+      <details v-if="publication?.coverage" class="block more-details">
+        <summary>系统检查范围（可选）</summary>
+        <AnalysisCoverageCard :coverage="publication.coverage" />
+      </details>
+
+      <van-collapse v-model="moreOpen" class="block more-collapse">
+        <van-collapse-item title="更多工具" name="tools">
+          <EvidenceQuestionPanel :source-text="sourceText" :pending="pendingItems" />
+          <div style="height:10px" />
+          <ScenarioCalculator :key-parameters="report.key_parameters || []" />
+          <div style="height:10px" />
+          <ReportActions
+            :report="report"
+            kind="analysis"
+            title="分析报告"
+            :task-id="taskId"
+            :source-text="sourceText"
+          />
+          <van-button
+            block
+            plain
+            type="primary"
+            class="touch-btn"
+            style="margin-top:10px"
+            @click="goCompareSecond"
           >
-            <template #icon>
-              <van-icon name="question-o" size="18" style="color:#1989fa;margin-right:8px" />
-            </template>
-          </van-cell>
-        </van-cell-group>
-        <van-empty v-if="!pendingItems.length" description="暂无待确认项" image="default" />
-      </div>
-
-      <div v-if="(report.general_references || []).length" class="block">
-        <div class="block-title"><van-icon name="bookmark-o" /> 行业参考</div>
-        <van-cell-group :border="false">
-          <van-cell
-            v-for="(r, idx) in report.general_references"
-            :key="'r' + idx"
-            :title="r.text"
-            :label="r.source"
-            size="large"
-          >
-            <template #icon>
-              <van-icon name="info-o" size="18" style="color:#07c160;margin-right:8px" />
-            </template>
-          </van-cell>
-        </van-cell-group>
-      </div>
-
-      <div class="block">
-        <EvidenceQuestionPanel :source-text="sourceText" :pending="pendingItems" />
-      </div>
-
-      <div class="block">
-        <ScenarioCalculator :key-parameters="report.key_parameters || []" />
-      </div>
-
-      <div class="block">
-        <ReportActions
-          :report="report"
-          kind="analysis"
-          title="分析报告"
-          :task-id="taskId"
-          :source-text="sourceText"
-        />
-      </div>
-
-      <div class="block">
-        <van-button block plain type="primary" class="touch-btn" @click="goCompareSecond">
-          <template #icon><van-icon name="balance-list-o" /></template>
-          加入第二款产品对照
-        </van-button>
-      </div>
+            加入第二款产品对照
+          </van-button>
+        </van-collapse-item>
+      </van-collapse>
 
       <p class="disclaimer">
-        <van-icon name="shield-o" size="12" style="margin-right:3px" />
         {{ report.disclaimer || DISCLAIMER }}
       </p>
 
       <div class="bottom-bar">
-        <van-button block plain style="flex:1" @click="goChat">
-          <template #icon><van-icon name="chat-o" /></template>
-          AI 追问
-        </van-button>
-        <van-button
-          block
-          type="primary"
-          round
-          style="flex:1.4;margin-left:10px"
-          @click="$router.push('/analyze')"
-        >
-          <template #icon><van-icon name="add-o" /></template>
-          再分析一段
+        <van-button block type="primary" round class="touch-btn" @click="goChat">
+          回到对话继续追问
         </van-button>
       </div>
     </template>
@@ -347,6 +288,29 @@ const props = defineProps({
 const router = useRouter()
 const store = useTaskStore()
 const chatStore = useChatStore()
+
+function syncChatContext() {
+  if (!report.value) return
+  chatStore.setContext(
+    sourceText.value,
+    (report.value?.findings || []).map((f) => ({ title: f.title, explanation: f.explanation })),
+    pendingItems.value,
+  )
+  if (props.taskId) {
+    chatStore.lastTaskId = props.taskId
+  }
+}
+
+function goBack() {
+  syncChatContext()
+  router.push({ name: 'chat' })
+}
+
+function goChat() {
+  syncChatContext()
+  router.push({ name: 'chat' })
+}
+
 const loading = ref(true)
 const loadError = ref('')
 const report = ref(null)
@@ -386,6 +350,32 @@ const lowCount = computed(
   () => findings.value.filter((f) => f.finding_severity === FindingSeverity.low).length,
 )
 
+const moreOpen = ref([])
+const allParams = computed(() => report.value?.key_parameters || [])
+const disclosedParams = computed(() =>
+  allParams.value.filter((p) => p && p.status !== 'not_disclosed' && (p.value || p.amount != null)),
+)
+const undisclosedParams = computed(() =>
+  allParams.value.filter((p) => p && p.status === 'not_disclosed'),
+)
+
+const displayPlain = computed(() => {
+  const t = String(report.value?.plain_language?.text || '').trim()
+  if (!t) return ''
+  if (/【事实】|【参数】|【风险】|【程序说明】|invents numbers|product_risk_grade|\bterm\s*:/i.test(t)) {
+    return ''
+  }
+  return t
+})
+
+function confidenceLabel(confidence) {
+  const n = Number(confidence)
+  if (!Number.isFinite(n)) return ''
+  if (n >= 0.8) return '较有把握'
+  if (n >= 0.5) return '大致判断'
+  return '把握不大'
+}
+
 const productName = computed(
   () => report.value?.product_candidates?.[0]?.product_type_name || '未知产品',
 )
@@ -408,11 +398,15 @@ const outcomeBanner = computed(() => {
   const o = outcome.value
   const reason =
     publication.value?.user_reason || report.value?.publication?.user_reason || ''
+  const clean = String(reason || '')
+    .replace(/（[^）]*invents numbers[^）]*）/gi, '')
+    .replace(/explanation invents numbers:[^。；\n]*/gi, '')
+    .trim()
   if (o === 'publish_partial') {
-    return reason || '部分结果：仅展示程序已确认内容，请勿当作完整模型说明'
+    return clean || '部分内容已确认；通俗解释未通过校验，请以原文和风险点为准'
   }
   if (o === 'clarify') {
-    return reason || '还需确认信息后才能继续完整分析'
+    return clean || '还有信息需要确认后才能继续'
   }
   return ''
 })
@@ -579,15 +573,6 @@ async function onCopy(text) {
   showToast(ok ? '已复制到剪贴板' : '复制失败')
 }
 
-function goChat() {
-  chatStore.setContext(
-    sourceText.value,
-    (report.value?.findings || []).map((f) => ({ title: f.title, explanation: f.explanation })),
-    pendingItems.value,
-  )
-  router.push({ name: 'chat' })
-}
-
 function goCompareSecond() {
   try {
     sessionStorage.setItem('crusher_compare_a', sourceText.value || '')
@@ -632,7 +617,7 @@ onMounted(async () => {
     const code = e?.response?.data?.detail?.error_code || ''
     const msg = e?.response?.data?.detail?.message || e.message || '加载报告失败'
     loadError.value = code === 'TASK_NOT_FOUND' || e?.response?.status === 404
-      ? '任务可能因服务重启而丢失'
+      ? '这份报告已经失效了，点左上角返回，重新分析一次即可。'
       : msg
   } finally {
     if (active) loading.value = false
@@ -727,11 +712,66 @@ onUnmounted(() => {
 .plain-box p {
   margin: 0; font-size: 14px; line-height: 1.7; color: var(--crusher-ink);
 }
+.soft-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--crusher-ink-3);
+  line-height: 1.5;
+}
+.more-collapse {
+  margin-top: 8px;
+}
+.more-details {
+  margin-top: 8px;
+}
+.more-details summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--crusher-ink-2);
+  padding: 6px 0;
+  list-style: none;
+}
+.more-details summary::-webkit-details-marker {
+  display: none;
+}
 
 .row-actions {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+}
+.ghost-action {
+  appearance: none;
+  border: none;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--crusher-bg-gray);
+  color: var(--crusher-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ghost-action:active {
+  background: var(--crusher-primary-light);
+  color: var(--crusher-primary);
+}
+.ghost-action--link {
+  background: transparent;
+  color: var(--crusher-primary);
+  padding: 0 6px;
+  font-weight: 600;
+}
+.ghost-action--link:active {
+  background: var(--crusher-primary-light);
 }
 .source-wrap {
   font-size: 14px; line-height: 1.7; color: var(--crusher-ink);
