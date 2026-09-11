@@ -118,8 +118,8 @@ body,
 }
 
 .block {
-  margin: 8px 12px;
-  padding: 16px;
+  margin: 10px 12px;
+  padding: 14px;
   background: var(--crusher-card-bg);
   border-radius: var(--crusher-radius-lg);
   box-shadow: var(--crusher-card-shadow);
@@ -129,8 +129,8 @@ body,
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 14px;
-  font-size: 16px;
+  margin: 0 0 10px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--crusher-ink);
 }

@@ -1,5 +1,5 @@
-·<template>
-  <div class="page chat-page">
+<template>
+  <div class="page chat-page" :class="{ 'skill-open': showSkillPanel }">
     <van-nav-bar title="AI 条款助手" left-arrow @click-left="$router.back()">
       <template #right>
         <van-icon name="delete-o" size="20" style="color:#ee0a24" @click="confirmClear" />
@@ -7,18 +7,18 @@
     </van-nav-bar>
 
     <van-notice-bar
-      v-if="!hasContext"
+      v-if="showNotice"
       left-icon="info-o"
-      text="请先完成条款分析，并从报告页进入追问；回答只来自服务端证据接口，不会本地编造。"
+      :text="noticeText"
     />
 
-    <div class="context-card" v-if="hasContext">
+    <div class="context-card" v-if="showContextCard">
       <div class="ctx-head">
         <div class="ctx-ico">
           <van-icon name="description" size="18" style="color:#1989fa" />
         </div>
         <div class="ctx-info">
-          <div class="ctx-title">已关联分析报告</div>
+          <div class="ctx-title">{{ contextCardTitle }}</div>
           <div class="ctx-preview text-ellipsis-1">{{ contextPreview }}</div>
         </div>
         <van-icon name="close" size="18" style="color:#9ca3af" @click="clearContext" />
@@ -30,14 +30,7 @@
       </div>
     </div>
 
-    <van-empty
-      v-if="!messages.length"
-      image="chat"
-      description="有什么关于条款的疑问？问我吧~"
-      style="padding: 60px 20px"
-    />
-
-    <div v-else class="chat-list" ref="chatListRef">
+    <div class="chat-list" ref="chatListRef">
       <div
         v-for="m in messages"
         :key="m.id"
@@ -49,6 +42,30 @@
         </div>
         <div class="chat-bubble" :class="m.role">
           <pre style="white-space:pre-wrap;margin:0;word-break:break-word;font-family:inherit">{{ m.content }}</pre>
+          <div
+            v-if="m.meta?.kind === 'intent' && m.meta.options?.length"
+            class="intent-options"
+          >
+            <button
+              v-for="(opt, i) in m.meta.options"
+              :key="(opt.intent || '') + i"
+              class="chat-quick-btn"
+              type="button"
+              :disabled="aiThinking"
+              @click="onClarifyPick(opt)"
+            >
+              {{ opt.label || opt.intent }}
+            </button>
+          </div>
+          <div v-if="m.meta?.kind === 'analyze_done' && m.meta.taskId" class="intent-options">
+            <button
+              class="chat-quick-btn"
+              type="button"
+              @click="goReport(m.meta.taskId)"
+            >
+              查看完整报告
+            </button>
+          </div>
           <div class="bubble-time">{{ formatTime(m.time) }}</div>
         </div>
         <div class="avatar user" v-if="m.role === 'user'">
@@ -67,74 +84,159 @@
       </div>
     </div>
 
-    <div class="quick-row" v-if="showQuickAsk">
+    <div class="quick-row" v-if="showGuideChips">
       <button
-        v-for="q in quickQuestions"
+        v-for="q in GUIDE_CHIPS"
+        :key="q.label"
+        class="chat-quick-btn"
+        type="button"
+        :disabled="aiThinking"
+        @click="send(q.query)"
+      >
+        {{ q.label }}
+      </button>
+    </div>
+    <div class="quick-row" v-else-if="showFollowUpAsk">
+      <button
+        v-for="q in followUpQuestions"
         :key="q"
         class="chat-quick-btn"
+        type="button"
+        :disabled="aiThinking"
         @click="send(q)"
       >
         {{ q }}
       </button>
     </div>
 
-    <div class="input-bar-wrap">
-      <div class="input-bar">
+    <div class="composer">
+      <div v-if="showSkillPanel" class="skill-panel">
+        <button
+          v-for="s in SKILL_ITEMS"
+          :key="s.key"
+          type="button"
+          class="skill-item"
+          :disabled="aiThinking"
+          @click="onSkill(s.key)"
+        >
+          <div class="skill-ico"><van-icon :name="s.icon" size="20" /></div>
+          <div class="skill-label">{{ s.label }}</div>
+        </button>
+      </div>
+      <div class="composer-row">
+        <button
+          type="button"
+          class="icon-btn"
+          :class="{ active: showSkillPanel }"
+          :disabled="aiThinking"
+          @click="showSkillPanel = !showSkillPanel"
+          aria-label="技能栏"
+        >
+          <van-icon :name="showSkillPanel ? 'cross' : 'plus'" size="22" />
+        </button>
         <van-field
           v-model="inputText"
-          placeholder="输入你的问题…"
+          :placeholder="hasContext ? '输入你的问题…' : '说说你想做什么…'"
           type="textarea"
           autosize
           rows="1"
-          class="chat-input"
+          class="composer-field"
           @keyup.enter.exact="onSend"
           :disabled="aiThinking"
+          @focus="showSkillPanel = false"
         />
-        <van-button
-          type="primary"
-          round
-          size="small"
+        <button
+          type="button"
+          class="icon-btn send"
           :disabled="!canSend"
-          :loading="aiThinking"
           @click="onSend"
+          aria-label="发送"
         >
-          <van-icon name="guide-o" size="16" />
-        </van-button>
+          <van-icon v-if="!aiThinking" name="guide-o" size="20" />
+          <van-loading v-else size="18" />
+        </button>
       </div>
     </div>
+
+    <input
+      ref="fileInputRef"
+      type="file"
+      class="hidden-file"
+      accept="image/*,.pdf,application/pdf"
+      multiple
+      @change="onFilePicked"
+    />
+
+    <van-popup v-model:show="showPasteSheet" position="bottom" round :style="{ height: '55%' }">
+      <div class="paste-sheet">
+        <h3>粘贴条款</h3>
+        <p class="paste-hint">内容会加入本会话材料，不会跳转到其它页面。</p>
+        <van-field
+          v-model="pasteText"
+          rows="8"
+          autosize
+          type="textarea"
+          maxlength="8000"
+          show-word-limit
+          placeholder="粘贴结构性存款或借贷相关条款…"
+        />
+        <div class="paste-actions">
+          <van-button block plain class="touch-btn" @click="showPasteSheet = false">取消</van-button>
+          <van-button block type="primary" class="touch-btn" @click="confirmPaste">加入会话</van-button>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
-import { useChatStore } from '../stores/chat'
+import { GUIDE_CHIPS, SKILL_ITEMS, useChatStore } from '../stores/chat'
+import { useTaskStore } from '../stores/task'
+import { saveIntentContext } from '../utils/intentContext'
 
+const router = useRouter()
 const chatStore = useChatStore()
+const taskStore = useTaskStore()
 const inputText = ref('')
+const pasteText = ref('')
 const aiThinking = ref(false)
+const showSkillPanel = ref(false)
+const showPasteSheet = ref(false)
 const chatListRef = ref(null)
+const fileInputRef = ref(null)
 
 const messages = computed(() => chatStore.messages)
-const hasContext = computed(() => !!(chatStore.contextText || '').trim())
+const hasContext = computed(() => chatStore.hasContext)
+const hasMaterials = computed(() => chatStore.hasMaterials)
 const contextPreview = computed(
-  () => chatStore.contextText?.slice(0, 60) || '（无材料预览）',
+  () => chatStore.materialSourceText?.slice(0, 60) || '（无材料预览）',
 )
 const contextFindingCount = computed(() => chatStore.contextFindings.length)
-const canSend = computed(
-  () => hasContext.value && inputText.value.trim().length > 0 && !aiThinking.value,
+const showContextCard = computed(() => hasContext.value)
+const showNotice = computed(() => !hasContext.value)
+const contextCardTitle = computed(() =>
+  contextFindingCount.value > 0
+    ? '已关联分析报告'
+    : hasMaterials.value
+      ? `会话材料 · ${chatStore.materials.length}`
+      : '已关联材料',
 )
-const showQuickAsk = computed(() => hasContext.value)
+const noticeText = '点左下角「+」粘贴或上传材料，也可直接说出想做的事'
+const canSend = computed(() => inputText.value.trim().length > 0 && !aiThinking.value)
+const showGuideChips = computed(() => !hasContext.value && !aiThinking.value && !showSkillPanel.value)
+const showFollowUpAsk = computed(
+  () => hasContext.value && contextFindingCount.value > 0 && !showSkillPanel.value,
+)
 
-const quickQuestions = computed(() => {
-  if (!hasContext.value) return []
-  return [
-    '最坏情况会损失多少？',
-    '适合老年人买吗？',
-    '提前赎回有何费用？',
-    '保本吗？本金安全吗？',
-  ]
-})
+const followUpQuestions = [
+  '最坏情况会损失多少？',
+  '适合老年人买吗？',
+  '提前赎回有何费用？',
+  '保本吗？本金安全吗？',
+]
 
 function formatTime(ts) {
   const d = new Date(ts || Date.now())
@@ -143,15 +245,55 @@ function formatTime(ts) {
   return `${hh}:${mm}`
 }
 
+function routeForIntent(intent) {
+  if (intent === 'dual_source_compare') return '/dual'
+  if (intent === 'product_compare') return '/compare'
+  if (intent === 'document_extract') return null
+  if (intent === 'single_analysis') return null
+  return null
+}
+
+function persistAndGo(path, intent, userGoal = '') {
+  saveIntentContext({
+    text: chatStore.materialSourceText || taskStore.draftText || '',
+    userGoal,
+    productHint: taskStore.productHint || 'auto',
+    targetIntent: intent || '',
+  })
+  router.push(path)
+}
+
+function handleResolvedIntent(intent, userGoal = '') {
+  if (intent === 'single_analysis') {
+    showToast('请用「+」添加材料后点「开始分析」')
+    showSkillPanel.value = true
+    return true
+  }
+  if (intent === 'document_extract') {
+    showToast('请用「+」→「上传文件」')
+    showSkillPanel.value = true
+    return true
+  }
+  const path = routeForIntent(intent)
+  if (path) {
+    persistAndGo(path, intent, userGoal)
+    return true
+  }
+  if (intent === 'calculation') {
+    showToast('请先完成一次分析，再在报告页打开计算器')
+    return true
+  }
+  if (intent === 'evidence_follow_up') {
+    showToast('请先完成分析后再追问')
+    return true
+  }
+  return false
+}
+
 async function scrollBottom() {
   await nextTick()
   if (chatListRef.value) {
     chatListRef.value.scrollTop = chatListRef.value.scrollHeight
-  } else {
-    document.querySelector('.chat-list')?.scrollTo({
-      top: 99999,
-      behavior: 'smooth',
-    })
   }
 }
 
@@ -164,18 +306,107 @@ async function onSend() {
 
 async function send(text) {
   if (aiThinking.value) return
-  if (!(chatStore.contextText || '').trim()) {
-    showToast('请先完成分析并关联材料后再追问')
-    return
-  }
+  const q = String(text || '').trim()
+  if (!q) return
+  showSkillPanel.value = false
   aiThinking.value = true
   try {
-    await chatStore.send(text)
+    const hadContext = hasContext.value
+    const msg = await chatStore.send(q)
+    await scrollBottom()
+    if (!hadContext && msg?.meta?.kind === 'intent') {
+      const decision = msg.meta.decision
+      if (decision?.status === 'resolved') {
+        handleResolvedIntent(decision.intent, q)
+      }
+    }
+  } catch {
+    showToast(hasContext.value ? '追问未成功，请查看对话说明' : '意图识别未成功，请查看对话说明')
+  } finally {
+    aiThinking.value = false
+    await scrollBottom()
+  }
+}
+
+function onClarifyPick(opt) {
+  if (!opt?.intent || aiThinking.value) return
+  const label = opt.label || opt.intent
+  chatStore._pushUser(label)
+  if (handleResolvedIntent(opt.intent, label)) return
+  showToast('请从对应入口继续')
+}
+
+function onSkill(key) {
+  showSkillPanel.value = false
+  if (key === 'paste') {
+    pasteText.value = ''
+    showPasteSheet.value = true
+    return
+  }
+  if (key === 'upload') {
+    fileInputRef.value?.click()
+    return
+  }
+  if (key === 'analyze') {
+    runAnalyze()
+    return
+  }
+  if (key === 'clear') {
+    if (!chatStore.hasMaterials && !chatStore.contextText) {
+      showToast('当前没有材料')
+      return
+    }
+    if (typeof chatStore.clearMaterials === 'function') {
+      chatStore.clearMaterials()
+    } else {
+      // Pinia 热更新偶发丢 action：降级清状态
+      chatStore.$patch({
+        materials: [],
+        contextFindings: [],
+        pendingQuestions: [],
+        contextText: '',
+        lastTaskId: '',
+      })
+      chatStore.messages.push({
+        id: 'a_' + Date.now(),
+        role: 'ai',
+        content: '已清空会话材料。可用「+」重新粘贴或上传。',
+        time: Date.now(),
+        meta: { kind: 'materials_cleared' },
+      })
+      if (typeof chatStore._persist === 'function') chatStore._persist()
+    }
+    showToast('已清空材料')
+  }
+}
+
+function confirmPaste() {
+  const text = pasteText.value.trim()
+  if (!text) {
+    showToast('请先粘贴条款文本')
+    return
+  }
+  try {
+    chatStore.addMaterial({ kind: 'paste', name: '粘贴条款', text })
+    showPasteSheet.value = false
+    pasteText.value = ''
+    scrollBottom()
+  } catch {
+    showToast('加入材料失败')
+  }
+}
+
+async function onFilePicked(ev) {
+  const files = Array.from(ev?.target?.files || [])
+  if (fileInputRef.value) fileInputRef.value.value = ''
+  if (!files.length) return
+  aiThinking.value = true
+  try {
+    await chatStore.addUploadFiles(files)
     await scrollBottom()
   } catch (e) {
-    if (e?.code !== 'NO_CONTEXT') {
-      // store 已写入失败说明；再给轻提示
-      showToast('追问未成功，请查看对话中的失败说明')
+    if (e?.code !== 'EXTRACT_FAILED' && e?.code !== 'EMPTY_MATERIAL') {
+      showToast('上传解析失败')
     }
   } finally {
     aiThinking.value = false
@@ -183,11 +414,45 @@ async function send(text) {
   }
 }
 
+async function runAnalyze() {
+  if (aiThinking.value) return
+  aiThinking.value = true
+  try {
+    const result = await chatStore.analyzeMaterials(taskStore.productHint || 'auto')
+    if (result?.taskId) {
+      taskStore.setTask(result.taskId, result.data?.task_status || 'completed')
+    }
+    await scrollBottom()
+  } catch (e) {
+    if (e?.code === 'NO_MATERIAL') {
+      showToast('请先添加材料')
+      showSkillPanel.value = true
+    } else {
+      showToast('分析未成功，请查看对话说明')
+    }
+  } finally {
+    aiThinking.value = false
+    await scrollBottom()
+  }
+}
+
+function goReport(taskId) {
+  if (!taskId) return
+  router.push({ name: 'report', params: { taskId } })
+}
+
 function clearContext() {
-  chatStore.contextText = ''
-  chatStore.contextFindings = []
-  chatStore.pendingQuestions = []
-  chatStore._persist()
+  if (typeof chatStore.clearMaterials === 'function') {
+    chatStore.clearMaterials()
+  } else {
+    chatStore.$patch({
+      materials: [],
+      contextFindings: [],
+      pendingQuestions: [],
+      contextText: '',
+      lastTaskId: '',
+    })
+  }
   showToast('已解除关联')
 }
 
@@ -195,9 +460,10 @@ async function confirmClear() {
   try {
     await showConfirmDialog({
       title: '清空对话记录？',
-      message: '此操作无法撤销',
+      message: '将同时清空会话材料，此操作无法撤销',
     })
     chatStore.clear()
+    chatStore.ensureGuideWelcome()
     showToast('已清空')
   } catch {
     /* cancel */
@@ -205,16 +471,9 @@ async function confirmClear() {
 }
 
 onMounted(() => {
+  taskStore.restoreFromStorage()
   chatStore.restore()
-  if (!chatStore.messages.length && !hasContext.value) {
-    chatStore.messages.push({
-      id: 'welcome_' + Date.now(),
-      role: 'ai',
-      content:
-        '你好~我是你的条款解读助手 🤖\n\n你可以这样用：\n1️⃣ 先在首页分析一份条款，报告页点「AI 追问」带着上下文来聊；\n2️⃣ 或者直接问我通用问题，比如"什么是敲入敲出？"。\n\n试试下面的快捷问题~',
-      time: Date.now(),
-    })
-  }
+  chatStore.ensureGuideWelcome()
   scrollBottom()
 })
 
@@ -223,15 +482,19 @@ watch(messages, () => scrollBottom(), { deep: true })
 
 <style scoped>
 .chat-page {
-  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--crusher-bg);
+}
+.chat-page.skill-open {
+  padding-bottom: calc(168px + env(safe-area-inset-bottom));
 }
 
 .context-card {
-  margin: 10px 12px;
-  padding: 12px 14px;
+  margin: 8px 12px 0;
+  padding: 10px 12px;
   background: var(--crusher-primary-light);
   border: 1px solid var(--crusher-border);
   border-radius: 12px;
@@ -239,25 +502,25 @@ watch(messages, () => scrollBottom(), { deep: true })
 .ctx-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .ctx-ico {
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 32px; height: 32px; border-radius: 9px;
   background: var(--crusher-card-bg);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .ctx-info { flex: 1; min-width: 0; }
-.ctx-title { font-size: 13px; font-weight: 600; color: var(--crusher-primary); margin-bottom: 2px; }
+.ctx-title { font-size: 12px; font-weight: 600; color: var(--crusher-primary); margin-bottom: 1px; }
 .ctx-preview { font-size: 12px; color: var(--crusher-ink-2); }
-.ctx-findings { margin-top: 8px; }
+.ctx-findings { margin-top: 6px; }
 
 .chat-list {
   flex: 1;
-  padding: 12px;
+  padding: 10px 12px 8px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   overflow-y: auto;
 }
 .chat-bubble-wrap {
@@ -311,6 +574,13 @@ watch(messages, () => scrollBottom(), { deep: true })
 .chat-bubble.user .bubble-time { color: rgba(255,255,255,0.75); text-align: right; }
 .chat-bubble.ai .bubble-time { text-align: left; }
 
+.intent-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .chat-bubble.ai.thinking {
   display: inline-flex;
   align-items: center;
@@ -330,7 +600,7 @@ watch(messages, () => scrollBottom(), { deep: true })
 }
 
 .quick-row {
-  padding: 6px 12px 4px;
+  padding: 4px 12px 2px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -351,42 +621,141 @@ watch(messages, () => scrollBottom(), { deep: true })
   background: var(--crusher-surface-2);
   transform: scale(0.96);
 }
+.chat-quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-.input-bar-wrap {
+.composer {
   position: fixed;
-  bottom: 0; left: 50%; transform: translateX(-50%);
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  background: linear-gradient(180deg, transparent, var(--crusher-card-bg) 30%);
-  padding: 10px 12px;
-  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   z-index: 100;
-}
-.input-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 8px;
   background: var(--crusher-card-bg);
-  border-radius: 16px;
   border: 1px solid var(--crusher-border);
-  box-shadow: var(--crusher-shadow-sm);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.06);
 }
-.chat-input {
+:global(.van-theme-dark) .composer {
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
+}
+.skill-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 2px 0 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--crusher-border);
+}
+.skill-item {
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--crusher-ink);
+}
+.skill-item:disabled { opacity: 0.45; }
+.skill-ico {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 4px;
+  border-radius: 12px;
+  background: var(--crusher-surface-2);
+  color: var(--crusher-ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.skill-label {
+  font-size: 11px;
+  text-align: center;
+  color: var(--crusher-ink-3);
+  line-height: 1.2;
+}
+.composer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--crusher-ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 12px;
+}
+.icon-btn.active,
+.icon-btn.send:not(:disabled) {
+  color: var(--crusher-primary);
+}
+.icon-btn:disabled {
+  color: var(--crusher-ink-3);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.composer-field {
   flex: 1;
   min-width: 0;
-  background: var(--crusher-bg-gray) !important;
-}
-.chat-input :deep(.van-field__control) {
-  padding: 6px 4px !important;
-  font-size: 14px !important;
-  max-height: 90px;
-}
-.input-bar .van-button {
-  width: 42px !important;
-  height: 40px !important;
-  min-height: 40px !important;
   padding: 0 !important;
-  flex-shrink: 0;
+  background: transparent !important;
+  border-radius: 12px;
+}
+.composer-field :deep(.van-cell) {
+  padding: 8px 10px !important;
+  background: transparent !important;
+  border-radius: 12px;
+  align-items: center;
+}
+.composer-field :deep(.van-field__body) {
+  background: transparent !important;
+  min-height: 22px;
+}
+.composer-field :deep(.van-field__control) {
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 15px !important;
+  line-height: 22px !important;
+  max-height: 88px;
+  color: var(--crusher-ink) !important;
+  caret-color: var(--crusher-primary);
+}
+.composer-field :deep(textarea.van-field__control) {
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+.hidden-file {
+  display: none;
+}
+.paste-sheet {
+  padding: 16px 16px 24px;
+}
+.paste-sheet h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.paste-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--crusher-ink-3);
+}
+.paste-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.touch-btn {
+  min-height: 44px;
 }
 </style>

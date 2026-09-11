@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>金融话术粉碎机</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --line: rgba(0, 0, 0, 0.08);
+      --blue: #0071e3;
+      --blue-press: #0077ed;
+      --blue-soft: rgba(0, 113, 227, 0.08);
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.18);
+      --radius: 18px;
+      --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+        "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    .app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* —— Top bar —— */
+    header {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: rgba(245, 245, 247, 0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--line);
+      z-index: 10;
+    }
+    .logo {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .logo span { color: var(--muted); font-weight: 400; margin-left: 8px; }
+    .dots {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+    .dots button {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      border: 0;
+      padding: 0;
+      background: #d2d2d7;
+      cursor: pointer;
+      transition: transform .25s var(--ease), background .25s;
+    }
+    .dots button.active {
+      background: var(--ink);
+      transform: scale(1.15);
+    }
+    .page-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 52px;
+      text-align: right;
+    }
+
+    /* —— Stage —— */
+    .stage {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 48px 12vw 80px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(18px);
+      transition: opacity .45s var(--ease), transform .45s var(--ease), visibility .45s;
+      overflow-y: auto;
+    }
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+    }
+
+    .kicker {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--blue);
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0 0 18px;
+      font-size: clamp(40px, 6.2vw, 72px);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      max-width: 11em;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: clamp(32px, 4.5vw, 52px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      max-width: 14em;
+    }
+    .sub {
+      margin: 0;
+      font-size: clamp(17px, 1.6vw, 21px);
+      line-height: 1.47;
+      color: var(--muted);
+      font-weight: 400;
+      max-width: 34em;
+    }
+    .sub strong { color: var(--ink); font-weight: 600; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 36px;
+    }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      border-radius: 980px;
+      padding: 11px 20px;
+      transition: background .2s, color .2s, transform .15s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--blue-press); }
+    .btn-ghost {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+    .btn-ghost:hover { background: rgba(0, 113, 227, 0.14); }
+    .btn-plain {
+      background: transparent;
+      color: var(--blue);
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+    .btn-plain:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 40px;
+      max-width: 920px;
+    }
+    .tile {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 22px 22px 20px;
+      text-align: left;
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+      transition: transform .25s var(--ease), box-shadow .25s;
+    }
+    .tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+    }
+    .tile:active { transform: scale(0.985); }
+    .tile .t {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .tile .d {
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+    .tile .more {
+      margin-top: 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--blue);
+    }
+
+    .footer {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 28px 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .footer button {
+      border: 0;
+      background: transparent;
+      color: var(--blue);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 8px 4px;
+    }
+    .footer button:disabled { opacity: 0.3; cursor: default; }
+
+    /* —— Sheet / Modal —— */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.36);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .3s var(--ease), visibility .3s;
+      z-index: 100;
+    }
+    .overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .sheet {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(520px, 100%);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      transform: translateX(104%);
+      transition: transform .4s var(--ease);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+    }
+    .overlay.open .sheet,
+    .sheet.open { transform: translateX(0); }
+
+    .sheet-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 24px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .sheet-head h3 {
+      margin: 0;
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+    .sheet-head .hint {
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .close {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 0;
+      background: #e8e8ed;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .close:hover { background: #dcdcde; }
+
+    .sheet-body {
+      padding: 8px 24px 40px;
+      overflow-y: auto;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .sheet-body h4 {
+      margin: 22px 0 8px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .sheet-body p,
+    .sheet-body li {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--muted);
+      margin: 0;
+    }
+    .sheet-body p + p { margin-top: 10px; }
+    .sheet-body ul {
+      margin: 0;
+      padding-left: 1.15em;
+    }
+    .sheet-body li + li { margin-top: 6px; }
+    .sheet-body strong { color: var(--ink); font-weight: 600; }
+    .sheet-body code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      color: var(--ink);
+      background: #f5f5f7;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .sheet-body .callout {
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: var(--bg);
+      border-radius: 12px;
+    }
+    .sheet-body .callout p { color: var(--ink); }
+    .sheet-body pre {
+      margin: 12px 0 0;
+      padding: 14px 16px;
+      background: #1d1d1f;
+      color: #f5f5f7;
+      border-radius: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .pair .box {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .pair .box .l {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue);
+      margin-bottom: 6px;
+    }
+
+    /* hidden detail templates */
+    template { display: none; }
+
+    @media (max-width: 860px) {
+      .slide { padding: 36px 24px 72px; }
+      .grid { grid-template-columns: 1fr; }
+      .pair { grid-template-columns: 1fr; }
+      header { padding-left: 18px; padding-right: 18px; }
+      .logo span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">金融话术粉碎机<span>Demo</span></div>
+      <div class="dots" id="dots" aria-label="页面指示"></div>
+      <div class="page-label" id="pageLabel">1 / 7</div>
+    </header>
+
+    <div class="stage" id="stage">
+
+      <!-- 1 -->
+      <section class="slide active" data-title="首页">
+        <div class="kicker">Crusher</div>
+        <h1>把金融话术<br />说清楚。</h1>
+        <p class="sub">粘贴条款或销售话术，得到通俗解释、关键参数，以及<strong>带原文证据</strong>的风险发现。</p>
+        <div class="actions">
+          <button class="btn btn-primary" data-detail="what">这是什么</button>
+          <button class="btn btn-ghost" data-detail="principles">设计原则</button>
+          <button class="btn btn-plain" data-detail="audience">给谁看</button>
+        </div>
+      </section>
+
+      <!-- 2 -->
+      <section class="slide" data-title="能力">
+        <div class="kicker">能力</div>
+        <h2>少而准的功能面。</h2>
+        <p class="sub">对外只宣称两类产品。其余能力围绕「读材料 → 分析 → 可信报告」展开。</p>
+        <div class="grid">
+          <button class="tile" data-detail="products">
+            <div class="t">支持的产品</div>
+            <div class="d">结构性存款 · 消费贷</div>
+            <div class="more">查看详情 ›</div>
+          </button>
+          <button class="tile" data-detail="features">
+            <div class="t">功能地图</div>
+            <div class="d">录入、分析、报告、追问</div>
+            <div class="more">查看详情 ›</div>
+          </button>
+          <button class="tile" data-detail="outofscope">
+            <div class="t">明确不做</div>
+            <div class="d">边界比清单更重要</div>
+            <div class="more">查看详情 ›</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- 3 -->
+      <section class="slide" data-title="体验">
+        <div class="kicker">体验</div>
+        <h2>一次分析，一条主线。</h2>
+        <p class="sub">粘贴或上传 → 识别产品 → 提交任务 → 轮询 → 报告或明确失败。材料可留在 IM 会话里。</p>
+        <div class="actions">
+          <button class="btn btn-primary" data-detail="flow">主流程说明</button>
+          <button class="btn btn-ghost" data-detail="report">报告结构</button>
+          <button class="btn btn-ghost" data-detail="im">IM 技能栏</button>
+          <button class="btn btn-plain" data-detail="extensions">扩展能力</button>
+        </div>
+      </section>
+
+      <!-- 4 -->
+      <section class="slide" data-title="架构">
+        <div class="kicker">架构</div>
+        <h2>分层清楚，规则在中间。</h2>
+        <p class="sub">HTTP 只接线。领域规则、证据与发布门禁留在 domain。LLM 出草稿，程序做硬门槛。</p>
+        <div class="actions">
+          <button class="btn btn-primary" data-detail="arch">分层架构</button>
+          <button class="btn btn-ghost" data-detail="pipeline">请求链路</button>
+          <button class="btn btn-plain" data-detail="domain">规则与发布</button>
+        </div>
+      </section>
+
+      <!-- 5 -->
+      <section class="slide" data-title="技术">
+        <div class="kicker">技术</div>
+        <h2>Vue H5 · FastAPI · 契约对齐。</h2>
+        <p class="sub">本机双进程启动，默认 Mock 可断网演示。接口、测试与知识库都有固定落点。</p>
+        <div class="grid">
+          <button class="tile" data-detail="stack">
+            <div class="t">技术栈</div>
+            <div class="d">前端 / 后端 / 工具链</div>
+            <div class="more">查看详情 ›</div>
+          </button>
+          <button class="tile" data-detail="api">
+            <div class="t">接口一览</div>
+            <div class="d">analyses · extract · intents…</div>
+            <div class="more">查看详情 ›</div>
+          </button>
+          <button class="tile" data-detail="quality">
+            <div class="t">质量保障</div>
+            <div class="d">金标 · 回归 · 失败显式</div>
+            <div class="more">查看详情 ›</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- 6 -->
+      <section class="slide" data-title="演示">
+        <div class="kicker">演示</div>
+        <h2>五分钟说清楚。</h2>
+        <p class="sub">正向样例 → 失败态必演 → 可选否定句防误报。默认 <strong>MOCK_MODE=true</strong>，不必填 Key。</p>
+        <div class="actions">
+          <button class="btn btn-primary" data-detail="demo">演示脚本</button>
+          <button class="btn btn-ghost" data-detail="run">如何启动</button>
+          <button class="btn btn-plain" data-detail="repo">仓库结构</button>
+        </div>
+      </section>
+
+      <!-- 7 -->
+      <section class="slide" data-title="收尾">
+        <div class="kicker">小结</div>
+        <h2>少说。有据。失败不装安全。</h2>
+        <p class="sub">仅供学习与演示，不构成投资建议。本 Demo 不做用户适当性评估。</p>
+        <div class="actions">
+          <button class="btn btn-primary" data-detail="summary">三句话总结</button>
+          <button class="btn btn-ghost" data-detail="reading">怎么读这份材料</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer">
+      <button type="button" id="prevBtn">← 上一页</button>
+      <span>方向键翻页 · 点按钮看说明</span>
+      <button type="button" id="nextBtn">下一页 →</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" aria-hidden="true">
+    <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-head">
+        <div>
+          <h3 id="sheetTitle">说明</h3>
+          <div class="hint" id="sheetHint"></div>
+        </div>
+        <button class="close" id="closeBtn" aria-label="关闭">×</button>
+      </div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </aside>
+  </div>
+
+  <!-- —— Detail payloads —— -->
+  <template id="detail-what">
+    <h4>产品一句话</h4>
+    <p>把难懂的金融条款与销售话术，变成通俗解释、关键参数、带原文证据的风险发现。</p>
+    <h4>业务痛点</h4>
+    <ul>
+      <li>销售话术与合同条款信息差大</li>
+      <li>用户难判断「说了什么 / 没说什么」</li>
+      <li>无证据的风险提示不可信</li>
+      <li>失败时绝不能伪装成「很安全」</li>
+    </ul>
+    <h4>技术本质</h4>
+    <ul>
+      <li>异步分析任务：先回 <code>task_id</code></li>
+      <li>LLM 草稿 + 领域规则硬核对</li>
+      <li>证据门禁 + 发布决策 <code>publication</code></li>
+      <li>契约驱动：OpenAPI ↔ 前后端类型</li>
+    </ul>
+  </template>
+
+  <template id="detail-principles">
+    <h4>宁可少说，不可胡说</h4>
+    <div class="pair">
+      <div class="box"><div class="l">只信原文</div><p>未写明标 <code>not_disclosed</code>，不用行业常识填空。</p></div>
+      <div class="box"><div class="l">证据可点回</div><p>每条 Finding 必须落到原文；追问只走证据接口。</p></div>
+    </div>
+    <div class="callout" style="margin-top:12px">
+      <p><strong>失败显式。</strong>超时 / 非法 JSON / 质量不足 → 明确失败或拒答。空 findings 不得冒充无风险。</p>
+    </div>
+    <h4>正确性优先级</h4>
+    <p>文档事实 → 未披露 → 程序规则（否定句 / 数值）→ 通俗解释可变但不引入原文没有的保证 → 失败态显式。</p>
+  </template>
+
+  <template id="detail-audience">
+    <div class="pair">
+      <div class="box">
+        <div class="l">业务 / 外行</div>
+        <p>看首页、能力、体验、演示页。记住：只信原文、证据可回、失败不装安全。</p>
+      </div>
+      <div class="box">
+        <div class="l">研发 / 内行</div>
+        <p>看架构、技术页，并打开「分层 / 链路 / API / 质量」说明。规则进 domain，编排进 application。</p>
+      </div>
+    </div>
+    <div class="callout">
+      <p>详细地图见仓库 <code>docs/地图-代码与请求链路.md</code>；范围锁见 <code>docs/范围-Demo支持与样例.md</code>。</p>
+    </div>
+  </template>
+
+  <template id="detail-products">
+    <h4>对外宣称（仅 2 类）</h4>
+    <div class="pair">
+      <div class="box">
+        <div class="l">structured_deposit</div>
+        <p><strong>结构性存款</strong><br />汇率挂钩等样例完整：区间收益、突破风险、参数与证据。</p>
+      </div>
+      <div class="box">
+        <div class="l">loan</div>
+        <p><strong>借贷（消费贷）</strong><br />利率 / 罚息 / 违约金清晰，适合风险发现与否定句回归。</p>
+      </div>
+    </div>
+    <div class="callout">
+      <p>知识库里的雪球 / 保险 / 基金<strong>仅用于规则回归与误报防护</strong>，不作为 Demo 已支持产品对外宣称。扩类型前先改范围文档。</p>
+    </div>
+  </template>
+
+  <template id="detail-features">
+    <h4>录入与发现</h4>
+    <ul>
+      <li>IM 主壳：底部技能栏粘贴条款、上传文件</li>
+      <li>材料留在会话上下文</li>
+      <li>意图识别与完整性检查（缺信息引导补全）</li>
+      <li>首页快捷：销售对照 / 条款对比</li>
+    </ul>
+    <h4>分析</h4>
+    <ul>
+      <li>单材料文本分析</li>
+      <li>PDF / 图片抽正文</li>
+      <li>双材料对照、产品对比、情景试算</li>
+      <li>用户纠错后重新分析（父任务 + revision）</li>
+    </ul>
+    <h4>报告与交互</h4>
+    <ul>
+      <li>通俗解释、关键参数、风险发现、证据、待确认问题</li>
+      <li>基于证据的追问</li>
+      <li>发布决策：publish / publish_partial / clarify / refuse</li>
+    </ul>
+  </template>
+
+  <template id="detail-outofscope">
+    <h4>不做 / 不宣称</h4>
+    <ul>
+      <li>账户、支付、运营后台、多租户</li>
+      <li>Redis / Celery / 消息队列（任务允许单进程内存）</li>
+      <li>模型微调、多 Agent、数字人 / 视频</li>
+      <li>生产级 OCR；Demo 仅受控本地 PDF/图片抽取</li>
+      <li>雪球 / 保险 / 基金完整演示路径</li>
+      <li>H5 展示或接收 API Key / base_url</li>
+      <li>把可选 MCP 挂进 H5 / FastAPI 主链路</li>
+    </ul>
+  </template>
+
+  <template id="detail-flow">
+    <h4>用户路径</h4>
+    <ol style="margin:0;padding-left:1.15em;color:var(--muted);font-size:14px;line-height:1.7">
+      <li>粘贴一段销售话术或产品说明（或上传抽文）</li>
+      <li>可选手动指定产品类型；默认自动识别</li>
+      <li>提交分析 → 立刻获得 <code>task_id</code></li>
+      <li>轮询任务状态</li>
+      <li>查看结构化报告，或看到明确失败 / 拒答 / 部分发布</li>
+    </ol>
+    <h4>后台流水线（白话）</h4>
+    <p>检查输入 → 猜产品类型 → 抽关键数字/条款 → 规则再核对 → 证据是否真在原文 → 写通俗解释 → 发布门禁。</p>
+    <div class="callout">
+      <p>结果暂存在内存；重启后端旧任务消失，需重新分析。</p>
+    </div>
+  </template>
+
+  <template id="detail-report">
+    <h4>报告必须包含</h4>
+    <ul>
+      <li>产品候选（可多选 + 置信度 / 证据）</li>
+      <li>通俗解释</li>
+      <li>关键参数（未披露 = <code>not_disclosed</code>）</li>
+      <li>风险发现：每条必须有原文证据</li>
+      <li>证据列表、缺失信息 / 待确认问题</li>
+      <li>阶段状态；失败不得渲染成「未发现风险」</li>
+      <li><code>publication</code> 由领域门禁写入，HTTP 不得自行拼装</li>
+    </ul>
+    <div class="callout">
+      <p>产品级：<code>product_risk_grade</code> · 发现级：<code>finding_severity</code> —— 不要混用展示名。</p>
+    </div>
+  </template>
+
+  <template id="detail-im">
+    <h4>微信式 IM 主壳</h4>
+    <ul>
+      <li>底部「+」技能栏：粘贴 / 上传 / 分析 / 清空</li>
+      <li>材料进入会话上下文，而不是散落在多个孤立表单</li>
+      <li>对话可发现意图（<code>POST /api/v1/intents/resolve</code>）</li>
+      <li>固定页面路径（双材料 / 对比等）仍携带显式意图</li>
+      <li>有报告上下文时，追问只走证据接口，禁止本地编造</li>
+    </ul>
+  </template>
+
+  <template id="detail-extensions">
+    <h4>已落地扩展（P1 / P2）</h4>
+    <ul>
+      <li><strong>双材料对照</strong>：销售话术 vs 正式条款</li>
+      <li><strong>产品对比</strong>：多产品关键维度对照</li>
+      <li><strong>情景试算</strong>：基于已披露参数；缺信息引导补全</li>
+      <li><strong>纠错重分析</strong>：父任务 + revision</li>
+      <li><strong>文档抽取</strong>：PDF/图片；质量不足显式失败</li>
+    </ul>
+  </template>
+
+  <template id="detail-arch">
+    <h4>后端分层</h4>
+    <ul>
+      <li><code>interfaces/http</code> — Controller：校验与组装，不写领域规则</li>
+      <li><code>application</code> — 用例编排：任务、流水线、对照/抽文/追问/试算/对比/意图</li>
+      <li><code>domain</code> — 模型、规则引擎、证据、发布门禁、ports</li>
+      <li><code>infrastructure</code> — 知识库、Mock/真 LLM、内存任务存储</li>
+    </ul>
+    <div class="callout">
+      <p><strong>composition_root.py</strong> 手工接线（构造函数注入）。前端只经 <code>api/client.js</code>；禁止手改 generated-types。</p>
+    </div>
+  </template>
+
+  <template id="detail-pipeline">
+    <h4>端到端</h4>
+    <pre>H5 粘贴条款，点分析
+  → POST /api/v1/analyses     （立刻返回 task_id）
+  → 轮询 GET /analyses/{id}
+  → 后台：检查 → 识别 → 抽参
+           → RuleEngine → 证据校验
+           → 通俗解释 → Publication 门禁
+  → 成功 → 报告页；失败 → 错误页</pre>
+    <p style="margin-top:14px">默认 <code>MOCK_MODE=true</code>：不真调大模型；规则核对仍是真的。MCP 为可选旁路，不进正式演示主链路。</p>
+  </template>
+
+  <template id="detail-domain">
+    <h4>硬门槛</h4>
+    <ul>
+      <li><strong>RuleEngine</strong>：关键词、否定句、数值条件；模型不得推翻否定结论</li>
+      <li><strong>Evidence</strong>：发现必须能在原文定位</li>
+      <li><strong>Publication</strong>：<code>publish</code> / <code>publish_partial</code> / <code>clarify</code> / <code>refuse</code></li>
+    </ul>
+    <h4>关键落点</h4>
+    <p><code>analysis_harness.py</code> · <code>publication_service.py</code> · <code>domain/rules/engine.py</code> · <code>infrastructure/llm/*</code></p>
+  </template>
+
+  <template id="detail-stack">
+    <h4>前端 <code>frontend-h5</code></h4>
+    <p>Vue 3 · Vue Router · Pinia · Vant 4 · Vite 5 · Axios · Vitest</p>
+    <h4>后端 <code>backend-python</code></h4>
+    <p>Python 3.10+ · FastAPI · Uvicorn · Pydantic v2 · httpx · pypdf · 可选 mcp</p>
+    <h4>其它</h4>
+    <ul>
+      <li>知识：<code>knowledge/*.json</code></li>
+      <li>契约：<code>contracts/openapi.json</code></li>
+      <li>质量：pytest · ruff · pyright · <code>make test</code></li>
+    </ul>
+  </template>
+
+  <template id="detail-api">
+    <h4>核心</h4>
+    <ul>
+      <li><code>POST /api/v1/analyses</code> 提交</li>
+      <li><code>GET /api/v1/analyses/{task_id}</code> 查询</li>
+      <li><code>POST /api/v1/analyses/{task_id}/corrections</code> 纠错</li>
+    </ul>
+    <h4>扩展</h4>
+    <p><code>/dual-analyses</code> · <code>/documents/extract</code> · <code>/follow-ups</code> · <code>/calculations</code> · <code>/product-comparisons</code> · <code>/intents/resolve</code> · <code>/completeness/check</code> · <code>GET /health</code></p>
+    <div class="callout">
+      <p>改接口后跑 <code>make export-openapi</code>。完整 schema 以 OpenAPI 与 Pydantic 为准。</p>
+    </div>
+  </template>
+
+  <template id="detail-quality">
+    <h4>金标与回归</h4>
+    <ul>
+      <li><code>tests/fixtures/golden/</code> 标准答案</li>
+      <li>否定句四组：不得误报违约金 / 不保本等</li>
+      <li>超时 / 非法 JSON：必须失败态，禁止空 findings 冒充安全</li>
+    </ul>
+    <h4>工程习惯</h4>
+    <ul>
+      <li>先补失败测试再改实现</li>
+      <li><code>error_code</code> 走枚举；禁止静默 fallback</li>
+      <li>发布只信 <code>publication</code></li>
+    </ul>
+  </template>
+
+  <template id="detail-demo">
+    <h4>约 5 分钟</h4>
+    <ol style="margin:0;padding-left:1.15em;color:var(--muted);font-size:14px;line-height:1.7">
+      <li><strong>结构性存款</strong>：区间收益、突破风险与原文高亮</li>
+      <li><strong>消费贷</strong>：罚息 / 违约相关发现及证据</li>
+      <li><strong>失败态必演</strong>：模拟模型超时 → 错误页，禁止绿标无风险</li>
+      <li><strong>可选</strong>：否定句样例（不收违约金不误报）</li>
+    </ol>
+    <div class="callout">
+      <p>样例入口：H5 按钮，或 <code>data/demo-样例条款.json</code>。</p>
+    </div>
+  </template>
+
+  <template id="detail-run">
+    <h4>需要</h4>
+    <p>Python 3.10+（推荐 3.11）、Node 18+</p>
+    <pre>bash scripts/dev.sh
+
+# 终端 1
+source backend-python/.venv/bin/activate
+uvicorn app.main:app --reload --app-dir backend-python --port 8000
+
+# 终端 2
+cd frontend-h5 && npm run dev</pre>
+    <p style="margin-top:12px">网页 <code>http://localhost:5173</code> · 接口文档 <code>http://localhost:8000/docs</code></p>
+  </template>
+
+  <template id="detail-repo">
+    <pre>frontend-h5/      手机网页
+backend-python/   FastAPI 服务
+knowledge/        规则用金融知识 JSON
+tests/            金标、回归、接口测
+docs/             范围 / 地图 / 约定 / 本页
+contracts/        OpenAPI 快照
+scripts/          启动脚本
+data/             演示用条款原文</pre>
+  </template>
+
+  <template id="detail-summary">
+    <h4>产品</h4>
+    <p>面向条款与话术的可演示分析助手；两类产品路径完整。</p>
+    <h4>技术</h4>
+    <p>H5 + FastAPI；LLM 出草稿，规则与发布门禁把关。</p>
+    <h4>边界</h4>
+    <p>Demo 非生产平台；不做账户支付；不宣称未冻结产品。</p>
+  </template>
+
+  <template id="detail-reading">
+    <div class="pair">
+      <div class="box">
+        <div class="l">外行路径</div>
+        <p>首页 → 能力三张卡 → 体验按钮 → 演示脚本。</p>
+      </div>
+      <div class="box">
+        <div class="l">内行路径</div>
+        <p>架构三按钮 → 技术三张卡 → 仓库与启动。</p>
+      </div>
+    </div>
+    <div class="callout">
+      <p>主界面保持极简；所有深度说明都在右侧面板里，按需打开。</p>
+    </div>
+  </template>
+
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const dots = document.getElementById("dots");
+      const pageLabel = document.getElementById("pageLabel");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const overlay = document.getElementById("overlay");
+      const sheet = document.getElementById("sheet");
+      const sheetTitle = document.getElementById("sheetTitle");
+      const sheetHint = document.getElementById("sheetHint");
+      const sheetBody = document.getElementById("sheetBody");
+      const closeBtn = document.getElementById("closeBtn");
+      let index = 0;
+
+      slides.forEach((_, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("aria-label", "第 " + (i + 1) + " 页");
+        b.addEventListener("click", () => go(i));
+        dots.appendChild(b);
+      });
+
+      function go(i) {
+        index = Math.max(0, Math.min(slides.length - 1, i));
+        slides.forEach((s, n) => s.classList.toggle("active", n === index));
+        Array.from(dots.children).forEach((d, n) => d.classList.toggle("active", n === index));
+        pageLabel.textContent = (index + 1) + " / " + slides.length;
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === slides.length - 1;
+      }
+
+      function openDetail(id) {
+        const tpl = document.getElementById("detail-" + id);
+        if (!tpl) return;
+        const trigger = document.querySelector('[data-detail="' + id + '"]');
+        const title =
+          (trigger && (trigger.querySelector(".t")?.textContent || trigger.textContent.trim().split("\n")[0])) ||
+          "说明";
+        sheetTitle.textContent = title.replace(/\s*›\s*$/, "").trim();
+        sheetHint.textContent = "详细说明";
+        sheetBody.innerHTML = "";
+        sheetBody.appendChild(tpl.content.cloneNode(true));
+        overlay.classList.add("open");
+        sheet.classList.add("open");
+        overlay.setAttribute("aria-hidden", "false");
+        closeBtn.focus();
+      }
+
+      function closeDetail() {
+        overlay.classList.remove("open");
+        sheet.classList.remove("open");
+        overlay.setAttribute("aria-hidden", "true");
+      }
+
+      prevBtn.addEventListener("click", () => go(index - 1));
+      nextBtn.addEventListener("click", () => go(index + 1));
+      closeBtn.addEventListener("click", closeDetail);
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeDetail();
+      });
+
+      document.addEventListener("click", (e) => {
+        const el = e.target.closest("[data-detail]");
+        if (el) openDetail(el.getAttribute("data-detail"));
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay.classList.contains("open")) {
+          e.preventDefault();
+          closeDetail();
+          return;
+        }
+        if (overlay.classList.contains("open")) return;
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+          e.preventDefault();
+          go(index + 1);
+        } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+          e.preventDefault();
+          go(index - 1);
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          go(0);
+        } else if (e.key === "End") {
+          e.preventDefault();
+          go(slides.length - 1);
+        }
+      });
+
+      let touchX = null;
+      document.getElementById("stage").addEventListener("touchstart", (e) => {
+        touchX = e.changedTouches[0].screenX;
+      }, { passive: true });
+      document.getElementById("stage").addEventListener("touchend", (e) => {
+        if (touchX == null || overlay.classList.contains("open")) return;
+        const dx = e.changedTouches[0].screenX - touchX;
+        if (Math.abs(dx) > 50) go(index + (dx < 0 ? 1 : -1));
+        touchX = null;
+      }, { passive: true });
+
+      go(0);
+    })();
+  </script>
+</body>
+</html>
