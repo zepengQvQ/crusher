@@ -221,6 +221,21 @@ class PublicationService:
             )
             return answer.model_copy(update={"publication": publication})
 
+        if answer.status == AnswerStatus.contextual:
+            publication = decide_publish_partial(
+                reason_code=ErrorCode.INSUFFICIENT_EVIDENCE,
+                user_reason=answer.answer or "基于材料摘要的模型说明，非确定证据答案",
+                next_steps=[
+                    "可继续追问材料中的具体条款原文",
+                    "本说明不做适当性评估与投资建议",
+                ],
+                checked=["材料与对话上下文说明"],
+                not_checked=["适当性评估", "投资建议", "原文证据定位答案"],
+            )
+            return answer.model_copy(
+                update={"evidence": [], "publication": publication}
+            )
+
         valid_evidence = [
             ev
             for ev in answer.evidence

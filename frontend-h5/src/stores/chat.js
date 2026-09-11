@@ -7,6 +7,7 @@ import {
   pickErrorMessage,
   resolveIntent,
 } from '../api/client'
+import { buildFollowUpSuggestions, buildReportDigest } from '../utils/followUpSuggestions'
 
 const CHAT_KEY = 'crusher_chat'
 const POLL_MS = 800
@@ -128,6 +129,8 @@ export const useChatStore = defineStore('chat', {
     contextText: '',
     contextFindings: [],
     pendingQuestions: [],
+    suggestedQuestions: [],
+    reportDigest: '',
     lastTaskId: '',
   }),
   getters: {
@@ -149,8 +152,16 @@ export const useChatStore = defineStore('chat', {
           this.contextText = d?.contextText || ''
           this.contextFindings = Array.isArray(d?.contextFindings) ? d.contextFindings : []
           this.pendingQuestions = Array.isArray(d?.pendingQuestions) ? d.pendingQuestions : []
+          this.suggestedQuestions = Array.isArray(d?.suggestedQuestions) ? d.suggestedQuestions : []
+          this.reportDigest = d?.reportDigest || ''
           this.lastTaskId = d?.lastTaskId || ''
           this._syncContextFromMaterials()
+          if (!this.suggestedQuestions.length) {
+            this.suggestedQuestions = buildFollowUpSuggestions({
+              findings: this.contextFindings,
+              pending_questions: this.pendingQuestions,
+            })
+          }
         }
       } catch {
         this.messages = []
@@ -167,6 +178,8 @@ export const useChatStore = defineStore('chat', {
             contextText: this.contextText,
             contextFindings: this.contextFindings,
             pendingQuestions: this.pendingQuestions,
+            suggestedQuestions: this.suggestedQuestions,
+            reportDigest: this.reportDigest,
             lastTaskId: this.lastTaskId,
           }),
         )
@@ -215,16 +228,30 @@ export const useChatStore = defineStore('chat', {
       })
       this._persist()
     },
-    setContext(text, findings = [], pendingQuestions = []) {
+    setContext(text, findings = [], pendingQuestions = [], report = null) {
       this.contextText = text || ''
       this.contextFindings = findings || []
       this.pendingQuestions = pendingQuestions || []
+      this.suggestedQuestions = buildFollowUpSuggestions(
+        report || {
+          findings: this.contextFindings,
+          pending_questions: this.pendingQuestions,
+        },
+      )
+      if (report) {
+        this.reportDigest = buildReportDigest(report)
+      } else if (!this.reportDigest) {
+        this.reportDigest = buildReportDigest({
+          findings: this.contextFindings,
+          pending_questions: this.pendingQuestions,
+        })
+      }
       if (!this.messages.length) {
         this.messages.push({
           id: 'welcome_' + Date.now(),
           role: 'ai',
           content:
-            '已关联刚才的分析材料。请围绕原文提问；回答将由服务端按证据接口返回，不会编造结论。',
+            '已关联刚才的分析材料。可问条款事实；咨询类问题会结合材料与近期对话说明，但不做投资建议。',
           time: Date.now(),
         })
       }
@@ -266,6 +293,8 @@ export const useChatStore = defineStore('chat', {
       this.materials = []
       this.contextFindings = []
       this.pendingQuestions = []
+      this.suggestedQuestions = []
+      this.reportDigest = ''
       this.contextText = ''
       this.lastTaskId = ''
       this._pushAi('已清空会话材料。可用「+」重新粘贴或上传。', { kind: 'materials_cleared' })
@@ -342,6 +371,8 @@ export const useChatStore = defineStore('chat', {
         this.contextText = data.source_text || source
         this.contextFindings = findings
         this.pendingQuestions = pending
+        this.suggestedQuestions = buildFollowUpSuggestions(data.report)
+        this.reportDigest = buildReportDigest(data.report)
         const outcome = data.publication?.outcome || data.report?.publication?.outcome || ''
         const plainText = data.report?.plain_language?.text || ''
         this._pushAi(
@@ -385,7 +416,19 @@ export const useChatStore = defineStore('chat', {
       }
 
       try {
-        const data = await createFollowUp(text, source, this.pendingQuestions)
+        let recentMessages = this._recentChatTurns(9)
+        if (
+          recentMessages.length &&
+          recentMessages[recentMessages.length - 1].role === 'user' &&
+          recentMessages[recentMessages.length - 1].content === text
+        ) {
+          recentMessages = recentMessages.slice(0, -1)
+        }
+        recentMessages = recentMessages.slice(-8)
+        const data = await createFollowUp(text, source, this.pendingQuestions, {
+          reportDigest: this.reportDigest,
+          recentMessages,
+        })
         if (!data || typeof data.answer !== 'string' || !data.answer.trim()) {
           throw new Error('追问接口未返回有效答案')
         }
@@ -420,6 +463,24 @@ export const useChatStore = defineStore('chat', {
         throw e
       }
     },
+    /** @param {number} limit */
+    _recentChatTurns(limit = 8) {
+      const out = []
+      const list = this.messages || []
+      for (let i = list.length - 1; i >= 0 && out.length < limit; i -= 1) {
+        const m = list[i]
+        const role = m?.role === 'user' ? 'user' : m?.role === 'ai' || m?.role === 'assistant' ? 'assistant' : ''
+        if (!role) continue
+        let content = String(m?.content || '').trim()
+        if (!content) continue
+        if (m?.meta?.kind === 'material') {
+          content = content.split('\n')[0].slice(0, 80)
+        }
+        if (content.length > 400) content = content.slice(0, 400) + '…'
+        out.push({ role, content })
+      }
+      return out.reverse()
+    },
     async _sendGuide(userQuery) {
       try {
         const decision = await resolveIntent({
@@ -450,6 +511,8 @@ export const useChatStore = defineStore('chat', {
       this.contextText = ''
       this.contextFindings = []
       this.pendingQuestions = []
+      this.suggestedQuestions = []
+      this.reportDigest = ''
       this.lastTaskId = ''
       this._persist()
     },

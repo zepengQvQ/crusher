@@ -70,12 +70,22 @@ export async function healthCheck() {
   return data
 }
 
-export async function createFollowUp(question, sourceText, pendingQuestions = []) {
-  const { data } = await http.post('/api/v1/follow-ups', {
+export async function createFollowUp(question, sourceText, pendingQuestions = [], extras = {}) {
+  const body = {
     question,
     source_text: sourceText,
     pending_questions: pendingQuestions,
-  })
+  }
+  const digest = String(extras.reportDigest || '').trim()
+  if (digest) body.report_digest = digest.slice(0, 2000)
+  const recent = Array.isArray(extras.recentMessages) ? extras.recentMessages : []
+  if (recent.length) {
+    body.recent_messages = recent.slice(-8).map((m) => ({
+      role: m.role === 'assistant' || m.role === 'ai' ? 'assistant' : 'user',
+      content: String(m.content || '').trim().slice(0, 1000),
+    })).filter((m) => m.content)
+  }
+  const { data } = await http.post('/api/v1/follow-ups', body)
   return data
 }
 

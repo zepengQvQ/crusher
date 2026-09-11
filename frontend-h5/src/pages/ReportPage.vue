@@ -116,9 +116,10 @@
               <div class="evidence-label">材料原文</div>
               <blockquote>{{ ev.quote }}</blockquote>
               <div class="evidence-actions">
-                <van-button size="small" plain type="primary" hairline @click="onCopy(ev.quote)">
+                <button type="button" class="ghost-action ghost-action--link" @click="onCopy(ev.quote)">
+                  <van-icon name="description" size="14" />
                   复制原文
-                </van-button>
+                </button>
               </div>
             </div>
           </van-collapse-item>
@@ -293,8 +294,13 @@ function syncChatContext() {
   if (!report.value) return
   chatStore.setContext(
     sourceText.value,
-    (report.value?.findings || []).map((f) => ({ title: f.title, explanation: f.explanation })),
+    (report.value?.findings || []).map((f) => ({
+      title: f.title,
+      explanation: f.explanation,
+      finding_severity: f.finding_severity,
+    })),
     pendingItems.value,
+    report.value,
   )
   if (props.taskId) {
     chatStore.lastTaskId = props.taskId

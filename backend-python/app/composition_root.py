@@ -86,7 +86,10 @@ def get_extract_document_use_case() -> ExtractDocumentUseCase:
 
 @lru_cache
 def get_answer_from_evidence_use_case() -> AnswerFromEvidenceUseCase:
-    return AnswerFromEvidenceUseCase(publication=get_publication_service())
+    return AnswerFromEvidenceUseCase(
+        publication=get_publication_service(),
+        llm_gateway=build_llm_gateway(get_settings()),
+    )
 
 
 @lru_cache

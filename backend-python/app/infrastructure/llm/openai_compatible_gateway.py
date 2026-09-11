@@ -77,6 +77,28 @@ class OpenAiCompatibleLlmGateway:
         self._client = client
 
     async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
+        content = await self._chat_completion(
+            [
+                {"role": "system", "content": request.system_prompt},
+                {"role": "user", "content": request.user_prompt},
+            ]
+        )
+        return parse_llm_explanation_content(content)
+
+    async def chat_text(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, str]],
+    ) -> str:
+        payload_messages = [{"role": "system", "content": system}, *messages]
+        content = await self._chat_completion(payload_messages)
+        text = (content or "").strip()
+        if not text:
+            raise LlmInvalidJsonError("empty content")
+        return text
+
+    async def _chat_completion(self, messages: list[dict[str, str]]) -> str:
         url = f"{self._base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -84,27 +106,24 @@ class OpenAiCompatibleLlmGateway:
         }
         payload = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": request.system_prompt},
-                {"role": "user", "content": request.user_prompt},
-            ],
+            "messages": messages,
             "temperature": self._temperature,
             "max_tokens": self._max_tokens,
         }
 
         if self._client is not None:
-            return await self._request(self._client, url, headers, payload)
+            return await self._request_content(self._client, url, headers, payload)
 
         async with httpx.AsyncClient(timeout=60.0) as client:
-            return await self._request(client, url, headers, payload)
+            return await self._request_content(client, url, headers, payload)
 
-    async def _request(
+    async def _request_content(
         self,
         client: httpx.AsyncClient,
         url: str,
         headers: dict[str, str],
         payload: dict,
-    ) -> LlmAnalysisDraft:
+    ) -> str:
         try:
             resp = await client.post(url, headers=headers, json=payload)
         except httpx.TimeoutException as exc:
@@ -127,4 +146,16 @@ class OpenAiCompatibleLlmGateway:
         except (KeyError, IndexError, TypeError) as exc:
             raise LlmInvalidJsonError("missing choices content") from exc
 
+        if not isinstance(content, str):
+            raise LlmInvalidJsonError("content not string")
+        return content
+
+    async def _request(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        headers: dict[str, str],
+        payload: dict,
+    ) -> LlmAnalysisDraft:
+        content = await self._request_content(client, url, headers, payload)
         return parse_llm_explanation_content(content)

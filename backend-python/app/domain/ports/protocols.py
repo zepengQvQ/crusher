@@ -51,3 +51,12 @@ class LlmGateway(Protocol):
 
     async def complete(self, request: LlmExplainRequest) -> LlmAnalysisDraft:
         ...
+
+    async def chat_text(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, str]],
+    ) -> str:
+        """纯文本会话回复（不走 LlmAnalysisDraft JSON）。"""
+        ...

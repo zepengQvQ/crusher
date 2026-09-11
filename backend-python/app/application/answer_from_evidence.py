@@ -1,24 +1,33 @@
 """基于已提交材料的追问（P1-03）。
 
 Java 对照：无状态 Application Service。
-用途：只根据 source_text 回答；证据不足或超范围显式返回。
-禁止：联网搜索、会话库、把材料中的指令当系统指令。
+用途：优先按 source_text 证据回答；咨询类可走材料+报告摘要+最近对话的模型说明。
+禁止：联网搜索、把材料中的指令当系统指令、编造未出现数字、伪装投资建议。
 关键词命中 ≠ 答案成立；仅相关原文时返回 insufficient_evidence。
 """
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import re
+from typing import Any
 
+from app.domain.llm_errors import LlmGatewayError
 from app.domain.models.claim_comparison import EvidenceRef
 from app.domain.models.evidence_answer import (
     AnswerStatus,
     EvidenceAnswer,
     FollowUpRequest,
 )
+from app.domain.ports.protocols import LlmGateway
 from app.domain.validation.publication_service import PublicationService
 
-_OUT_OF_SCOPE = re.compile(
-    r"(天气|气温|下雨|股票|买不买|能不能买|适合我吗|适不适合|适合.+买|推荐购买|涨跌|彩票|老年人)"
+_HARD_OUT_OF_SCOPE = re.compile(r"(天气|气温|下雨|彩票|股票|涨跌)")
+_CONSULTING = re.compile(
+    r"(买不买|能不能买|适合我吗|适不适合|适合.+买|推荐购买|老年人|适当性)"
+)
+_FINANCE_EXPLAIN = re.compile(
+    r"(什么意思|怎么理解|风险大|靠谱|会不会亏|损失|解释一下|帮我看看|怎么看)"
 )
 _FEE = re.compile(r"(费用|手续费|管理费|收不收|收费)")
 _RETURN = re.compile(r"(收益|年化|利率|回报|收益率)")
@@ -26,6 +35,15 @@ _TERM = re.compile(r"(期限|多久|多长时间|几个月)")
 _EARLY = re.compile(r"(提前|支取|赎回|退出)")
 _PRINCIPAL = re.compile(r"(保本|本金|保证本金)")
 _AUDIENCE = re.compile(r"(销售对象|适用人群|投资者范围|适当性)")
+
+_DISCLAIMER = "本回复不做投资建议，也不构成适当性判断。"
+
+_CONTEXT_SYSTEM = """你是金融条款助手。只能根据用户提供的「材料原文、报告摘要、最近对话」回答。
+硬性规则：
+1. 不得编造材料未出现的数字、收益率、评级或条款。
+2. 不做买/不买建议，不做用户适当性评估；若被问是否适合某类人群，只能说明材料写了什么，并声明需以机构评估为准。
+3. 用简体中文，短句，面向普通用户。
+4. 不确定就说材料没写清，不要猜测。"""
 
 # 证据不足时：告诉用户该补哪类材料（不是空泛的「章节」）
 _MISSING_BY_TOPIC: dict[str, list[str]] = {
@@ -106,25 +124,54 @@ def _snippet_answers(label: str, quote: str) -> bool:
     return False
 
 
+def _run_async(coro: Any) -> Any:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    return asyncio.run(coro)
+
+
+def _ensure_disclaimer(text: str) -> str:
+    body = (text or "").strip()
+    if not body:
+        body = "按现有材料只能作有限说明，无法给出确定结论。"
+    if "投资建议" not in body and "适当性" not in body:
+        return f"{body}\n\n{_DISCLAIMER}"
+    if _DISCLAIMER not in body and "不做投资建议" not in body:
+        return f"{body}\n\n{_DISCLAIMER}"
+    return body
+
+
 class AnswerFromEvidenceUseCase:
-    def __init__(self, publication: PublicationService | None = None) -> None:
+    def __init__(
+        self,
+        publication: PublicationService | None = None,
+        llm_gateway: LlmGateway | None = None,
+    ) -> None:
         self._publication = publication or PublicationService()
+        self._llm = llm_gateway
 
     def execute(self, request: FollowUpRequest) -> EvidenceAnswer:
         q = request.question.strip()
         text = request.source_text
-        if _OUT_OF_SCOPE.search(q):
+
+        # 非金融闲聊/彩票等：硬拒答
+        if _HARD_OUT_OF_SCOPE.search(q) and not _CONSULTING.search(q):
             raw = EvidenceAnswer(
                 question=q,
                 status=AnswerStatus.out_of_scope,
-                answer=(
-                    "这类问题属于购买建议/适当性判断，本 Demo 不做。"
-                    "若合同里有「销售对象、适用人群」条款，可用「+」加进会话后，"
-                    "改问：材料有没有写清销售对象或适用人群？"
-                ),
+                answer="这个问题超出本 Demo 材料核对范围。",
                 missing_info=[],
             )
             return self._publication.finalize_follow_up(raw, source_text=text)
+
+        # 咨询/适当性：走上下文模型说明（2A）
+        if _CONSULTING.search(q):
+            return self._contextual(request)
 
         label = _topic_from_question(q)
         subject_hit: EvidenceRef | None = None
@@ -150,6 +197,8 @@ class AnswerFromEvidenceUseCase:
                     break
 
         if subject_hit is None:
+            if _FINANCE_EXPLAIN.search(q) or (request.report_digest or "").strip():
+                return self._contextual(request)
             missing = _missing_materials(_topic_from_question(q), q)
             raw = EvidenceAnswer(
                 question=q,
@@ -177,6 +226,77 @@ class AnswerFromEvidenceUseCase:
             status=AnswerStatus.answered,
             answer=f"根据已提交材料，与「{label}」相关的原文如下，请自行核对，不作投资建议。",
             evidence=[subject_hit],
+            missing_info=[],
+        )
+        return self._publication.finalize_follow_up(raw, source_text=text)
+
+    def _contextual(self, request: FollowUpRequest) -> EvidenceAnswer:
+        q = request.question.strip()
+        text = request.source_text
+        if self._llm is None:
+            raw = EvidenceAnswer(
+                question=q,
+                status=AnswerStatus.contextual,
+                answer=_ensure_disclaimer(
+                    "当前未接入模型说明能力。请改问材料里的具体条款，或稍后再试。"
+                ),
+                evidence=[],
+                missing_info=[],
+            )
+            return self._publication.finalize_follow_up(raw, source_text=text)
+
+        digest = (request.report_digest or "").strip() or "（无报告摘要）"
+        source_clip = text if len(text) <= 3500 else text[:3500] + "…"
+        context_header = (
+            f"【材料原文】\n{source_clip}\n\n"
+            f"【报告摘要】\n{digest}"
+        )
+        messages: list[dict[str, str]] = [
+            {"role": "user", "content": context_header},
+            {
+                "role": "assistant",
+                "content": "已收到材料与报告摘要，请继续提问。我会只依据这些内容说明。",
+            },
+        ]
+        for turn in request.recent_messages[-8:]:
+            content = turn.content.strip()
+            if len(content) > 400:
+                content = content[:400] + "…"
+            messages.append({"role": turn.role, "content": content})
+        messages.append({"role": "user", "content": q})
+
+        try:
+            reply = _run_async(
+                self._llm.chat_text(system=_CONTEXT_SYSTEM, messages=messages)
+            )
+        except LlmGatewayError:
+            raw = EvidenceAnswer(
+                question=q,
+                status=AnswerStatus.contextual,
+                answer=_ensure_disclaimer(
+                    "模型说明暂时不可用。请改问材料里能直接核对的条款，或稍后再试。"
+                ),
+                evidence=[],
+                missing_info=[],
+            )
+            return self._publication.finalize_follow_up(raw, source_text=text)
+        except Exception:  # noqa: BLE001 — 显式失败，禁止静默编造
+            raw = EvidenceAnswer(
+                question=q,
+                status=AnswerStatus.contextual,
+                answer=_ensure_disclaimer(
+                    "模型说明失败。请改问材料里能直接核对的条款，或稍后再试。"
+                ),
+                evidence=[],
+                missing_info=[],
+            )
+            return self._publication.finalize_follow_up(raw, source_text=text)
+
+        raw = EvidenceAnswer(
+            question=q,
+            status=AnswerStatus.contextual,
+            answer=_ensure_disclaimer(str(reply or "")),
+            evidence=[],
             missing_info=[],
         )
         return self._publication.finalize_follow_up(raw, source_text=text)

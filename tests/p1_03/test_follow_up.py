@@ -42,7 +42,7 @@ class FollowUpTests(unittest.TestCase):
 
     def test_out_of_scope(self) -> None:
         ans = self.uc.execute(
-            FollowUpRequest(question="今天天气怎么样，能买吗？", source_text=SRC)
+            FollowUpRequest(question="今天北京天气怎么样？", source_text=SRC)
         )
         self.assertEqual(ans.status, AnswerStatus.out_of_scope)
 

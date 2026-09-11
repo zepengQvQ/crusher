@@ -96,7 +96,7 @@
       </div>
     </div>
 
-    <div class="quick-row" v-if="showFollowUpAsk">
+    <div class="quick-row quick-row--suggest" v-if="showFollowUpAsk">
       <button
         v-for="q in followUpQuestions"
         :key="q"
@@ -230,16 +230,12 @@ const contextCardTitle = computed(() =>
 )
 const noticeText = '点左下角「+」粘贴或上传材料，也可直接说出想做的事'
 const canSend = computed(() => inputText.value.trim().length > 0 && !aiThinking.value)
-const showFollowUpAsk = computed(
-  () => hasContext.value && contextFindingCount.value > 0 && !showSkillPanel.value,
+const followUpQuestions = computed(() =>
+  (chatStore.suggestedQuestions || []).filter((q) => String(q || '').trim()).slice(0, 4),
 )
-
-const followUpQuestions = [
-  '最坏情况会损失多少？',
-  '适合老年人买吗？',
-  '提前赎回有何费用？',
-  '保本吗？本金安全吗？',
-]
+const showFollowUpAsk = computed(
+  () => hasContext.value && followUpQuestions.value.length > 0 && !showSkillPanel.value,
+)
 
 function formatTime(ts) {
   const d = new Date(ts || Date.now())
@@ -367,6 +363,8 @@ function onSkill(key) {
         materials: [],
         contextFindings: [],
         pendingQuestions: [],
+        suggestedQuestions: [],
+        reportDigest: '',
         contextText: '',
         lastTaskId: '',
       })
@@ -463,6 +461,8 @@ function clearContext() {
       materials: [],
       contextFindings: [],
       pendingQuestions: [],
+      suggestedQuestions: [],
+      reportDigest: '',
       contextText: '',
       lastTaskId: '',
     })
@@ -637,6 +637,29 @@ watch(messages, () => scrollBottom(), { deep: true })
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.quick-row--suggest {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 6px 12px 8px;
+}
+.quick-row--suggest .chat-quick-btn {
+  width: 100%;
+  margin: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 44px !important;
+  height: auto;
+  text-align: left;
+  line-height: 1.35;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
 }
 .chat-quick-btn {
   padding: 7px 14px;

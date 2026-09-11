@@ -46,6 +46,38 @@ describe('chat store follow-up, guide and materials', () => {
     expect(msg.meta?.status).toBe('answered')
   })
 
+  it('sends reportDigest and recent messages with follow-up', async () => {
+    client.createFollowUp.mockResolvedValue({
+      question: '适合老年人买吗？',
+      status: 'contextual',
+      answer: '材料未做适当性评估。\n\n本回复不做投资建议，也不构成适当性判断。',
+      evidence: [],
+      missing_info: [],
+      publication: { outcome: 'publish_partial' },
+    })
+    const store = useChatStore()
+    store.setContext(
+      '结构性存款期限183天。区间外收益可能为零。',
+      [{ title: '区间外收益可能为零', finding_severity: 'high' }],
+      ['合同是否写明收益率？'],
+      {
+        findings: [{ title: '区间外收益可能为零', finding_severity: 'high' }],
+        pending_questions: ['合同是否写明收益率？'],
+        plain_language: { text: '注意收益条件' },
+      },
+    )
+    store._pushUser('区间外收益可能为零是什么意思？')
+    store._pushAi('材料写了区间外收益可能为零。')
+    const msg = await store.send('适合老年人买吗？')
+    expect(client.createFollowUp).toHaveBeenCalledTimes(1)
+    const extras = client.createFollowUp.mock.calls[0][3]
+    expect(extras.reportDigest).toContain('区间外')
+    expect(Array.isArray(extras.recentMessages)).toBe(true)
+    expect(extras.recentMessages.some((m) => String(m.content).includes('区间外'))).toBe(true)
+    expect(msg.meta?.status).toBe('contextual')
+    expect(msg.content).toContain('适当性')
+  })
+
   it('without context uses intent guide and does not call follow-up', async () => {
     client.resolveIntent.mockResolvedValue({
       intent: 'single_analysis',
@@ -128,6 +160,10 @@ describe('chat store follow-up, guide and materials', () => {
       '有罚息吗？',
       expect.stringContaining('罚息'),
       [],
+      expect.objectContaining({
+        reportDigest: expect.any(String),
+        recentMessages: expect.any(Array),
+      }),
     )
     expect(msg.content).toContain('罚息')
   })

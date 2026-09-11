@@ -178,7 +178,11 @@ class RealGatewayPipelineTests(unittest.TestCase):
         task = self._run(gw, "本贷款提前还款需支付违约金，年利率12%。")
         self.assertEqual(task.task_status, TaskStatus.completed)
         self.assertIsNotNone(task.report)
-        self.assertEqual(task.report.plain_language.text, expected)
+        # 完整发布白话由程序模板生成；此处确认模型网关被调用且 explain 成功
+        explain = next(s for s in task.stages if s.name == "explain")
+        self.assertEqual(explain.status.value, "success")
+        self.assertIn("违约金", task.report.plain_language.text)
+        self.assertIn("12%", task.report.plain_language.text)
 
     def test_contradiction_with_findings_is_invalid_json(self):
         # 人为注入：规则可能命中违约金；模型却说未发现风险
