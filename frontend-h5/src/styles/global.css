@@ -118,7 +118,7 @@ body,
 }
 
 .block {
-  margin: 12px;
+  margin: 8px 12px;
   padding: 16px;
   background: var(--crusher-card-bg);
   border-radius: var(--crusher-radius-lg);

@@ -75,7 +75,7 @@
         round
         plain
         class="touch-btn"
-        style="margin-top: 10px"
+        style="margin-top: 8px"
         :loading="intentLoading"
         @click="onSmartIntent"
       >
@@ -86,7 +86,7 @@
         round
         plain
         class="touch-btn"
-        style="margin-top: 10px"
+        style="margin-top: 8px"
         @click="$router.push('/dual')"
       >
         销售与材料对照
@@ -96,7 +96,7 @@
         round
         plain
         class="touch-btn"
-        style="margin-top: 10px"
+        style="margin-top: 8px"
         @click="$router.push('/compare')"
       >
         两款产品对照
@@ -106,7 +106,7 @@
         round
         plain
         class="touch-btn"
-        style="margin-top: 10px"
+        style="margin-top: 8px"
         @click="$router.push('/upload')"
       >
         上传 PDF / 图片
@@ -116,7 +116,7 @@
         round
         plain
         class="touch-btn"
-        style="margin-top: 10px"
+        style="margin-top: 8px"
         @click="$router.push('/history')"
       >
         本地已保存报告
@@ -371,14 +371,14 @@ async function onSubmit(demoError) {
 .actions {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
   flex-wrap: wrap;
 }
 .touch-btn {
   min-height: 44px;
 }
 .main-btn {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 .touch-field :deep(textarea) {
   font-size: 16px; /* 避免 iOS 聚焦放大 */
